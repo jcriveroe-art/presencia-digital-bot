@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 export default async function handler(req, res) {
-  // 1. Verificación de Webhook (Meta)
+  // 1. Verificación para Meta (No tocar)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     return res.status(403).end();
   }
 
-  // 2. Procesamiento de Mensajes (POST)
+  // 2. Procesamiento de Mensajes
   if (req.method === 'POST') {
     const body = req.body;
     if (body.object === 'whatsapp_business_account') {
@@ -21,24 +21,32 @@ export default async function handler(req, res) {
         const from = message.from;
         const msgText = message.text.body;
 
-               try {
-          console.log("Enviando mensaje a Manus para cliente:", from);
-          const response = await axios.post('https://api.manus.ai/v2/task.create', {
+        try {
+          // LLAMADA A MANUS API - VERSIÓN DEFINITIVA
+          await axios.post('https://api.manus.ai/v2/task.create', {
             message: {
-              content: `Responde al cliente ${from}: "${msgText}". ENVÍALO a WhatsApp con ID 1171153759409978 y Token EAANUjm2AP5oBRqKpG99IekAjU0oTVRiRZCAWxZBG8IIuSUlwk6nTBUiYuK6neg8LIweNnu0hDZADF0lLsQHPiuIudLje2SxWASxYeZC5dZCJZBMn9zLxjjsVl5r5xrxMzIfZBRrxTdShvLZB7NCdCz1Xi7OdMI4ANnzFA4514sbbZC5zy5EZALYjY3HEUCb9ud5NPKD6Mn7tMk0n1KLyNdaewC7PJGCC1Po0YmVx1GP04xwkZAwXJqNyz0Q4lp2PdPUBFGdEafQhqfjHE10DzeK49e2ZBPH5T2ogfH5fKABjbQZDZD`
+              content: `NUEVO CLIENTE WHATSAPP:
+              - Teléfono: ${from}
+              - Mensaje: "${msgText}"
+              
+              INSTRUCCIÓN: Eres el asistente de ventas de Presencia Digital. Responde de forma breve y persuasiva. 
+              CRÍTICO: Debes ENVIAR la respuesta tú mismo usando este comando CURL:
+              curl -X POST "https://graph.facebook.com/v18.0/1171153759409978/messages" \\
+              -H "Authorization: Bearer EAANUjm2AP5oBRhn1R5zl9j7o98o7lmtH8cQkn3YaUG4LCSb6xc7RTGdkzg5ZCwLg95syg0me9vZCmOKHqWktqq6glCZBMlixOQ2IuVcU5jO36cnTZBZATo8BKd9ShQJnzCEZCSzQakcuI4RgWssZB6Bp5Vm8cH6DSVnSW16GU8FN5DvOP98NHAr2q9oHBW8T20ZAzQZDZD" \\
+              -H "Content-Type: application/json" \\
+              -d '{"messaging_product": "whatsapp", "to": "${from}", "type": "text", "text": {"body": "TU_RESPUESTA_AQUÍ"}}'`
             },
-            hide_in_task_list: false 
+            hide_in_task_list: false,
+            agent_profile: 'manus-1.6-lite'
           }, {
             headers: {
               'x-manus-api-key': process.env.MANUS_API_KEY,
               'Content-Type': 'application/json'
             }
           } );
-          console.log("Respuesta de Manus API:", response.data);
         } catch (error) {
-          console.error("ERROR DETALLADO:", error.response?.data || error.message);
+          console.error("Error:", error.response?.data || error.message);
         }
-
       }
       return res.status(200).send('EVENT_RECEIVED');
     }
