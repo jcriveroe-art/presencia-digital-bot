@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 export default async function handler(req, res) {
-  // 1. Verificación de Webhook (Meta)
+  // 1. Verificación de Webhook (Meta) - Esto se queda igual
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -22,19 +22,19 @@ export default async function handler(req, res) {
         const msgText = message.text.body;
 
         try {
-          // LLAMADA A MANUS API
-          // Yo me encargaré de enviar la respuesta a WhatsApp usando tu Token
+          // LLAMADA A MANUS API USANDO EL PROYECTO
           await axios.post('https://api.manus.ai/v2/task.create', {
             message: {
-              content: `Cliente WhatsApp (${from} ) dice: "${msgText}". Responde siguiendo el Sales Playbook de presencia digital y envíale la respuesta directamente a su WhatsApp.`
+              content: `Responde a este mensaje de WhatsApp de ${from}: "${msgText}". Usa las credenciales de Meta guardadas en el proyecto para enviar la respuesta.`
             },
-            hide_in_task_list: true // Para que no sature tu historial web
+            project_id: "proj_whatsapp_presencia_digital", // Este ID vincula todo
+            hide_in_task_list: true
           }, {
             headers: {
               'x-manus-api-key': process.env.MANUS_API_KEY,
               'Content-Type': 'application/json'
             }
-          });
+          } );
         } catch (error) {
           console.error("Error con Manus API:", error.message);
         }
