@@ -1,7 +1,6 @@
 const axios = require('axios');
 
 export default async function handler(req, res) {
-  // 1. Verificación de Webhook (Meta) - Esto se queda igual
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -12,7 +11,6 @@ export default async function handler(req, res) {
     return res.status(403).end();
   }
 
-  // 2. Procesamiento de Mensajes (POST)
   if (req.method === 'POST') {
     const body = req.body;
     if (body.object === 'whatsapp_business_account') {
@@ -22,21 +20,26 @@ export default async function handler(req, res) {
         const msgText = message.text.body;
 
         try {
-          // LLAMADA A MANUS API USANDO EL PROYECTO
+          // LLAMADA DIRECTA A MANUS CON TODO EL CONTEXTO
           await axios.post('https://api.manus.ai/v2/task.create', {
             message: {
-              content: `Responde a este mensaje de WhatsApp de ${from}: "${msgText}". Usa las credenciales de Meta guardadas en el proyecto para enviar la respuesta.`
+              content: `ACTÚA COMO BOT DE VENTAS.
+              Contexto: Eres un experto en ventas de presencia digital.
+              Cliente (${from} ) dice: "${msgText}".
+              INSTRUCCIÓN CRÍTICA: Genera una respuesta persuasiva y envíala de inmediato a WhatsApp usando:
+              - Phone Number ID: 1171153759409978
+              - Access Token: EAANUjm2AP5oBRtYxZAwE63e65y4ZA4KroOnbRZBZCbPjdnhSKmakrAhI9xYrcZAv1a2ctPrsZAnflZCzP47ZAJMyfYp7NchZCXHRIePBccgPdyVAOkEstVmQdRxnzZA9WDtDRcODnL5Vg30ba7p4EMkYied6TZBaxukNDGzCaZAz5SZAWyFh8WR2jbOp57bKUoMxQj2e8WwZDZD`
             },
-            project_id: "proj_whatsapp_presencia_digital", // Este ID vincula todo
-            hide_in_task_list: true
+            hide_in_task_list: true,
+            agent_profile: 'manus-1.6-lite' // Más rápido para respuestas de chat
           }, {
             headers: {
               'x-manus-api-key': process.env.MANUS_API_KEY,
               'Content-Type': 'application/json'
             }
-          } );
+          });
         } catch (error) {
-          console.error("Error con Manus API:", error.message);
+          console.error("Error con Manus API:", error.response?.data || error.message);
         }
       }
       return res.status(200).send('EVENT_RECEIVED');
