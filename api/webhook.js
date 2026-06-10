@@ -7,6 +7,9 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
+// Memoria de conversaciones por número de teléfono
+const conversaciones = {};
+
 const SYSTEM_PROMPT = `Eres un asistente de ventas de Presencia Digital IA, una agencia de presencia digital para pequeños negocios en Naucalpan, Satélite y Tlalnepantla.
 
 PRODUCTOS:
@@ -48,14 +51,39 @@ async function sendMessage(to, message) {
   );
 }
 
-async function getClaudeResponse(userMessage) {
+async function getClaudeResponse(from, userMessage) {
+  // Inicializar historial si no existe
+  if (!conversaciones[from]) {
+    conversaciones[from] = [];
+  }
+
+  // Agregar mensaje del usuario al historial
+  conversaciones[from].push({
+    role: "user",
+    content: userMessage,
+  });
+
+  // Limitar historial a últimos 20 mensajes
+  if (conversaciones[from].length > 20) {
+    conversaciones[from] = conversaciones[from].slice(-20);
+  }
+
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 300,
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
+    messages: conversaciones[from],
   });
-  return message.content[0].text;
+
+  const reply = message.content[0].text;
+
+  // Agregar respuesta del bot al historial
+  conversaciones[from].push({
+    role: "assistant",
+    content: reply,
+  });
+
+  return reply;
 }
 
 module.exports = async (req, res) => {
@@ -80,7 +108,7 @@ module.exports = async (req, res) => {
             const from = msg.from;
             const text = msg.text?.body;
             if (text) {
-              const reply = await getClaudeResponse(text);
+              const reply = await getClaudeResponse(from, text);
               await sendMessage(from, reply);
             }
           }
