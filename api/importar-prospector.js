@@ -22,6 +22,14 @@ const COLUMNAS = [
   "maps_url",
 ];
 
+const COLUMNAS_BASE = [
+  "telefono",
+  "nombre",
+  "estado",
+  "bot_enabled",
+  "fecha_ultimo_mensaje",
+];
+
 function normalizarTelefono(value) {
   return String(value || "").replace(/\D/g, "");
 }
@@ -55,6 +63,10 @@ function parseCsvLine(linea, separador) {
 }
 
 function parseContenido(contenido) {
+  if (typeof contenido !== "string") {
+    throw new Error("El body debe incluir contenido como texto CSV o TSV");
+  }
+
   const lineas = String(contenido || "")
     .split(/\r?\n/)
     .map((linea) => linea.trim())
@@ -74,6 +86,8 @@ function parseContenido(contenido) {
         row[col] = valores[index] || null;
       });
       row.telefono = normalizarTelefono(row.telefono);
+      if (!row.nombre) row.nombre = null;
+      if (!row.fugas_detectadas) row.fugas_detectadas = null;
       row.estado = "prospectado";
       row.bot_enabled = true;
       row.ultimo_mensaje = null;
@@ -83,18 +97,68 @@ function parseContenido(contenido) {
     .filter((row) => row.telefono);
 }
 
+function esErrorColumnas(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("column") || message.includes("schema cache") || message.includes("could not find");
+}
+
+function soloBase(row) {
+  const base = {};
+  COLUMNAS_BASE.forEach((col) => {
+    base[col] = row[col];
+  });
+  return base;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
-  const { contenido } = req.body || {};
-  const rows = parseContenido(contenido);
-  if (!rows.length) return json(res, 400, { error: "No se encontraron filas validas" });
+  try {
+    if (!req.body || typeof req.body !== "object") {
+      return json(res, 400, { ok: false, error: "Body JSON requerido" });
+    }
 
-  const { data, error } = await supabase
-    .from("conversaciones")
-    .upsert(rows, { onConflict: "telefono" })
-    .select("telefono, nombre, estado");
+    const { contenido } = req.body;
+    const rows = parseContenido(contenido);
+    if (!rows.length) {
+      return json(res, 400, { ok: false, error: "No se encontraron filas validas con telefono" });
+    }
 
-  if (error) return json(res, 500, { error: error.message });
-  return json(res, 200, { ok: true, importados: data?.length || rows.length, conversaciones: data || [] });
+    const muestra = rows[0];
+    console.log("POST /api/importar-prospector parsed sample:", {
+      telefono: muestra.telefono,
+      nombre: muestra.nombre,
+      fugas_detectadas: muestra.fugas_detectadas,
+    });
+
+    let { data, error } = await supabase
+      .from("conversaciones")
+      .upsert(rows, { onConflict: "telefono" })
+      .select("telefono, nombre, estado");
+
+    if (error && esErrorColumnas(error)) {
+      console.error("POST /api/importar-prospector optional columns error, retrying base fields:", error.message);
+      const baseRows = rows.map(soloBase);
+      const retry = await supabase
+        .from("conversaciones")
+        .upsert(baseRows, { onConflict: "telefono" })
+        .select("telefono, nombre, estado");
+      data = retry.data;
+      error = retry.error;
+    }
+
+    if (error) {
+      console.error("POST /api/importar-prospector Supabase error:", error.message);
+      return json(res, 500, { ok: false, error: error.message });
+    }
+
+    return json(res, 200, {
+      ok: true,
+      importados: data?.length || rows.length,
+      conversaciones: data || [],
+    });
+  } catch (e) {
+    console.error("POST /api/importar-prospector exception:", e.message);
+    return json(res, 500, { ok: false, error: e.message });
+  }
 };
