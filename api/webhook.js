@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
 const { logMensaje, sendWhatsApp, supabase } = require("./_crm");
 
@@ -103,6 +105,19 @@ Usuario: tintoreria en Fuentes de Satelite
 Respuesta: no marques caliente; pregunta si tiene ficha de Google Maps.
 Usuario: no entiendo
 Respuesta: explica simple y no cobres.`;
+
+const SALES_PLAYBOOK_PATH = path.join(__dirname, "..", "playbooks", "sales_playbook_v1.md");
+
+function loadSalesPlaybook() {
+  try {
+    return fs.readFileSync(SALES_PLAYBOOK_PATH, "utf8").trim();
+  } catch (e) {
+    console.error("Sales playbook not found, using fallback prompt:", e.message);
+    return SYSTEM_PROMPT;
+  }
+}
+
+const SALES_PLAYBOOK = loadSalesPlaybook();
 // Helpers WhatsApp
 
 async function sendMessage(to, message) {
@@ -201,7 +216,7 @@ function parsearEstado(respuesta) {
 // ─── Comandos de Juan Carlos ─────────────────────────────────────────────────
 
 function buildLeadContext(cliente) {
-  if (!cliente) return "";
+  if (!cliente) return "CONTEXTO DEL LEAD\nSin contexto de lead.";
   const campos = [
     "nombre",
     "categoria",
@@ -220,13 +235,34 @@ function buildLeadContext(cliente) {
     "descripcion",
     "direccion",
     "maps_url",
-    "estado",
   ];
   const lineas = campos
     .filter((campo) => cliente[campo] !== undefined && cliente[campo] !== null && String(cliente[campo]).trim() !== "")
     .map((campo) => `${campo}: ${cliente[campo]}`);
-  if (!lineas.length) return "";
-  return `\n\nCONTEXTO DEL LEAD (usar solo datos reales, no inventar):\n${lineas.join("\n")}`;
+  return `CONTEXTO DEL LEAD\n${lineas.length ? lineas.join("\n") : "Sin contexto de lead."}`;
+}
+
+function buildCrmState(cliente) {
+  if (!cliente) return "ESTADO CRM\nSin registro CRM.";
+  const lineas = [
+    `telefono: ${cliente.telefono || "sin datos"}`,
+    `estado: ${cliente.estado || "sin datos"}`,
+    `caliente: ${cliente.caliente === true}`,
+    `bot_enabled: ${cliente.bot_enabled !== false}`,
+    `ultimo_mensaje: ${cliente.ultimo_mensaje || "sin datos"}`,
+    `fecha_ultimo_mensaje: ${cliente.fecha_ultimo_mensaje || "sin datos"}`,
+  ];
+  return `ESTADO CRM\n${lineas.join("\n")}`;
+}
+
+function buildSystemPrompt(cliente) {
+  return [
+    "SALES_PLAYBOOK",
+    SALES_PLAYBOOK,
+    buildLeadContext(cliente),
+    buildCrmState(cliente),
+    "ULTIMOS MENSAJES Y MENSAJE ACTUAL se envian separados en el arreglo messages de Claude.",
+  ].join("\n\n");
 }
 async function procesarComandoJC(comando, from) {
   const partes = comando.trim().split(" ");
@@ -280,7 +316,7 @@ async function procesarComandoJC(comando, from) {
 async function getClaudeResponse(from, userMessage) {
   const cliente = await getCliente(from);
   const historial = cliente?.historial || [];
-  const systemPrompt = SYSTEM_PROMPT + buildLeadContext(cliente);
+  const systemPrompt = buildSystemPrompt(cliente);
 
   historial.push({ role: "user", content: userMessage });
   const ventana = historial.slice(-MAX_MENSAJES);
