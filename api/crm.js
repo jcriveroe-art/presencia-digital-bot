@@ -26,8 +26,18 @@ module.exports = async (req, res) => {
     .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto auto 1fr; min-height: 0; }
     .dashboard { padding: 12px 16px; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .metric { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 62px; background: #fff; }
+    .metric.clickable { cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+    .metric.clickable:hover { border-color: var(--accent); background: #f7fbff; }
     .metric strong { display: block; font-size: 22px; line-height: 1; }
     .metric span { display: block; color: var(--muted); font-size: 12px; margin-top: 6px; }
+    .dashboard-panel { grid-column: 1 / -1; display: grid; gap: 12px; padding: 0 16px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+    .dashboard-section { display: grid; gap: 8px; }
+    .funnel { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+    .funnel-step, .activity-item, .objection-item { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 10px; font-size: 12px; }
+    .funnel-step strong { display: block; font-size: 18px; }
+    .bar { height: 6px; background: #e8edf5; border-radius: 999px; overflow: hidden; margin-top: 8px; }
+    .bar span { display: block; height: 100%; background: var(--accent); }
+    .activity-list, .objection-list { display: grid; gap: 8px; }
     main { min-height: 0; display: grid; grid-template-columns: minmax(520px, 58vw) 1fr; }
     .left { min-width: 0; display: grid; grid-template-rows: auto auto 1fr; border-right: 1px solid var(--line); background: var(--panel); }
     .import { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
@@ -69,6 +79,7 @@ module.exports = async (req, res) => {
     .timeline { display: grid; gap: 8px; }
     .event { border-left: 3px solid var(--accent); padding-left: 8px; font-size: 12px; }
     .event small { color: var(--muted); display: block; margin-top: 2px; }
+    .mobile-only { display: none; }
     .messages { min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
     .msg { max-width: min(680px, 84%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
     .msg.saliente { align-self: flex-end; background: #edf7f1; }
@@ -106,7 +117,52 @@ module.exports = async (req, res) => {
     .page.view-dashboard .attention { display: none; }
     .page.view-seguimiento .dashboard, .page.view-seguimiento .chat-dashboard { display: none; }
     @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
-    @media (max-width: 760px) { .edit-grid { grid-template-columns: 1fr; } .edit-grid label.wide { grid-column: span 1; } }
+    @media (max-width: 768px) {
+      html, body { width: 100%; max-width: 100%; overflow: hidden; }
+      header { height: 52px; grid-template-columns: auto minmax(0, 1fr) auto; padding: 0 10px; gap: 8px; }
+      h1 { font-size: 15px; white-space: nowrap; }
+      .top-nav { justify-content: flex-start; overflow-x: auto; padding-bottom: 2px; }
+      .top-nav { scrollbar-width: none; }
+      .top-nav::-webkit-scrollbar { display: none; }
+      header > #refresh { justify-self: end; min-width: 84px; }
+      .page { height: calc(100vh - 52px); overflow: hidden; }
+      .chat-dashboard { grid-template-columns: 1fr !important; }
+      .dashboard { grid-template-columns: 1fr; overflow: auto; }
+      .dashboard-panel { overflow: auto; padding: 12px; }
+      .funnel { grid-template-columns: 1fr; }
+      main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
+      .left { border-right: 0; min-height: 0; }
+      .filters { grid-template-columns: 1fr 1fr; }
+      .import { grid-template-columns: 1fr; }
+      .import textarea { min-height: 90px; }
+      .import button { min-height: 42px; }
+      .table-wrap { overflow: auto; }
+      table, thead, tbody, tr, td { display: block; width: 100%; }
+      thead { display: none; }
+      tr { border-bottom: 1px solid var(--line); padding: 10px; }
+      td { border-bottom: 0; padding: 2px 0; }
+      .page.view-chat .detail { display: none; }
+      .page.view-chat.mobile-chat-open .left { display: none; }
+      .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; overflow: hidden; }
+      .page.view-chat.mobile-chat-open .detail-head { grid-row: 1; grid-column: 1; }
+      .page.view-chat.mobile-chat-open .messages { grid-row: 2; grid-column: 1; }
+      .page.view-chat.mobile-chat-open form { grid-row: 3; grid-column: 1; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
+      .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 112px; overflow-y: auto; overflow-x: hidden; }
+      .page.view-chat.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; white-space: normal; }
+      .page.view-chat.mobile-chat-open .context { display: none; grid-row: 5; grid-column: 1; max-height: 46vh; overflow: auto; border-left: 0; }
+      .page.view-chat.mobile-chat-open.show-mobile-context .context { display: grid; }
+      .mobile-only { display: inline-flex; }
+      .messages { padding: 10px; min-width: 0; overflow-x: hidden; }
+      .msg { max-width: 94%; box-sizing: border-box; }
+      .msg.saliente { max-width: 88%; }
+      .detail-head { padding: 10px; min-width: 0; flex-wrap: wrap; }
+      .detail-head .identity { min-width: 0; flex: 1 1 150px; }
+      .actions { padding: 8px 10px; }
+      .context-grid, .ops { grid-template-columns: 1fr; }
+      .ops label.wide { grid-column: span 1; }
+      .edit-grid { grid-template-columns: 1fr; }
+      .edit-grid label.wide { grid-column: span 1; }
+    }
   </style>
 </head>
 <body>
@@ -147,6 +203,8 @@ module.exports = async (req, res) => {
       <section class="detail">
         <div class="detail-head">
           <div class="identity"><strong id="title">Selecciona un lead</strong><span id="subtitle"></span></div>
+          <button class="mobile-only" id="backToLeads" type="button">Volver a leads</button>
+          <button class="mobile-only" id="toggleLeadData" type="button">Ver datos</button>
           <div><span id="botBadge" class="badge">IA</span> <span id="hotBadge" class="badge">Lead</span></div>
         </div>
         <div class="actions">
@@ -186,6 +244,7 @@ module.exports = async (req, res) => {
     let filtered = [];
     let selected = null;
     let currentView = "chat";
+    let dashboardInfo = { eventos: [], objeciones: [] };
     const estadosBase = ["prospectado","contactado","interesado","cliente_caliente","diagnostico_pagado","diagnostico_entregado","seguimiento","perdido","nuevo","mini_diagnostico"];
     const page = document.getElementById("page");
     const leads = document.getElementById("leads");
@@ -266,6 +325,7 @@ module.exports = async (req, res) => {
 
     function setView(view) {
       currentView = view;
+      page.classList.remove("mobile-chat-open", "show-mobile-context");
       page.className = "page view-" + view;
       document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
       renderLeads();
@@ -273,10 +333,23 @@ module.exports = async (req, res) => {
       if (view === "dashboard") renderDashboard();
     }
 
+    function isMobile() {
+      return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+    }
+
+    function clearFilterValues() {
+      document.getElementById("filterEstado").value = "";
+      document.getElementById("filterPrioridad").value = "";
+      document.getElementById("filterCategoria").value = "";
+      document.getElementById("filterCaliente").value = "";
+      document.getElementById("filterOperativo").value = "";
+    }
+
     async function loadConversaciones() {
       const res = await actionFetch("conversaciones");
       const data = await res.json();
       conversaciones = data.conversaciones || [];
+      await loadDashboardData();
       fillFilters();
       applyFilters();
       renderDashboard();
@@ -285,23 +358,88 @@ module.exports = async (req, res) => {
       if (selected) {
         selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
         if (selected) await selectLead(selected.telefono);
-      } else if (conversaciones.length > 0) {
+      } else if (conversaciones.length > 0 && !isMobile()) {
         await selectLead(conversaciones.slice().sort(compareLeads)[0].telefono);
       }
     }
 
-    function metric(label, value) { return '<div class="metric"><strong>' + value + '</strong><span>' + label + '</span></div>'; }
+    async function loadDashboardData() {
+      try {
+        const res = await actionFetch("dashboard_data");
+        const data = await res.json();
+        if (data.ok) dashboardInfo = { eventos: data.eventos || [], objeciones: data.objeciones || [] };
+      } catch (e) {
+        dashboardInfo = { eventos: [], objeciones: [] };
+      }
+    }
+
+    function metric(label, value, action) {
+      const attr = action ? ' data-dash-action="' + action + '"' : "";
+      const cls = action ? "metric clickable" : "metric";
+      return '<div class="' + cls + '"' + attr + '><strong>' + value + '</strong><span>' + label + '</span></div>';
+    }
+
     function renderDashboard() {
       const count = (fn) => conversaciones.filter(fn).length;
+      const total = conversaciones.length;
+      const prospectados = count(c => (c.estado || "") === "prospectado");
+      const contactados = count(c => (c.estado || "") === "contactado");
+      const interesados = count(c => (c.estado || "") === "interesado");
+      const calientes = count(c => c.caliente === true || c.estado === "cliente_caliente");
+      const pagados = count(c => (c.estado || "") === "diagnostico_pagado");
+      const perdidos = count(c => (c.estado || "") === "perdido");
+      const intervencion = count(c => (c.estado || "") === "requiere_intervencion");
+      const nuevos = conversaciones.filter(hasNewMessage).length;
       dashboard.innerHTML = [
-        metric("Total leads", conversaciones.length),
-        metric("Prospectados", count(c => (c.estado || "") === "prospectado")),
-        metric("Contactados", count(c => (c.estado || "") === "contactado")),
-        metric("Interesados", count(c => (c.estado || "") === "interesado")),
-        metric("Clientes calientes", count(c => c.caliente === true || c.estado === "cliente_caliente")),
-        metric("Diagnostico pagado", count(c => (c.estado || "") === "diagnostico_pagado")),
-        metric("Perdidos", count(c => (c.estado || "") === "perdido")),
+        metric("Total leads", total, "total"),
+        metric("Prospectados", prospectados, "prospectados"),
+        metric("Contactados", contactados, "contactados"),
+        metric("Interesados", interesados, "interesados"),
+        metric("Clientes calientes", calientes, "calientes"),
+        metric("Diagnostico pagado", pagados, "diagnostico_pagado"),
+        metric("Perdidos", perdidos, "perdidos"),
+        metric("Requiere intervencion", intervencion, "requiere_intervencion"),
+        metric("Mensajes nuevos", nuevos, "mensajes_nuevos"),
       ].join("");
+      dashboard.innerHTML += renderDashboardPanel({ total, contactados, interesados, pagados, calientes });
+      dashboard.querySelectorAll("[data-dash-action]").forEach(card => card.addEventListener("click", () => applyDashboardAction(card.dataset.dashAction)));
+    }
+
+    function pct(a, b) { return b > 0 ? Math.round((a / b) * 100) : 0; }
+
+    function renderFunnelStep(label, value, previous) {
+      const conversion = previous === null ? 100 : pct(value, previous);
+      return '<div class="funnel-step"><strong>' + value + '</strong><span>' + label + '</span><div class="bar"><span style="width:' + Math.max(4, conversion) + '%"></span></div><small>' + conversion + '% conversion</small></div>';
+    }
+
+    function renderDashboardPanel(stats) {
+      const eventos = dashboardInfo.eventos || [];
+      const objeciones = dashboardInfo.objeciones || [];
+      return '<div class="dashboard-panel"><section class="dashboard-section"><h2>Embudo comercial</h2><div class="funnel">' + [
+        renderFunnelStep("Leads", stats.total, null),
+        renderFunnelStep("Contactados", stats.contactados, stats.total),
+        renderFunnelStep("Interesados", stats.interesados, stats.contactados),
+        renderFunnelStep("Diagnosticos", stats.pagados, stats.interesados),
+        renderFunnelStep("Activaciones", 0, stats.pagados),
+      ].join("") + '</div></section><section class="dashboard-section"><h2>Actividad reciente</h2><div class="activity-list">' + (eventos.map(e => '<div class="activity-item"><strong>' + escapeHtml(e.tipo) + '</strong><div>' + escapeHtml(e.descripcion || e.telefono || '') + '</div><small>' + fmtDate(e.created_at) + '</small></div>').join("") || '<div class="activity-item">Sin eventos recientes.</div>') + '</div></section><section class="dashboard-section"><h2>Top objeciones</h2><div class="objection-list">' + (objeciones.map(o => '<div class="objection-item"><strong>' + escapeHtml(o.objecion) + '</strong><div class="bar"><span style="width:' + Math.max(8, Math.min(100, o.total * 12)) + '%"></span></div><small>' + o.total + ' leads</small></div>').join("") || '<div class="objection-item">Sin objeciones registradas.</div>') + '</div></section></div>';
+    }
+
+    function applyDashboardAction(action) {
+      clearFilterValues();
+      if (action === "mensajes_nuevos") {
+        document.getElementById("filterOperativo").value = "nuevo";
+        setView("chat");
+      } else {
+        setView(action === "requiere_intervencion" ? "seguimiento" : "leads");
+        if (action === "prospectados") document.getElementById("filterEstado").value = "prospectado";
+        if (action === "contactados") document.getElementById("filterEstado").value = "contactado";
+        if (action === "interesados") document.getElementById("filterOperativo").value = "interesados";
+        if (action === "calientes") document.getElementById("filterOperativo").value = "calientes";
+        if (action === "diagnostico_pagado") document.getElementById("filterOperativo").value = "diagnostico_pagado";
+        if (action === "perdidos") document.getElementById("filterEstado").value = "perdido";
+        if (action === "requiere_intervencion") document.getElementById("filterOperativo").value = "requiere_intervencion";
+      }
+      applyFilters();
     }
 
     function hasNewMessage(c) {
@@ -313,10 +451,11 @@ module.exports = async (req, res) => {
       const atencion = conversaciones.filter(needsAttention).length;
       const calientes = conversaciones.filter(c => c.caliente === true || c.estado === "cliente_caliente").length;
       chatDashboard.innerHTML = [
-        metric("Mensajes nuevos", nuevos),
-        metric("Requieren atencion", atencion),
-        metric("Calientes", calientes),
+        metric("Mensajes nuevos", nuevos, "mensajes_nuevos"),
+        metric("Requieren atencion", atencion, "requiere_intervencion"),
+        metric("Calientes", calientes, "calientes"),
       ].join("");
+      chatDashboard.querySelectorAll("[data-dash-action]").forEach(card => card.addEventListener("click", () => applyDashboardAction(card.dataset.dashAction)));
     }
 
     function needsAttention(c) {
@@ -329,8 +468,8 @@ module.exports = async (req, res) => {
     function renderAttention() {
       const items = conversaciones.filter(needsAttention).slice(0, 20);
       const wrap = document.getElementById("attention");
-      wrap.innerHTML = '<h2>Requiere atencion</h2><div class="attention-list">' + (items.map(c => '<button data-tel="' + escapeHtml(c.telefono) + '">' + escapeHtml(label(c)) + ' | ' + escapeHtml(c.estado || 'nuevo') + '</button>').join("") || '<span class="badge">Sin pendientes operativos</span>') + '</div>';
-      wrap.querySelectorAll("button[data-tel]").forEach(btn => btn.addEventListener("click", () => selectLead(btn.dataset.tel)));
+      wrap.innerHTML = '<h2>Requiere atencion</h2><div class="attention-list">' + (items.map(c => '<button data-tel="' + escapeHtml(c.telefono) + '"><strong>' + escapeHtml(label(c)) + '</strong><br><small>' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.proxima_accion || 'sin accion') + '</small><br><small>' + escapeHtml(c.fecha_seguimiento ? fmtDate(c.fecha_seguimiento) : 'sin fecha') + '</small><br><small>' + escapeHtml(c.motivo_seguimiento || 'sin motivo') + '</small><br><span class="badge">Ver chat</span></button>').join("") || '<span class="badge">Sin pendientes operativos</span>') + '</div>';
+      wrap.querySelectorAll("button[data-tel]").forEach(btn => btn.addEventListener("click", () => { setView("chat"); selectLead(btn.dataset.tel); }));
     }
 
     function fillSelect(id, values, firstLabel) {
@@ -406,6 +545,15 @@ module.exports = async (req, res) => {
           const newBadge = hasNewMessage(c) ? ' <span class="badge new">Nuevo mensaje</span>' : '';
           return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="7"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + '</small><br><small>Mensajes: ' + escapeHtml(c.total_mensajes || 0) + ' total · ' + escapeHtml(c.mensajes_entrantes || 0) + ' in · ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small></td></tr>';
         }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
+        return;
+      }
+      if (isMobile()) {
+        leads.innerHTML = filtered.map(c => {
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="7"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(c.mensajes_pendientes || 0) + ')</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + '</small><br><small>Estado: ' + escapeHtml(c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Ultimo mensaje: ' + escapeHtml(lastMessageLabel(c)) + '</small><br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
+        }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
+        leads.querySelectorAll("button[data-chat]").forEach(btn => btn.addEventListener("click", (event) => { event.stopPropagation(); setView("chat"); selectLead(btn.dataset.chat); }));
+        leads.querySelectorAll("button[data-initial]").forEach(btn => btn.addEventListener("click", async (event) => { event.stopPropagation(); selected = conversaciones.find(c => c.telefono === btn.dataset.initial); if (selected) document.getElementById("initialBtn").click(); }));
         leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
         return;
       }
@@ -543,6 +691,7 @@ module.exports = async (req, res) => {
 
     async function selectLead(telefono) {
       selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
+      if (currentView === "chat" && isMobile()) page.classList.add("mobile-chat-open");
       renderLeads();
       title.textContent = label(selected);
       subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo") + " | " + fmtDate(selected.fecha_ultimo_mensaje);
@@ -612,12 +761,10 @@ module.exports = async (req, res) => {
     document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
+    document.getElementById("backToLeads").addEventListener("click", () => page.classList.remove("mobile-chat-open", "show-mobile-context"));
+    document.getElementById("toggleLeadData").addEventListener("click", () => page.classList.toggle("show-mobile-context"));
     document.getElementById("clearFilters").addEventListener("click", () => {
-      document.getElementById("filterEstado").value = "";
-      document.getElementById("filterPrioridad").value = "";
-      document.getElementById("filterCategoria").value = "";
-      document.getElementById("filterCaliente").value = "";
-      document.getElementById("filterOperativo").value = "";
+      clearFilterValues();
       applyFilters();
     });
     ["filterEstado","filterPrioridad","filterCategoria","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
@@ -633,6 +780,8 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     });
 
+    const initialView = (location.hash || "#chat").replace("#", "");
+    if (["chat","seguimiento","leads","dashboard"].includes(initialView)) setView(initialView);
     loadConversaciones();
   </script>
 </body>

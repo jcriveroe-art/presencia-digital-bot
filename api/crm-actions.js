@@ -274,6 +274,46 @@ async function eventosCrm(body) {
   return { ok: true, eventos: data || [] };
 }
 
+async function dashboardData() {
+  const eventosPermitidos = [
+    "mensaje_entrante",
+    "mensaje_saliente",
+    "estado_actualizado",
+    "seguimiento_programado",
+    "requiere_intervencion",
+    "diagnostico_pagado",
+  ];
+  const eventos = await supabase
+    .from("eventos_crm")
+    .select("id, telefono, tipo, descripcion, metadata, created_at")
+    .in("tipo", eventosPermitidos)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (eventos.error) throw eventos.error;
+
+  const objeciones = await supabase
+    .from("conversaciones")
+    .select("objecion_principal")
+    .not("objecion_principal", "is", null);
+  if (objeciones.error) throw objeciones.error;
+
+  const counts = {};
+  for (const row of objeciones.data || []) {
+    const key = String(row.objecion_principal || "").trim();
+    if (!key) continue;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+
+  return {
+    ok: true,
+    eventos: eventos.data || [],
+    objeciones: Object.entries(counts)
+      .map(([objecion, total]) => ({ objecion, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8),
+  };
+}
+
 async function importarProspector(body) {
   const rows = parseContenido(body.contenido);
   if (!rows.length) return { status: 400, payload: { ok: false, error: "No se encontraron filas validas con telefono" } };
@@ -449,6 +489,7 @@ async function dispatch(action, body, req, res) {
     lead_update: leadUpdate,
     lead_followup: leadFollowup,
     eventos_crm: eventosCrm,
+    dashboard_data: dashboardData,
     bot_enabled: botEnabled,
   };
 
