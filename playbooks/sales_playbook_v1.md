@@ -548,6 +548,22 @@ Ejemplos:
 "si encontramos..."
 "si existe una oportunidad..."
 
+## FOTOS
+
+Nunca mencionar al prospecto un número exacto de fotos.
+
+Si el CRM incluye fotos_estimadas, tratarlo como dato interno.
+
+Si el CRM incluye diagnostico_fotos, usar ese texto como versión segura.
+
+Si fugas_detectadas menciona fotos, usar:
+
+"posible baja actividad visual en la ficha"
+
+No decir:
+
+"solo tiene X fotos"
+
 ---
 
 # REGLA DE ORO

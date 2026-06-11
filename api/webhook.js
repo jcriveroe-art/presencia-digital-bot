@@ -51,11 +51,12 @@ Si no hay contexto de Prospector ON, no asumas giro ni zona. Explica que hace Pr
 
 MODO B: PROSPECCION SALIENTE CON CONTEXTO
 Si recibes un bloque llamado CONTEXTO DEL LEAD, significa que el mensaje inicial salio desde CRM ON y ya conocemos el negocio. Si el lead responde algo como "si", "si por favor", "claro", "comparteme", "a ver" o "que encontraste", no preguntes giro ni zona.
-Usa solo fugas_detectadas reales del contexto. No inventes fugas, datos, resenas, fotos, rating ni competencia.
+Usa solo fugas_detectadas reales del contexto. No inventes fugas, datos, resenas, fotos, rating ni competencia. Nunca menciones un numero exacto de fotos al prospecto.
 Si existen fugas_detectadas, resume 3 a 5 oportunidades concretas y explica que el punto importante es saber cuales afectan mas la confianza y que corregir primero.
 Si no existen fugas_detectadas, dilo con honestidad y pregunta si quiere que revisemos su ficha con mas detalle. No inventes informacion.
 Cuando responda positivamente a prospeccion saliente, usa estado=interesado y caliente=false.
-Ejemplo de tono si hay contexto: "Claro. Detecte varias oportunidades en su ficha: tienen calificacion baja, pocas resenas y la ultima resena parece antigua. Tambien vi pocas fotos y resenas sin responder. El punto importante no es solo enlistarlas, sino saber cuales afectan mas la confianza y que corregir primero. Eso lo revisamos en el Diagnostico ON. �Quiere que le explique como funciona?"
+Si hay referencia a fotos, usa "posible baja actividad visual en la ficha", no "solo tiene X fotos".
+Ejemplo de tono si hay contexto: "Claro. Detecte varias oportunidades en su ficha: tienen calificacion baja, pocas resenas y la ultima resena parece antigua. Tambien vi posible baja actividad visual en la ficha y resenas sin responder. El punto importante no es solo enlistarlas, sino saber cuales afectan mas la confianza y que corregir primero. Eso lo revisamos en el Diagnostico ON. �Quiere que le explique como funciona?"
 OBJECIONES OBLIGATORIAS
 Si el usuario dice "no entiendo", responde:
 "Claro. Lo explico mas simple: revisamos como se ve tu negocio en Google cuando alguien busca lo que vendes en tu zona. Si tu ficha se ve abandonada, con pocas resenas o sin forma clara de contacto, puedes perder clientes. Nosotros detectamos eso y te decimos que corregir primero."
@@ -217,16 +218,17 @@ function parsearEstado(respuesta) {
 
 function buildLeadContext(cliente) {
   if (!cliente) return "CONTEXTO DEL LEAD\nSin contexto de lead.";
+  const fugasDetectadas = normalizarFugasParaClaude(cliente.fugas_detectadas);
   const campos = [
     "nombre",
     "categoria",
     "prioridad",
     "score",
     "total_fugas",
-    "fugas_detectadas",
     "rating",
     "resenas",
-    "fotos",
+    "diagnostico_fotos",
+    "fotos_estimadas",
     "ultima_resena",
     "responde_resenas",
     "publicaciones",
@@ -238,8 +240,25 @@ function buildLeadContext(cliente) {
   ];
   const lineas = campos
     .filter((campo) => cliente[campo] !== undefined && cliente[campo] !== null && String(cliente[campo]).trim() !== "")
-    .map((campo) => `${campo}: ${cliente[campo]}`);
+    .map((campo) => {
+      if (campo === "fotos_estimadas") return `${campo}: ${cliente[campo]} (dato interno; no mencionar numero exacto al prospecto)`;
+      if (campo === "diagnostico_fotos") return `${campo}: ${cliente[campo]} (texto seguro para prospecto)`;
+      return `${campo}: ${cliente[campo]}`;
+    });
+  if (fugasDetectadas) {
+    lineas.push(`fugas_detectadas: ${fugasDetectadas}`);
+  }
   return `CONTEXTO DEL LEAD\n${lineas.length ? lineas.join("\n") : "Sin contexto de lead."}`;
+}
+
+function normalizarFugasParaClaude(fugas) {
+  if (!fugas) return null;
+  return String(fugas)
+    .replace(/(?:solo\s*)?\d+\s+foto(?:s)?(?:\s+en\s+maps)?/gi, "posible baja actividad visual en la ficha")
+    .replace(/pocas\s+foto(?:s)?/gi, "posible baja actividad visual en la ficha")
+    .replace(/sin\s+foto(?:s)?/gi, "posible baja actividad visual en la ficha")
+    .replace(/foto\(s\)/gi, "actividad visual")
+    .replace(/\s+\|\s+/g, " | ");
 }
 
 function buildCrmState(cliente) {

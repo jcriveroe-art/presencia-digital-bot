@@ -16,6 +16,8 @@ const CAMPOS_DEFAULT = {
   rating: null,
   resenas: null,
   fotos: null,
+  fotos_estimadas: null,
+  diagnostico_fotos: null,
   ultima_resena: null,
   responde_resenas: null,
   publicaciones: null,

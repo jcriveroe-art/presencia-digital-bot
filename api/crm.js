@@ -200,7 +200,7 @@ module.exports = async (req, res) => {
       const negocio = [
         ["Nombre", label(c)], ["Categoria", c.categoria], ["Prioridad", c.prioridad], ["Score", c.score],
         ["Total fugas", c.total_fugas], ["Telefono", c.telefono], ["Estado", c.estado], ["Ultimo mensaje", c.ultimo_mensaje],
-        ["Rating", c.rating], ["Resenas", c.resenas], ["Fotos", c.fotos], ["Ultima resena", c.ultima_resena],
+        ["Rating", c.rating], ["Resenas", c.resenas], ["Fotos estimadas", c.fotos_estimadas || c.fotos], ["Diagnostico fotos", c.diagnostico_fotos], ["Ultima resena", c.ultima_resena],
         ["Responde resenas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
         ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
       ];
