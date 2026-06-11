@@ -9,6 +9,7 @@ const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const JUAN_CARLOS_NUMBER = "5215647943262"; // número de JC para alertas
 
 const MAX_MENSAJES = 30;
+const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 
 const SYSTEM_PROMPT = `Eres el asistente de ventas de Presencia Digital IA por WhatsApp. Tu trabajo es orientar con calma a negocios locales, hacer un mini diagnostico conversacional y avanzar solo cuando exista interes real.
 
@@ -169,6 +170,44 @@ async function saveCliente(telefono, updates) {
   } catch (e) {
     console.error("Supabase save error:", e.message);
   }
+}
+
+async function tieneAlertaReciente(telefono, tipo, ventanaMs) {
+  try {
+    const since = new Date(Date.now() - ventanaMs).toISOString();
+    const { count, error } = await supabase
+      .from("eventos_crm")
+      .select("id", { count: "exact", head: true })
+      .eq("telefono", telefono)
+      .eq("tipo", tipo)
+      .gte("created_at", since);
+    if (error) {
+      console.error("Error consultando alerta reciente:", error.message);
+      return false;
+    }
+    return (count || 0) > 0;
+  } catch (e) {
+    console.error("Excepcion consultando alerta reciente:", e.message);
+    return false;
+  }
+}
+
+async function alertarMensajeConIAPausada(telefono, cliente, ultimoMensaje) {
+  if (await tieneAlertaReciente(telefono, "mensaje_con_ia_pausada", DOCE_HORAS_MS)) return;
+
+  await alertarJuanCarlos("resumen", telefono, {
+    texto: [
+      "INTERVENCION REQUERIDA",
+      `Numero: ${telefono}`,
+      `Negocio: ${cliente?.negocio || cliente?.nombre || "sin datos"}`,
+      `Ultimo mensaje: ${ultimoMensaje || "sin datos"}`,
+      "Razon: El lead escribio con IA pausada.",
+      "IA pausada. Responder manualmente desde CRM.",
+    ].join("\n"),
+  });
+  await logEventoCRM(telefono, "mensaje_con_ia_pausada", "Lead escribio con IA pausada", {
+    ultimo_mensaje: ultimoMensaje,
+  });
 }
 
 async function programarSeguimientos(telefono, tipo) {
@@ -516,6 +555,7 @@ module.exports = async (req, res) => {
             const cliente = await getCliente(from);
             if (cliente?.bot_enabled === false) {
               console.log(`IA pausada para ${from}`);
+              await alertarMensajeConIAPausada(from, cliente, text);
               continue;
             }
 
