@@ -82,6 +82,55 @@ function normalizarResumenConversacion(row) {
   return merged;
 }
 
+function aplicarMetricasMensajes(conversacionesRows, mensajesRows) {
+  const porTelefono = new Map();
+
+  for (const msg of mensajesRows || []) {
+    const telefono = msg.telefono;
+    if (!telefono) continue;
+    const current = porTelefono.get(telefono) || {
+      total_mensajes: 0,
+      mensajes_entrantes: 0,
+      mensajes_salientes: 0,
+      fecha_ultimo_mensaje_real: null,
+      direccion_ultimo_mensaje: null,
+      texto_ultimo_mensaje: null,
+      fecha_ultima_respuesta: null,
+      mensajes_pendientes: 0,
+    };
+
+    current.total_mensajes += 1;
+    if (msg.direccion === "entrante") current.mensajes_entrantes += 1;
+    if (msg.direccion === "saliente") {
+      current.mensajes_salientes += 1;
+      if (!current.fecha_ultima_respuesta || new Date(msg.created_at) > new Date(current.fecha_ultima_respuesta)) {
+        current.fecha_ultima_respuesta = msg.created_at;
+      }
+    }
+
+    if (!current.fecha_ultimo_mensaje_real || new Date(msg.created_at) > new Date(current.fecha_ultimo_mensaje_real)) {
+      current.fecha_ultimo_mensaje_real = msg.created_at;
+      current.direccion_ultimo_mensaje = msg.direccion;
+      current.texto_ultimo_mensaje = msg.mensaje;
+    }
+
+    porTelefono.set(telefono, current);
+  }
+
+  for (const msg of mensajesRows || []) {
+    const current = porTelefono.get(msg.telefono);
+    if (!current || msg.direccion !== "entrante") continue;
+    if (new Date(msg.created_at) > new Date(current.fecha_ultima_respuesta || "1970-01-01T00:00:00.000Z")) {
+      current.mensajes_pendientes += 1;
+    }
+  }
+
+  return (conversacionesRows || []).map((row) => {
+    const metrics = porTelefono.get(row.telefono) || {};
+    return normalizarResumenConversacion({ ...row, ...metrics });
+  });
+}
+
 function normalizarTelefono(value) {
   return String(value || "").replace(/[+\s\-()]/g, "").replace(/\D/g, "").trim();
 }
@@ -269,6 +318,20 @@ async function conversaciones() {
     const fallback = await supabase.from("conversaciones").select("*").order("fecha_ultimo_mensaje", { ascending: false });
     data = fallback.data;
     error = fallback.error;
+    if (!error && data?.length) {
+      const telefonos = data.map((row) => row.telefono).filter(Boolean);
+      const mensajesResult = await supabase
+        .from("mensajes")
+        .select("id, telefono, direccion, mensaje, created_at")
+        .in("telefono", telefonos)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true });
+      if (mensajesResult.error) {
+        console.error("No se pudieron calcular metricas de mensajes:", mensajesResult.error.message);
+      } else {
+        return { ok: true, conversaciones: aplicarMetricasMensajes(data, mensajesResult.data || []) };
+      }
+    }
   }
   if (error) throw error;
   return { ok: true, conversaciones: (data || []).map(normalizarResumenConversacion) };
@@ -534,5 +597,6 @@ module.exports = async (req, res) => {
 };
 
 module.exports.__test = {
+  aplicarMetricasMensajes,
   normalizarResumenConversacion,
 };
