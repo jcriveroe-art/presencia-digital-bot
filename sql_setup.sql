@@ -80,3 +80,49 @@ CREATE TABLE IF NOT EXISTS eventos_crm (
 
 CREATE INDEX IF NOT EXISTS idx_eventos_crm_telefono_created_at ON eventos_crm(telefono, created_at);
 CREATE INDEX IF NOT EXISTS idx_conversaciones_fecha_seguimiento ON conversaciones(fecha_seguimiento, seguimiento_activo);
+
+CREATE OR REPLACE VIEW conversaciones_resumen AS
+WITH mensaje_stats AS (
+  SELECT
+    telefono,
+    COUNT(*)::INTEGER AS total_mensajes,
+    COUNT(*) FILTER (WHERE direccion = 'entrante')::INTEGER AS mensajes_entrantes,
+    COUNT(*) FILTER (WHERE direccion = 'saliente')::INTEGER AS mensajes_salientes,
+    MAX(created_at) AS fecha_ultimo_mensaje_real,
+    MAX(created_at) FILTER (WHERE direccion = 'saliente') AS fecha_ultima_respuesta
+  FROM mensajes
+  GROUP BY telefono
+),
+ultimo AS (
+  SELECT DISTINCT ON (telefono)
+    telefono,
+    direccion AS direccion_ultimo_mensaje,
+    mensaje AS texto_ultimo_mensaje,
+    created_at AS fecha_ultimo_mensaje_real
+  FROM mensajes
+  ORDER BY telefono, created_at DESC
+),
+pendientes AS (
+  SELECT
+    m.telefono,
+    COUNT(*)::INTEGER AS mensajes_pendientes
+  FROM mensajes m
+  LEFT JOIN mensaje_stats s ON s.telefono = m.telefono
+  WHERE m.direccion = 'entrante'
+    AND m.created_at > COALESCE(s.fecha_ultima_respuesta, '1970-01-01'::timestamptz)
+  GROUP BY m.telefono
+)
+SELECT
+  c.*,
+  COALESCE(s.total_mensajes, 0) AS total_mensajes,
+  COALESCE(s.mensajes_entrantes, 0) AS mensajes_entrantes,
+  COALESCE(s.mensajes_salientes, 0) AS mensajes_salientes,
+  COALESCE(u.fecha_ultimo_mensaje_real, c.fecha_ultimo_mensaje) AS fecha_ultimo_mensaje_real,
+  u.direccion_ultimo_mensaje,
+  u.texto_ultimo_mensaje,
+  COALESCE(p.mensajes_pendientes, 0) AS mensajes_pendientes,
+  (u.direccion_ultimo_mensaje = 'entrante' AND COALESCE(p.mensajes_pendientes, 0) > 0) AS mensaje_nuevo
+FROM conversaciones c
+LEFT JOIN mensaje_stats s ON s.telefono = c.telefono
+LEFT JOIN ultimo u ON u.telefono = c.telefono
+LEFT JOIN pendientes p ON p.telefono = c.telefono;

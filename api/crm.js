@@ -37,6 +37,8 @@ module.exports = async (req, res) => {
     .attention { padding: 10px 16px; border-bottom: 1px solid var(--line); background: #fff8eb; display: grid; gap: 8px; }
     .attention-list { display: flex; gap: 8px; overflow: auto; padding-bottom: 2px; }
     .attention button { white-space: nowrap; background: #fff; }
+    .chat-dashboard { display: none; padding: 10px 14px; gap: 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .chat-dashboard .metric { min-height: 54px; }
     label { color: var(--muted); font-size: 11px; display: grid; gap: 4px; }
     select, input { border: 1px solid var(--line); border-radius: 6px; min-height: 34px; padding: 0 8px; background: #fff; min-width: 0; }
     .table-wrap { overflow: auto; min-height: 0; }
@@ -49,6 +51,7 @@ module.exports = async (req, res) => {
     .badge.on { color: var(--on); }
     .badge.off { color: var(--off); }
     .badge.hot { color: var(--hot); }
+    .badge.new { color: #0f4f9f; border-color: #9cc3ff; background: #edf5ff; }
     .detail { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto auto 1fr auto; background: var(--bg); }
     .detail-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .identity { min-width: 0; }
@@ -82,8 +85,9 @@ module.exports = async (req, res) => {
     .edit-grid label.wide { grid-column: span 3; }
     .edit-grid textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     .edit-status { margin-right: auto; color: var(--muted); font-size: 12px; }
-    .page.view-chat { grid-template-rows: 1fr; }
+    .page.view-chat { grid-template-rows: auto 1fr; }
     .page.view-chat .dashboard, .page.view-chat .attention { display: none; }
+    .page.view-chat .chat-dashboard { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); }
     .page.view-chat main { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
     .page.view-chat .left { grid-template-rows: auto 1fr; }
     .page.view-chat .left .import { display: none; }
@@ -95,12 +99,12 @@ module.exports = async (req, res) => {
     .page.view-chat .context { grid-column: 2; grid-row: 3 / 5; max-height: none; border-bottom: 0; border-left: 1px solid var(--line); }
     .page.view-chat .messages { grid-column: 1; grid-row: 1 / 4; }
     .page.view-chat form { grid-column: 1; grid-row: 4; position: sticky; bottom: 0; z-index: 2; }
-    .page.view-leads .dashboard, .page.view-leads .attention { display: none; }
+    .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
     .page.view-leads main { grid-template-columns: 1fr; }
     .page.view-leads .detail { display: none; }
-    .page.view-dashboard main { display: none; }
+    .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
     .page.view-dashboard .attention { display: none; }
-    .page.view-seguimiento .dashboard { display: none; }
+    .page.view-seguimiento .dashboard, .page.view-seguimiento .chat-dashboard { display: none; }
     @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
     @media (max-width: 760px) { .edit-grid { grid-template-columns: 1fr; } .edit-grid label.wide { grid-column: span 1; } }
   </style>
@@ -119,6 +123,7 @@ module.exports = async (req, res) => {
   <div id="page" class="page view-chat">
     <div id="dashboard" class="dashboard"></div>
     <div id="attention" class="attention"></div>
+    <div id="chatDashboard" class="chat-dashboard"></div>
     <main>
       <section class="left">
         <div class="import">
@@ -134,9 +139,10 @@ module.exports = async (req, res) => {
           <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
           <label>Categoria<select id="filterCategoria"><option value="">Todas</option></select></label>
           <label>Caliente<select id="filterCaliente"><option value="">Todos</option><option value="true">Si</option><option value="false">No</option></select></label>
+          <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Con mensaje nuevo</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option></select></label>
           <button id="clearFilters">Limpiar</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Prioridad</th><th>Score</th><th>Total fugas</th><th>Telefono</th><th>Estado</th><th>IA</th><th>Ultima actividad</th></tr></thead><tbody id="leads"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Estado</th><th>Mensajes</th><th>Ultimo mensaje</th><th>IA</th><th>Prioridad</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <section class="detail">
         <div class="detail-head">
@@ -184,6 +190,7 @@ module.exports = async (req, res) => {
     const page = document.getElementById("page");
     const leads = document.getElementById("leads");
     const dashboard = document.getElementById("dashboard");
+    const chatDashboard = document.getElementById("chatDashboard");
     const messages = document.getElementById("messages");
     const title = document.getElementById("title");
     const subtitle = document.getElementById("subtitle");
@@ -261,6 +268,7 @@ module.exports = async (req, res) => {
       currentView = view;
       page.className = "page view-" + view;
       document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+      renderLeads();
       if (view === "seguimiento") renderAttention();
       if (view === "dashboard") renderDashboard();
     }
@@ -272,10 +280,13 @@ module.exports = async (req, res) => {
       fillFilters();
       applyFilters();
       renderDashboard();
+      renderChatDashboard();
       renderAttention();
       if (selected) {
         selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
         if (selected) await selectLead(selected.telefono);
+      } else if (conversaciones.length > 0) {
+        await selectLead(conversaciones.slice().sort(compareLeads)[0].telefono);
       }
     }
 
@@ -290,6 +301,21 @@ module.exports = async (req, res) => {
         metric("Clientes calientes", count(c => c.caliente === true || c.estado === "cliente_caliente")),
         metric("Diagnostico pagado", count(c => (c.estado || "") === "diagnostico_pagado")),
         metric("Perdidos", count(c => (c.estado || "") === "perdido")),
+      ].join("");
+    }
+
+    function hasNewMessage(c) {
+      return c.mensaje_nuevo === true || (c.direccion_ultimo_mensaje === "entrante" && Number(c.mensajes_pendientes || 0) > 0);
+    }
+
+    function renderChatDashboard() {
+      const nuevos = conversaciones.filter(hasNewMessage).length;
+      const atencion = conversaciones.filter(needsAttention).length;
+      const calientes = conversaciones.filter(c => c.caliente === true || c.estado === "cliente_caliente").length;
+      chatDashboard.innerHTML = [
+        metric("Mensajes nuevos", nuevos),
+        metric("Requieren atencion", atencion),
+        metric("Calientes", calientes),
       ].join("");
     }
 
@@ -325,18 +351,71 @@ module.exports = async (req, res) => {
       const prioridad = document.getElementById("filterPrioridad").value;
       const categoria = document.getElementById("filterCategoria").value;
       const caliente = document.getElementById("filterCaliente").value;
+      const operativo = document.getElementById("filterOperativo").value;
       filtered = conversaciones.filter(c => {
         if (estado && (c.estado || "") !== estado) return false;
         if (prioridad && (c.prioridad || "") !== prioridad) return false;
         if (categoria && (c.categoria || "") !== categoria) return false;
         if (caliente && String(c.caliente === true) !== caliente) return false;
+        if (operativo === "nuevo" && !hasNewMessage(c)) return false;
+        if (operativo === "requiere_intervencion" && c.estado !== "requiere_intervencion") return false;
+        if (operativo === "interesados" && c.estado !== "interesado") return false;
+        if (operativo === "calientes" && !(c.caliente === true || c.estado === "cliente_caliente")) return false;
+        if (operativo === "diagnostico_pagado" && c.estado !== "diagnostico_pagado") return false;
         return true;
-      });
+      }).sort(compareLeads);
       renderLeads();
     }
 
+    function priorityRank(c) {
+      if (c.estado === "requiere_intervencion") return 0;
+      if (hasNewMessage(c)) return 1;
+      if (c.caliente === true || c.estado === "cliente_caliente") return 2;
+      if (c.estado === "interesado") return 3;
+      return 4;
+    }
+
+    function compareLeads(a, b) {
+      const rank = priorityRank(a) - priorityRank(b);
+      if (rank !== 0) return rank;
+      return new Date(b.fecha_ultimo_mensaje_real || b.fecha_ultimo_mensaje || 0) - new Date(a.fecha_ultimo_mensaje_real || a.fecha_ultimo_mensaje || 0);
+    }
+
+    function relativeTime(value) {
+      if (!value) return "sin datos";
+      const diff = Date.now() - new Date(value).getTime();
+      if (Number.isNaN(diff)) return "sin datos";
+      const min = Math.max(1, Math.round(diff / 60000));
+      if (min < 60) return "hace " + min + " min";
+      const hrs = Math.round(min / 60);
+      if (hrs < 48) return "hace " + hrs + " h";
+      const days = Math.round(hrs / 24);
+      return "hace " + days + " dias";
+    }
+
+    function lastMessageLabel(c) {
+      const actor = c.direccion_ultimo_mensaje === "entrante" ? "Cliente" : (c.direccion_ultimo_mensaje === "saliente" ? "Nosotros" : "Sin mensajes");
+      return actor + " " + relativeTime(c.fecha_ultimo_mensaje_real || c.fecha_ultimo_mensaje);
+    }
+
     function renderLeads() {
-      leads.innerHTML = filtered.map(c => '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + escapeHtml(label(c)) + '</td><td>' + escapeHtml(c.categoria || '') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td><td>' + escapeHtml(c.score || '') + '</td><td>' + escapeHtml(c.total_fugas || '') + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(fmtDate(c.fecha_ultimo_mensaje)) + '</td></tr>').join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
+      if (currentView === "chat") {
+        leads.innerHTML = filtered.map(c => {
+          const pending = Number(c.mensajes_pendientes || 0);
+          const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
+          const newBadge = hasNewMessage(c) ? ' <span class="badge new">Nuevo mensaje</span>' : '';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="7"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + '</small><br><small>Mensajes: ' + escapeHtml(c.total_mensajes || 0) + ' total · ' + escapeHtml(c.mensajes_entrantes || 0) + ' in · ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small></td></tr>';
+        }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
+        return;
+      }
+      leads.innerHTML = filtered.map(c => {
+        const pending = Number(c.mensajes_pendientes || 0);
+        const newBadge = hasNewMessage(c) ? ' <span class="badge new">Nuevo mensaje</span>' : '';
+        const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
+        const counts = escapeHtml(c.total_mensajes || 0) + ' total<br><small>' + escapeHtml(c.mensajes_entrantes || 0) + ' in / ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small>';
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + name + newBadge + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + counts + '</td><td><strong>Ultimo mensaje:</strong><br>' + escapeHtml(lastMessageLabel(c)) + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td></tr>';
+      }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
     }
 
@@ -538,9 +617,10 @@ module.exports = async (req, res) => {
       document.getElementById("filterPrioridad").value = "";
       document.getElementById("filterCategoria").value = "";
       document.getElementById("filterCaliente").value = "";
+      document.getElementById("filterOperativo").value = "";
       applyFilters();
     });
-    ["filterEstado","filterPrioridad","filterCategoria","filterCaliente"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
+    ["filterEstado","filterPrioridad","filterCategoria","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
 
     document.getElementById("manualForm").addEventListener("submit", async (event) => {
       event.preventDefault();

@@ -56,6 +56,14 @@ const CAMPOS_DEFAULT = {
   etapa_perdida: null,
   ultima_accion_at: null,
   ultimo_recordatorio_at: null,
+  total_mensajes: 0,
+  mensajes_entrantes: 0,
+  mensajes_salientes: 0,
+  fecha_ultimo_mensaje_real: null,
+  direccion_ultimo_mensaje: null,
+  texto_ultimo_mensaje: null,
+  mensajes_pendientes: 0,
+  mensaje_nuevo: false,
 };
 
 function normalizarTelefono(value) {
@@ -236,7 +244,16 @@ function promptLead(lead, mensajes) {
 }
 
 async function conversaciones() {
-  const { data, error } = await supabase.from("conversaciones").select("*").order("fecha_ultimo_mensaje", { ascending: false });
+  let { data, error } = await supabase
+    .from("conversaciones_resumen")
+    .select("*")
+    .order("fecha_ultimo_mensaje_real", { ascending: false });
+  if (error) {
+    console.error("conversaciones_resumen no disponible, usando conversaciones:", error.message);
+    const fallback = await supabase.from("conversaciones").select("*").order("fecha_ultimo_mensaje", { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
   if (error) throw error;
   return { ok: true, conversaciones: (data || []).map((row) => ({ ...CAMPOS_DEFAULT, ...row })) };
 }
