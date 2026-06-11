@@ -43,6 +43,17 @@ Nunca cierres con "�te mando los datos para la transferencia?" salvo que el usua
 Si el usuario muestra intencion clara de compra, puedes pedir nombre, correo y telefono antes de datos de pago.
 Nunca confirmes pago sin comprobante o folio real.
 
+
+MODO A: PROSPECTO NUEVO
+Si no hay contexto de Prospector ON, no asumas giro ni zona. Explica que hace Presencia Digital IA, pregunta primero el giro y despues la zona si falta. No pidas pago en el primer intercambio.
+
+MODO B: PROSPECCION SALIENTE CON CONTEXTO
+Si recibes un bloque llamado CONTEXTO DEL LEAD, significa que el mensaje inicial salio desde CRM ON y ya conocemos el negocio. Si el lead responde algo como "si", "si por favor", "claro", "comparteme", "a ver" o "que encontraste", no preguntes giro ni zona.
+Usa solo fugas_detectadas reales del contexto. No inventes fugas, datos, resenas, fotos, rating ni competencia.
+Si existen fugas_detectadas, resume 3 a 5 oportunidades concretas y explica que el punto importante es saber cuales afectan mas la confianza y que corregir primero.
+Si no existen fugas_detectadas, dilo con honestidad y pregunta si quiere que revisemos su ficha con mas detalle. No inventes informacion.
+Cuando responda positivamente a prospeccion saliente, usa estado=interesado y caliente=false.
+Ejemplo de tono si hay contexto: "Claro. Detecte varias oportunidades en su ficha: tienen calificacion baja, pocas resenas y la ultima resena parece antigua. Tambien vi pocas fotos y resenas sin responder. El punto importante no es solo enlistarlas, sino saber cuales afectan mas la confianza y que corregir primero. Eso lo revisamos en el Diagnostico ON. �Quiere que le explique como funciona?"
 OBJECIONES OBLIGATORIAS
 Si el usuario dice "no entiendo", responde:
 "Claro. Lo explico mas simple: revisamos como se ve tu negocio en Google cuando alguien busca lo que vendes en tu zona. Si tu ficha se ve abandonada, con pocas resenas o sin forma clara de contacto, puedes perder clientes. Nosotros detectamos eso y te decimos que corregir primero."
@@ -189,6 +200,34 @@ function parsearEstado(respuesta) {
 
 // ─── Comandos de Juan Carlos ─────────────────────────────────────────────────
 
+function buildLeadContext(cliente) {
+  if (!cliente) return "";
+  const campos = [
+    "nombre",
+    "categoria",
+    "prioridad",
+    "score",
+    "total_fugas",
+    "fugas_detectadas",
+    "rating",
+    "resenas",
+    "fotos",
+    "ultima_resena",
+    "responde_resenas",
+    "publicaciones",
+    "website",
+    "horarios",
+    "descripcion",
+    "direccion",
+    "maps_url",
+    "estado",
+  ];
+  const lineas = campos
+    .filter((campo) => cliente[campo] !== undefined && cliente[campo] !== null && String(cliente[campo]).trim() !== "")
+    .map((campo) => `${campo}: ${cliente[campo]}`);
+  if (!lineas.length) return "";
+  return `\n\nCONTEXTO DEL LEAD (usar solo datos reales, no inventar):\n${lineas.join("\n")}`;
+}
 async function procesarComandoJC(comando, from) {
   const partes = comando.trim().split(" ");
   const cmd = partes[0].toUpperCase();
@@ -241,6 +280,7 @@ async function procesarComandoJC(comando, from) {
 async function getClaudeResponse(from, userMessage) {
   const cliente = await getCliente(from);
   const historial = cliente?.historial || [];
+  const systemPrompt = SYSTEM_PROMPT + buildLeadContext(cliente);
 
   historial.push({ role: "user", content: userMessage });
   const ventana = historial.slice(-MAX_MENSAJES);
@@ -248,7 +288,7 @@ async function getClaudeResponse(from, userMessage) {
   const message = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 400,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: ventana,
   });
 
@@ -355,7 +395,7 @@ module.exports = async (req, res) => {
             if (!text) continue;
 
             await logMensaje(from, "entrante", text, msg);
-            await saveCliente(from, {});
+            await saveCliente(from, { ultimo_mensaje: text });
 
             const esAdmin = from === JUAN_CARLOS_NUMBER;
 

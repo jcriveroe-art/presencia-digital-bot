@@ -11,7 +11,7 @@ module.exports = async (req, res) => {
     await supabase
       .from("conversaciones")
       .upsert(
-        { telefono, fecha_ultimo_mensaje: new Date().toISOString() },
+        { telefono, ultimo_mensaje: mensaje, fecha_ultimo_mensaje: new Date().toISOString() },
         { onConflict: "telefono" }
       );
     return json(res, 200, { ok: true, whatsapp });
