@@ -251,6 +251,12 @@ function buildLeadContext(cliente) {
   return `CONTEXTO DEL LEAD\n${lineas.length ? lineas.join("\n") : "Sin contexto de lead."}`;
 }
 
+function buildInternalNotes(cliente) {
+  const notas = cliente?.notas ? String(cliente.notas).trim() : "";
+  if (!notas) return "NOTAS INTERNAS\nSin notas internas.";
+  return `NOTAS INTERNAS\n${notas}\n\nEstas notas son solo contexto interno. No las menciones ni las cites al prospecto.`;
+}
+
 function normalizarFugasParaClaude(fugas) {
   if (!fugas) return null;
   return String(fugas)
@@ -279,6 +285,7 @@ function buildSystemPrompt(cliente) {
     "SALES_PLAYBOOK",
     SALES_PLAYBOOK,
     buildLeadContext(cliente),
+    buildInternalNotes(cliente),
     buildCrmState(cliente),
     "ULTIMOS MENSAJES Y MENSAJE ACTUAL se envian separados en el arreglo messages de Claude.",
   ].join("\n\n");

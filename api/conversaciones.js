@@ -29,6 +29,7 @@ const CAMPOS_DEFAULT = {
   maps_url: null,
   ultimo_mensaje: null,
   mensaje_inicial_enviado: false,
+  notas: null,
 };
 
 function normalizarConversacion(row) {

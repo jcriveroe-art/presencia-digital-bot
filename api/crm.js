@@ -19,6 +19,7 @@ module.exports = async (req, res) => {
     button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 6px; min-height: 34px; padding: 0 10px; cursor: pointer; }
     button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     button.danger { color: var(--off); }
+    button:disabled { cursor: not-allowed; opacity: .55; }
     .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
     .dashboard { padding: 12px 16px; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .metric { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 62px; background: #fff; }
@@ -52,6 +53,7 @@ module.exports = async (req, res) => {
     .context-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; font-size: 12px; }
     .context-grid strong { display: block; color: var(--muted); font-size: 11px; }
     .fugas { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.38; }
+    .notes { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.38; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; }
     .messages { min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
     .msg { max-width: min(680px, 84%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
     .msg.saliente { align-self: flex-end; background: #edf7f1; }
@@ -59,7 +61,17 @@ module.exports = async (req, res) => {
     form { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); }
     form textarea { width: 100%; min-height: 54px; max-height: 140px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
     .empty { padding: 18px; color: var(--muted); }
+    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(17, 24, 39, .42); z-index: 20; padding: 18px; }
+    .modal.open { display: flex; }
+    .modal-panel { width: min(920px, 100%); max-height: min(86vh, 820px); display: grid; grid-template-rows: auto 1fr auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 42px rgba(17, 24, 39, .22); }
+    .modal-head, .modal-actions { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); }
+    .modal-actions { border-top: 1px solid var(--line); border-bottom: 0; justify-content: flex-end; }
+    .edit-grid { overflow: auto; padding: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .edit-grid label.wide { grid-column: span 3; }
+    .edit-grid textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+    .edit-status { margin-right: auto; color: var(--muted); font-size: 12px; }
     @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 48vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } }
+    @media (max-width: 760px) { .edit-grid { grid-template-columns: 1fr; } .edit-grid label.wide { grid-column: span 1; } }
   </style>
 </head>
 <body>
@@ -95,6 +107,7 @@ module.exports = async (req, res) => {
         </div>
         <div class="actions">
           <button id="initialBtn" disabled>Enviar mensaje inicial</button>
+          <button id="editBtn" disabled>Editar prospecto</button>
           <button id="pauseBtn" disabled>Pausar IA</button>
           <button id="resumeBtn" disabled>Reanudar IA</button>
           <button id="interestedBtn" disabled>Marcar interesado</button>
@@ -109,6 +122,20 @@ module.exports = async (req, res) => {
         </form>
       </section>
     </main>
+  </div>
+  <div id="editModal" class="modal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+      <div class="modal-head">
+        <h2 id="editTitle">Editar prospecto</h2>
+        <button id="closeEdit" type="button">Cerrar</button>
+      </div>
+      <div id="editForm" class="edit-grid"></div>
+      <div class="modal-actions">
+        <span id="editStatus" class="edit-status"></span>
+        <button id="cancelEdit" type="button">Cancelar</button>
+        <button id="saveEdit" class="primary" type="button">Guardar cambios</button>
+      </div>
+    </div>
   </div>
   <script>
     let conversaciones = [];
@@ -127,7 +154,36 @@ module.exports = async (req, res) => {
     const importStatus = document.getElementById("importStatus");
     const manualText = document.getElementById("manualText");
     const sendManual = document.getElementById("sendManual");
-    const actionIds = ["initialBtn","pauseBtn","resumeBtn","interestedBtn","paidBtn","lostBtn"];
+    const actionIds = ["initialBtn","editBtn","pauseBtn","resumeBtn","interestedBtn","paidBtn","lostBtn"];
+    const editModal = document.getElementById("editModal");
+    const editForm = document.getElementById("editForm");
+    const editStatus = document.getElementById("editStatus");
+    const editableFields = [
+      ["nombre", "Nombre", "input"],
+      ["categoria", "Categoria", "input"],
+      ["prioridad", "Prioridad", "input"],
+      ["score", "Score", "input"],
+      ["total_fugas", "Total fugas", "input"],
+      ["rating", "Rating", "input"],
+      ["resenas", "Resenas", "input"],
+      ["fotos_estimadas", "Fotos estimadas", "input"],
+      ["diagnostico_fotos", "Diagnostico fotos", "textarea"],
+      ["ultima_resena", "Ultima resena", "input"],
+      ["responde_resenas", "Responde resenas", "input"],
+      ["publicaciones", "Publicaciones", "input"],
+      ["website", "Website", "input"],
+      ["horarios", "Horarios", "input"],
+      ["telefono", "Telefono", "input"],
+      ["whatsapp_link", "WhatsApp link", "input"],
+      ["direccion", "Direccion", "textarea"],
+      ["maps_url", "Maps URL", "input"],
+      ["estado", "Estado", "input"],
+      ["caliente", "Caliente", "selectBoolean"],
+      ["bot_enabled", "IA activa", "selectBoolean"],
+      ["descripcion", "Descripcion", "textarea"],
+      ["fugas_detectadas", "Fugas detectadas", "textarea"],
+      ["notas", "Notas internas", "textarea"],
+    ];
 
     function botOn(c) { return c && c.bot_enabled !== false; }
     function label(c) { return c.nombre || c.negocio || c.telefono; }
@@ -204,7 +260,76 @@ module.exports = async (req, res) => {
         ["Responde resenas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
         ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
       ];
-      context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div>';
+      context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div><h2>Notas internas</h2><div class="notes">' + escapeHtml(c.notas || 'Sin notas internas.') + '</div>';
+    }
+
+    function renderEditForm() {
+      if (!selected) return;
+      editForm.innerHTML = editableFields.map(([key, labelText, type]) => {
+        const value = selected[key];
+        const wide = type === "textarea" ? " wide" : "";
+        if (type === "textarea") {
+          return '<label class="' + wide.trim() + '">' + labelText + '<textarea data-field="' + key + '">' + escapeHtml(value || '') + '</textarea></label>';
+        }
+        if (type === "selectBoolean") {
+          return '<label>' + labelText + '<select data-field="' + key + '"><option value="true"' + (value === true || (key === "bot_enabled" && value !== false) ? ' selected' : '') + '>Si</option><option value="false"' + (value === false ? ' selected' : '') + '>No</option></select></label>';
+        }
+        return '<label>' + labelText + '<input data-field="' + key + '" value="' + escapeHtml(value || '') + '" /></label>';
+      }).join("");
+    }
+
+    function openEdit() {
+      if (!selected) return;
+      editStatus.textContent = "";
+      renderEditForm();
+      editModal.classList.add("open");
+      editModal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeEdit() {
+      editModal.classList.remove("open");
+      editModal.setAttribute("aria-hidden", "true");
+    }
+
+    function collectEditUpdates() {
+      const updates = {};
+      editForm.querySelectorAll("[data-field]").forEach(input => {
+        const key = input.dataset.field;
+        if (key === "caliente" || key === "bot_enabled") {
+          updates[key] = input.value === "true";
+        } else {
+          updates[key] = input.value;
+        }
+      });
+      return updates;
+    }
+
+    async function saveEdit() {
+      if (!selected) return;
+      const updates = collectEditUpdates();
+      const telefono = String(updates.telefono || "").replace(/[+\\s\\-()]/g, "").trim();
+      if (!telefono) {
+        editStatus.textContent = "Telefono requerido.";
+        return;
+      }
+      updates.telefono = telefono;
+      editStatus.textContent = "Guardando";
+      document.getElementById("saveEdit").disabled = true;
+      const res = await fetch("/api/lead-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefono_original: selected.telefono, updates })
+      });
+      const data = await res.json();
+      document.getElementById("saveEdit").disabled = false;
+      if (!res.ok || !data.ok) {
+        editStatus.textContent = data.error || "No se pudo guardar.";
+        return;
+      }
+      selected = data.conversacion;
+      closeEdit();
+      await loadConversaciones();
+      await selectLead(selected.telefono);
     }
 
     async function selectLead(telefono) {
@@ -256,9 +381,21 @@ module.exports = async (req, res) => {
 
     document.getElementById("initialBtn").addEventListener("click", async () => {
       if (!selected) return;
-      await fetch("/api/enviar-inicial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono }) });
+      if (!selected.nombre || !String(selected.nombre).trim()) {
+        alert("Agrega nombre antes de enviar mensaje inicial.");
+        return;
+      }
+      const res = await fetch("/api/enviar-inicial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono }) });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "No se pudo enviar el mensaje inicial.");
+      }
       await loadConversaciones();
     });
+    document.getElementById("editBtn").addEventListener("click", openEdit);
+    document.getElementById("closeEdit").addEventListener("click", closeEdit);
+    document.getElementById("cancelEdit").addEventListener("click", closeEdit);
+    document.getElementById("saveEdit").addEventListener("click", saveEdit);
     document.getElementById("pauseBtn").addEventListener("click", () => setBot(false));
     document.getElementById("resumeBtn").addEventListener("click", () => setBot(true));
     document.getElementById("interestedBtn").addEventListener("click", () => setEstado("interesado"));

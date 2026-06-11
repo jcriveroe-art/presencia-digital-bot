@@ -17,8 +17,11 @@ module.exports = async (req, res) => {
     .single();
 
   if (error || !lead) return json(res, 404, { error: "Lead no encontrado" });
+  if (!lead.nombre || !String(lead.nombre).trim()) {
+    return json(res, 400, { error: "nombre requerido para enviar mensaje inicial" });
+  }
 
-  const mensaje = mensajeInicial(lead.nombre || "su negocio");
+  const mensaje = mensajeInicial(lead.nombre);
   try {
     const whatsapp = await sendWhatsApp(telefono, mensaje);
     const now = new Date().toISOString();
