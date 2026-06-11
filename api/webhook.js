@@ -540,8 +540,12 @@ module.exports = async (req, res) => {
 
             if (!text) continue;
 
-            await logMensaje(from, "entrante", text, msg);
-            await logEventoCRM(from, "mensaje_entrante", text, { raw: msg });
+            const inboundGuardado = await logMensaje(from, "entrante", text, msg);
+            if (inboundGuardado) {
+              await logEventoCRM(from, "mensaje_entrante", text, { raw: msg });
+            } else {
+              console.error("No se registro evento mensaje_entrante porque fallo el insert en mensajes", { from });
+            }
             await saveCliente(from, { ultimo_mensaje: text });
 
             const esAdmin = from === JUAN_CARLOS_NUMBER;

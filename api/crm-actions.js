@@ -66,6 +66,22 @@ const CAMPOS_DEFAULT = {
   mensaje_nuevo: false,
 };
 
+function normalizarResumenConversacion(row) {
+  const merged = { ...CAMPOS_DEFAULT, ...(row || {}) };
+  const ultimoEntrante = merged.direccion_ultimo_mensaje === "entrante";
+  const pendientesRaw = merged.mensajes_pendientes;
+  const pendientes = Number(pendientesRaw || 0);
+
+  if (pendientesRaw === null || pendientesRaw === undefined) {
+    merged.mensajes_pendientes = ultimoEntrante ? 1 : 0;
+  } else {
+    merged.mensajes_pendientes = pendientes;
+  }
+
+  merged.mensaje_nuevo = merged.mensaje_nuevo === true || (ultimoEntrante && merged.mensajes_pendientes > 0);
+  return merged;
+}
+
 function normalizarTelefono(value) {
   return String(value || "").replace(/[+\s\-()]/g, "").replace(/\D/g, "").trim();
 }
@@ -255,7 +271,7 @@ async function conversaciones() {
     error = fallback.error;
   }
   if (error) throw error;
-  return { ok: true, conversaciones: (data || []).map((row) => ({ ...CAMPOS_DEFAULT, ...row })) };
+  return { ok: true, conversaciones: (data || []).map(normalizarResumenConversacion) };
 }
 
 async function mensajes(body) {
@@ -515,4 +531,8 @@ module.exports = async (req, res) => {
     console.error("POST /api/crm-actions exception:", e.message);
     return json(res, 500, { ok: false, error: e.message });
   }
+};
+
+module.exports.__test = {
+  normalizarResumenConversacion,
 };

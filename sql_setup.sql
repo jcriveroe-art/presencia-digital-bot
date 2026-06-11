@@ -100,7 +100,7 @@ ultimo AS (
     mensaje AS texto_ultimo_mensaje,
     created_at AS fecha_ultimo_mensaje_real
   FROM mensajes
-  ORDER BY telefono, created_at DESC
+  ORDER BY telefono, created_at DESC, id DESC
 ),
 pendientes AS (
   SELECT
@@ -121,7 +121,10 @@ SELECT
   u.direccion_ultimo_mensaje,
   u.texto_ultimo_mensaje,
   COALESCE(p.mensajes_pendientes, 0) AS mensajes_pendientes,
-  (u.direccion_ultimo_mensaje = 'entrante' AND COALESCE(p.mensajes_pendientes, 0) > 0) AS mensaje_nuevo
+  (
+    u.direccion_ultimo_mensaje = 'entrante'
+    AND COALESCE(p.mensajes_pendientes, 0) > 0
+  ) AS mensaje_nuevo
 FROM conversaciones c
 LEFT JOIN mensaje_stats s ON s.telefono = c.telefono
 LEFT JOIN ultimo u ON u.telefono = c.telefono
