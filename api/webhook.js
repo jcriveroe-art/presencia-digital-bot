@@ -27,7 +27,7 @@ P4 solo si falta informacion importante: si usa WhatsApp Business.
 Si el usuario ya dijo giro y zona, no lo marques caliente. Estado: mini_diagnostico, caliente=false.
 Si pregunta precio, estado: interesado, caliente=false.
 Si pide datos de pago o dice "quiero hacerlo", "si me interesa", "como pago", "mandame datos" o "va", estado: cliente_caliente, caliente=true.
-Si expresa desconfianza, confusion fuerte o pregunta fuera de alcance, intervencion=true y no insistas en pago.
+Si hay confusion fuerte, desconfianza, enojo o pregunta fuera de alcance, marca intervencion=true y no insistas en pago.
 
 ANTES DE OFRECER EL DIAGNOSTICO ON
 Antes de pedir pago, explica en simple:
@@ -51,6 +51,8 @@ No pidas pago en esa respuesta.
 Si el usuario dice "se me hace sospechoso", "no confio" o expresa desconfianza, responde:
 "Entiendo. No tienes que pagar nada si todavia no te queda claro. Primero puedo explicarte el proceso y, si hace sentido, tu decides si avanzas."
 Marca intervencion=true y no pidas pago.
+
+Cuando marques intervencion=true, no escribas frases como "contacta a Juan Carlos", "el te explica", "te paso el telefono", "requiere intervencion", "humano", "admin" ni "pausa". La respuesta visible puede ser breve y neutra, pero el sistema no la enviara al cliente.
 
 Si pregunta si hacemos redes, web o anuncios, responde que no nos especializamos en eso; nos enfocamos en Google Maps y WhatsApp.
 Si dice que ya pago, pide folio o comprobante antes de confirmar cualquier cosa.
@@ -79,7 +81,7 @@ mini_diagnostico = ya dio giro y zona, o estas haciendo preguntas del mini diagn
 interesado = pregunta precio, pregunta que incluye o muestra curiosidad comercial sin pedir pago.
 cliente_caliente = SOLO cuando haya intencion clara de compra o pago.
 caliente=true SOLO en cliente_caliente o cuando dijo que ya pago.
-intervencion=true cuando haya confusion fuerte, desconfianza o pregunta fuera de alcance.
+intervencion=true cuando haya confusion fuerte, desconfianza, enojo o pregunta fuera de alcance.
 
 CONVERSACION DE REFERENCIA
 Usuario: hola
@@ -102,7 +104,7 @@ async function alertarJuanCarlos(tipo, telefono, datos) {
   if (tipo === "caliente") {
     mensaje = `CLIENTE CALIENTE\nNumero: ${telefono}\nNegocio: ${datos.negocio || "sin datos"}\nNombre: ${datos.nombre || "sin datos"}\nSituacion: ${datos.alerta}`;
   } else if (tipo === "intervencion") {
-    mensaje = `INTERVENCION REQUERIDA\nNumero: ${telefono}\nNegocio: ${datos.negocio || "sin datos"}\nNombre: ${datos.nombre || "sin datos"}\nRazon: ${datos.razon_intervencion}`;
+    mensaje = `INTERVENCION REQUERIDA\nNumero: ${telefono}\nNegocio: ${datos.negocio || "sin datos"}\nUltimo mensaje: ${datos.ultimo_mensaje || "sin datos"}\nRazon: ${datos.razon_intervencion || "sin datos"}\nIA pausada. Responder manualmente desde CRM.`;
   } else if (tipo === "resumen") {
     mensaje = datos.texto;
   }
@@ -270,7 +272,11 @@ async function getClaudeResponse(from, userMessage) {
       await alertarJuanCarlos("caliente", from, estado);
     }
     if (estado.intervencion) {
-      await alertarJuanCarlos("intervencion", from, estado);
+      updates.bot_enabled = false;
+      await alertarJuanCarlos("intervencion", from, {
+        ...estado,
+        ultimo_mensaje: userMessage,
+      });
     }
 
     // Programar seguimientos si corresponde
@@ -280,6 +286,7 @@ async function getClaudeResponse(from, userMessage) {
   }
 
   await saveCliente(from, updates);
+  if (estado?.intervencion) return null;
   return texto;
 }
 
@@ -382,7 +389,9 @@ module.exports = async (req, res) => {
             }
 
             const reply = await getClaudeResponse(from, text);
-            await sendMessage(from, reply);
+            if (reply) {
+              await sendMessage(from, reply);
+            }
           }
         }
       }
