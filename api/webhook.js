@@ -377,15 +377,20 @@ function esBot(texto) {
 
 async function superaLimite(telefono) {
   try {
-    const { data } = await supabase
-      .from("conversaciones")
-      .select("historial")
+    const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count, error } = await supabase
+      .from("mensajes")
+      .select("id", { count: "exact", head: true })
       .eq("telefono", telefono)
-      .single();
-    if (!data?.historial) return false;
-    const mensajesUsuario = data.historial.filter(m => m.role === "user");
-    return mensajesUsuario.length >= LIMITE_MENSAJES_POR_HORA;
+      .eq("direccion", "entrante")
+      .gte("created_at", haceUnaHora);
+    if (error) {
+      console.error("Supabase rate limit error:", error.message);
+      return false;
+    }
+    return (count || 0) > LIMITE_MENSAJES_POR_HORA;
   } catch (e) {
+    console.error("Rate limit exception:", e.message);
     return false;
   }
 }
@@ -419,32 +424,34 @@ module.exports = async (req, res) => {
             await logMensaje(from, "entrante", text, msg);
             await saveCliente(from, {});
 
+            const esAdmin = from === JUAN_CARLOS_NUMBER;
+
             // Comandos de Juan Carlos
-            if (from === JUAN_CARLOS_NUMBER) {
+            if (esAdmin) {
               const esComando = await procesarComandoJC(text, from);
               if (esComando) continue;
             }
 
+            const cliente = await getCliente(from);
+            if (cliente?.bot_enabled === false) {
+              console.log(`IA pausada para ${from}`);
+              continue;
+            }
+
             // Ignorar mensajes de bots
-            if (esBot(text)) {
+            if (!esAdmin && esBot(text)) {
               console.log(`Bot detectado, ignorando mensaje de ${from}`);
               continue;
             }
 
             // Cortar si supera limite de mensajes
-            if (await superaLimite(from)) {
+            if (!esAdmin && await superaLimite(from)) {
               console.log(`Rate limit alcanzado para ${from}`);
               await alertarJuanCarlos("intervencion", from, {
                 negocio: null,
                 nombre: null,
                 razon_intervencion: `Posible bot o spam — mas de ${LIMITE_MENSAJES_POR_HORA} mensajes. Revisar manualmente.`,
               });
-              continue;
-            }
-
-            const cliente = await getCliente(from);
-            if (cliente?.bot_enabled === false) {
-              console.log(`IA pausada para ${from}`);
               continue;
             }
 
