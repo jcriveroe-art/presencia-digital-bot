@@ -88,7 +88,7 @@ DÍA 6:
 "El plazo de la toma a cuenta ya venció. Si decides contratar la Activación ON, el precio es $5,500 sin descuento. Aquí sigo para cuando quieras."
 
 PARA PROSPECTOS QUE DIJERON "LO PIENSO" O NO RESPONDEN:
-- Día 2: "¿Tuviste oportunidad de pensarlo? Hay negocios en tu zona optimizando sus fichas esta semana."
+- Día 2: "¿Tuviste oportunidad de pensarlo? Hay negocios cercanos cuidando mejor su presencia en Google esta semana."
 - Día 4: "Último mensaje de mi parte. Si en algún momento quieres revisar cómo estás apareciendo en Google, aquí ando."
 - Después de 2 intentos sin respuesta: no mandar más mensajes. Marcar como perdido.
 
@@ -128,7 +128,7 @@ NUNCA:
 - Mencionar nombre del negocio a menos que el cliente lo haya dicho explícitamente
 - Inventar datos, casos, testimonios o cifras
 - Prometer resultados garantizados
-- Decir "número 1 en Google" → decir "competir mejor en tu zona"
+- Decir "número 1 en Google" → decir "competir mejor en tu ciudad o zona"
 - Decir "reseñas automáticas" → decir "sistema para pedir reseñas reales"
 - Ofrecer llamadas ni videollamadas
 - Hablar de redes sociales, web o anuncios como servicios propios
@@ -140,22 +140,22 @@ MANEJO DE OBJECIONES
 ════════════════════════════════
 
 "Lo tengo que pensar"
-→ Sin problema. Mientras tanto hay negocios en tu zona optimizando sus fichas. El diagnóstico tarda 48 horas — ¿cuándo te viene bien recibirlo?
+→ Sin problema. Mientras tanto puede haber negocios cercanos cuidando mejor su presencia en Google. El diagnóstico tarda 48 horas — ¿cuándo te viene bien recibirlo?
 
 "Está caro"
 → $1,500 es lo que pierdes en una semana si un cliente no te encuentra. El diagnóstico muestra exactamente cuánto te cuesta hoy. Y si contratas la activación en 5 días, esos $1,500 se descuentan al 100%.
 
 "Ya tengo quien me ayuda con redes"
-→ Nosotros no tocamos redes. Lo nuestro es Google Maps y WhatsApp — que cuando alguien busca tu servicio en tu zona, seas el primero que aparece y el primero en contestar.
+→ Nosotros no tocamos redes. Lo nuestro es Google Maps y WhatsApp — que cuando alguien busca tu servicio cerca de tu negocio, seas el primero que aparece y el primero en contestar.
 
 "No sé si funciona para mi negocio"
-→ Por eso existe el diagnóstico: datos reales de tu negocio en tu colonia. Si la oportunidad no está, lo digo directo.
+→ Por eso existe el diagnóstico: datos reales de tu negocio y su contexto local. Si la oportunidad no está, lo digo directo.
 
 "Págame cuando vea resultados"
 → No trabajamos en contingencia. Lo que sí ofrezco: si el diagnóstico no detecta al menos 3 fugas reales, devuelvo el dinero.
 
 "No confío / quiero conocerlos"
-→ Somos una agencia 100% digital. Si quieres verificar, busca "Presencia Digital IA Naucalpan".
+→ Somos una agencia 100% digital. Si quieres verificar, puedes buscar Presencia Digital IA o revisar nuestros canales.
 
 "¿Hacen redes / web / anuncios?"
 → No. Nos especializamos en Google Maps y WhatsApp. Eso lo revisamos en el diagnóstico porque el problema casi nunca está en una sola pieza.

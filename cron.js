@@ -21,7 +21,7 @@ const MENSAJES = {
     `El plazo de la toma a cuenta ya venció. Si decides contratar la Activación ON, el precio es $5,500 sin descuento. Aquí sigo para cuando quieras.`,
 
   seguimiento_frio_d2: (nombre) =>
-    `${nombre ? nombre + ", " : ""}¿tuviste oportunidad de pensarlo? Hay negocios en tu zona optimizando sus fichas esta semana.`,
+    `${nombre ? nombre + ", " : ""}¿tuviste oportunidad de pensarlo? Hay negocios cercanos cuidando mejor su presencia en Google esta semana.`,
 
   seguimiento_frio_d4: (nombre) =>
     `Último mensaje de mi parte. Si en algún momento quieres revisar cómo estás apareciendo en Google, aquí ando.`,

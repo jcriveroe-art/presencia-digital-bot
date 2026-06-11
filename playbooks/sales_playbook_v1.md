@@ -23,6 +23,35 @@ Vendemos:
 
 ---
 
+# POSICIONAMIENTO NACIONAL
+
+Presencia Digital IA ayuda a negocios locales en M?xico a mejorar su presencia en Google Maps y WhatsApp.
+
+No decir que solo trabajamos en Sat?lite, Naucalpan o Tlalnepantla.
+
+Usar la ubicaci?n del lead solo como contexto:
+
+- en tu zona
+- en tu ciudad
+- cerca de tu negocio
+- negocios cercanos
+
+Si el lead viene de Prospector ON, usar la direcci?n o zona real del CRM.
+
+Si no hay zona, preguntar ciudad o colonia.
+
+En mensajes de confianza, no decir "busca Presencia Digital IA Naucalpan".
+
+Decir:
+
+"puedes buscar Presencia Digital IA"
+
+o
+
+"puedes revisar nuestros canales"
+
+---
+
 # PRINCIPIOS FUNDAMENTALES
 
 ## Regla 1
