@@ -8,8 +8,10 @@ const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const JUAN_CARLOS_NUMBER = "5215647943262"; // número de JC para alertas
 
+const BOT_NUMBER = process.env.BOT_NUMBER || process.env.WHATSAPP_NUMBER || process.env.WHATSAPP_BUSINESS_NUMBER || process.env.PHONE_NUMBER || process.env.PHONE_NUMBER_ID || "";
 const MAX_MENSAJES = 30;
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
+const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
 
 const SYSTEM_PROMPT = `Eres el asistente de ventas de Presencia Digital IA por WhatsApp. Tu trabajo es orientar con calma a negocios locales, hacer un mini diagnostico conversacional y avanzar solo cuando exista interes real.
 
@@ -208,6 +210,40 @@ async function alertarMensajeConIAPausada(telefono, cliente, ultimoMensaje) {
   await logEventoCRM(telefono, "mensaje_con_ia_pausada", "Lead escribio con IA pausada", {
     ultimo_mensaje: ultimoMensaje,
   });
+}
+
+async function alertarInboundCRM(telefono, cliente, mensaje) {
+  try {
+    if (!telefono || telefono === JUAN_CARLOS_NUMBER || telefono === BOT_NUMBER) return;
+
+    const ultimaAlerta = cliente?.ultima_alerta_inbound_at ? new Date(cliente.ultima_alerta_inbound_at).getTime() : 0;
+    if (ultimaAlerta && Date.now() - ultimaAlerta < DIEZ_MINUTOS_MS) return;
+
+    const nombreLead = cliente?.nombre || cliente?.negocio || telefono;
+    const estado = cliente?.estado || "nuevo";
+    const alerta = [
+      "🔔 CRM ON",
+      "",
+      `Lead: ${nombreLead}`,
+      "",
+      "Teléfono:",
+      telefono,
+      "",
+      "Mensaje:",
+      `"${mensaje}"`,
+      "",
+      "Estado:",
+      estado,
+      "",
+      "Abrir CRM:",
+      "https://presencia-digital-bot.vercel.app/crm",
+    ].join("\n");
+
+    await sendMessage(JUAN_CARLOS_NUMBER, alerta);
+    await saveCliente(telefono, { ultima_alerta_inbound_at: new Date().toISOString() });
+  } catch (e) {
+    console.error("Error enviando alerta inbound CRM:", e.message);
+  }
 }
 
 async function programarSeguimientos(telefono, tipo) {
@@ -549,6 +585,10 @@ module.exports = async (req, res) => {
             await saveCliente(from, { ultimo_mensaje: text });
 
             const esAdmin = from === JUAN_CARLOS_NUMBER;
+            const cliente = await getCliente(from);
+            if (inboundGuardado && !esAdmin) {
+              await alertarInboundCRM(from, cliente, text);
+            }
 
             // Comandos de Juan Carlos
             if (esAdmin) {
@@ -556,7 +596,6 @@ module.exports = async (req, res) => {
               if (esComando) continue;
             }
 
-            const cliente = await getCliente(from);
             if (cliente?.bot_enabled === false) {
               console.log(`IA pausada para ${from}`);
               await alertarMensajeConIAPausada(from, cliente, text);

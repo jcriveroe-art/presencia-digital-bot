@@ -40,7 +40,8 @@ ADD COLUMN IF NOT EXISTS resultado_conversacion TEXT,
 ADD COLUMN IF NOT EXISTS objecion_principal TEXT,
 ADD COLUMN IF NOT EXISTS etapa_perdida TEXT,
 ADD COLUMN IF NOT EXISTS ultima_accion_at TIMESTAMP WITH TIME ZONE,
-ADD COLUMN IF NOT EXISTS ultimo_recordatorio_at TIMESTAMP WITH TIME ZONE;
+ADD COLUMN IF NOT EXISTS ultimo_recordatorio_at TIMESTAMP WITH TIME ZONE,
+ADD COLUMN IF NOT EXISTS ultima_alerta_inbound_at TIMESTAMP WITH TIME ZONE;
 
 -- Tabla de tareas para Juan Carlos
 CREATE TABLE IF NOT EXISTS tareas (
