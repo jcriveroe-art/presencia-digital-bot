@@ -1,18 +1,10 @@
 const Anthropic = require("@anthropic-ai/sdk");
-const axios = require("axios");
-const { createClient } = require("@supabase/supabase-js");
+const { logMensaje, sendWhatsApp, supabase } = require("./_crm");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const JUAN_CARLOS_NUMBER = "5215647943262"; // número de JC para alertas
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
-);
 
 const MAX_MENSAJES = 30;
 
@@ -175,21 +167,7 @@ CONTEXTO OPERATIVO
 // ─── Helpers WhatsApp ────────────────────────────────────────────────────────
 
 async function sendMessage(to, message) {
-  await axios.post(
-    `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to,
-      type: "text",
-      text: { body: message },
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  return sendWhatsApp(to, message);
 }
 
 async function alertarJuanCarlos(tipo, telefono, datos) {
@@ -299,10 +277,24 @@ async function procesarComandoJC(comando, from) {
     const telefono = partes[1];
     const cliente = await getCliente(telefono);
     if (cliente) {
-      await sendMessage(from, `Estado: ${cliente.estado}\nNombre: ${cliente.nombre || "sin datos"}\nNegocio: ${cliente.negocio || "sin datos"}\nCaliente: ${cliente.caliente ? "SI" : "NO"}\nUltimo mensaje: ${cliente.fecha_ultimo_mensaje}`);
+      await sendMessage(from, `Estado: ${cliente.estado}\nNombre: ${cliente.nombre || "sin datos"}\nNegocio: ${cliente.negocio || "sin datos"}\nCaliente: ${cliente.caliente ? "SI" : "NO"}\nIA: ${cliente.bot_enabled === false ? "OFF" : "ON"}\nUltimo mensaje: ${cliente.fecha_ultimo_mensaje}`);
     } else {
       await sendMessage(from, `No encontre registro para ${telefono}`);
     }
+    return true;
+  }
+
+  if (cmd === "PAUSAR" && partes[1]) {
+    const telefono = partes[1];
+    await saveCliente(telefono, { bot_enabled: false });
+    await sendMessage(from, `IA pausada para ${telefono}. Los mensajes se guardan, pero Claude no respondera.`);
+    return true;
+  }
+
+  if (cmd === "REANUDAR" && partes[1]) {
+    const telefono = partes[1];
+    await saveCliente(telefono, { bot_enabled: true });
+    await sendMessage(from, `IA reanudada para ${telefono}.`);
     return true;
   }
 
@@ -424,6 +416,9 @@ module.exports = async (req, res) => {
 
             if (!text) continue;
 
+            await logMensaje(from, "entrante", text, msg);
+            await saveCliente(from, {});
+
             // Comandos de Juan Carlos
             if (from === JUAN_CARLOS_NUMBER) {
               const esComando = await procesarComandoJC(text, from);
@@ -444,6 +439,12 @@ module.exports = async (req, res) => {
                 nombre: null,
                 razon_intervencion: `Posible bot o spam — mas de ${LIMITE_MENSAJES_POR_HORA} mensajes. Revisar manualmente.`,
               });
+              continue;
+            }
+
+            const cliente = await getCliente(from);
+            if (cliente?.bot_enabled === false) {
+              console.log(`IA pausada para ${from}`);
               continue;
             }
 

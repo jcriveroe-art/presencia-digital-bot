@@ -8,6 +8,7 @@ ADD COLUMN IF NOT EXISTS fecha_ultimo_evento TIMESTAMP WITH TIME ZONE DEFAULT NO
 ADD COLUMN IF NOT EXISTS seguimientos JSONB DEFAULT '[]',
 ADD COLUMN IF NOT EXISTS contador_seguimientos INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS caliente BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS bot_enabled BOOLEAN DEFAULT TRUE,
 ADD COLUMN IF NOT EXISTS notas TEXT;
 
 -- Tabla de tareas para Juan Carlos
@@ -25,3 +26,15 @@ CREATE TABLE IF NOT EXISTS tareas (
 CREATE INDEX IF NOT EXISTS idx_conversaciones_estado ON conversaciones(estado);
 CREATE INDEX IF NOT EXISTS idx_conversaciones_caliente ON conversaciones(caliente);
 CREATE INDEX IF NOT EXISTS idx_tareas_fecha ON tareas(fecha_programada, completada);
+
+-- Tabla de mensajes para CRM ON
+CREATE TABLE IF NOT EXISTS mensajes (
+  id SERIAL PRIMARY KEY,
+  telefono TEXT NOT NULL,
+  direccion TEXT NOT NULL,
+  mensaje TEXT NOT NULL,
+  raw JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_mensajes_telefono_created_at ON mensajes(telefono, created_at);
