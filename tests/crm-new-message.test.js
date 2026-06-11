@@ -6,7 +6,7 @@ process.env.ANTHROPIC_API_KEY = "test";
 
 const { aplicarMetricasMensajes, normalizarResumenConversacion } = require("../api/crm-actions").__test;
 
-const leadConPendiente = normalizarResumenConversacion({
+const leadSinCampana = normalizarResumenConversacion({
   telefono: "525512345678",
   nombre: "Lead prueba",
   direccion_ultimo_mensaje: "entrante",
@@ -14,19 +14,21 @@ const leadConPendiente = normalizarResumenConversacion({
   mensaje_nuevo: false,
 });
 
-assert.strictEqual(leadConPendiente.mensaje_nuevo, true);
-assert.strictEqual(leadConPendiente.mensajes_pendientes, 1);
+assert.strictEqual(leadSinCampana.mensaje_nuevo, false);
+assert.strictEqual(leadSinCampana.interactuo_post_campana, false);
 
-const leadVistaIncompleta = normalizarResumenConversacion({
+const leadVistaConInteraccion = normalizarResumenConversacion({
   telefono: "525512345678",
   nombre: "Lead prueba",
-  direccion_ultimo_mensaje: "entrante",
+  interactuo_post_campana: true,
+  respuestas_post_campana: 1,
   mensajes_pendientes: null,
   mensaje_nuevo: null,
 });
 
-assert.strictEqual(leadVistaIncompleta.mensaje_nuevo, true);
-assert.strictEqual(leadVistaIncompleta.mensajes_pendientes, 1);
+assert.strictEqual(leadVistaConInteraccion.mensaje_nuevo, true);
+assert.strictEqual(leadVistaConInteraccion.interactuo_post_campana, true);
+assert.strictEqual(leadVistaConInteraccion.mensajes_pendientes, 1);
 
 const leadRespondido = normalizarResumenConversacion({
   telefono: "525512345678",
@@ -40,13 +42,13 @@ assert.strictEqual(leadRespondido.mensaje_nuevo, false);
 assert.strictEqual(leadRespondido.mensajes_pendientes, 0);
 
 const [leadCalculado] = aplicarMetricasMensajes(
-  [{ telefono: "525512345678", nombre: "Lead prueba" }],
+  [{ telefono: "525512345678", nombre: "Lead prueba", mensaje_inicial_enviado_at: "2026-06-11T20:00:00.000Z" }],
   [
     {
       id: 1,
       telefono: "525512345678",
       direccion: "saliente",
-      mensaje: "Hola",
+      mensaje: "Mensaje inicial",
       created_at: "2026-06-11T20:00:00.000Z",
     },
     {
@@ -56,13 +58,22 @@ const [leadCalculado] = aplicarMetricasMensajes(
       mensaje: "Si por favor",
       created_at: "2026-06-11T20:05:00.000Z",
     },
+    {
+      id: 3,
+      telefono: "525512345678",
+      direccion: "saliente",
+      mensaje: "Claro, te explico",
+      created_at: "2026-06-11T20:06:00.000Z",
+    },
   ]
 );
 
-assert.strictEqual(leadCalculado.total_mensajes, 2);
+assert.strictEqual(leadCalculado.total_mensajes, 3);
 assert.strictEqual(leadCalculado.mensajes_entrantes, 1);
-assert.strictEqual(leadCalculado.mensajes_salientes, 1);
-assert.strictEqual(leadCalculado.direccion_ultimo_mensaje, "entrante");
+assert.strictEqual(leadCalculado.mensajes_salientes, 2);
+assert.strictEqual(leadCalculado.direccion_ultimo_mensaje, "saliente");
+assert.strictEqual(leadCalculado.respuestas_post_campana, 1);
+assert.strictEqual(leadCalculado.interactuo_post_campana, true);
 assert.strictEqual(leadCalculado.mensajes_pendientes, 1);
 assert.strictEqual(leadCalculado.mensaje_nuevo, true);
 

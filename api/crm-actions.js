@@ -46,6 +46,7 @@ const CAMPOS_DEFAULT = {
   maps_url: null,
   ultimo_mensaje: null,
   mensaje_inicial_enviado: false,
+  mensaje_inicial_enviado_at: null,
   notas: null,
   proxima_accion: null,
   fecha_seguimiento: null,
@@ -64,21 +65,28 @@ const CAMPOS_DEFAULT = {
   texto_ultimo_mensaje: null,
   mensajes_pendientes: 0,
   mensaje_nuevo: false,
+  respuestas_post_campana: 0,
+  fecha_primera_respuesta_post_campana: null,
+  fecha_ultima_respuesta_post_campana: null,
+  interactuo_post_campana: false,
 };
 
 function normalizarResumenConversacion(row) {
   const merged = { ...CAMPOS_DEFAULT, ...(row || {}) };
-  const ultimoEntrante = merged.direccion_ultimo_mensaje === "entrante";
+  const interactuoPostCampana = merged.interactuo_post_campana === true;
   const pendientesRaw = merged.mensajes_pendientes;
   const pendientes = Number(pendientesRaw || 0);
+  const respuestasPostCampana = Number(merged.respuestas_post_campana || 0);
 
   if (pendientesRaw === null || pendientesRaw === undefined) {
-    merged.mensajes_pendientes = ultimoEntrante ? 1 : 0;
+    merged.mensajes_pendientes = respuestasPostCampana;
   } else {
     merged.mensajes_pendientes = pendientes;
   }
 
-  merged.mensaje_nuevo = merged.mensaje_nuevo === true || (ultimoEntrante && merged.mensajes_pendientes > 0);
+  merged.respuestas_post_campana = respuestasPostCampana;
+  merged.interactuo_post_campana = interactuoPostCampana || respuestasPostCampana > 0;
+  merged.mensaje_nuevo = merged.interactuo_post_campana;
   return merged;
 }
 
@@ -127,7 +135,20 @@ function aplicarMetricasMensajes(conversacionesRows, mensajesRows) {
 
   return (conversacionesRows || []).map((row) => {
     const metrics = porTelefono.get(row.telefono) || {};
-    return normalizarResumenConversacion({ ...row, ...metrics });
+    const campanaAt = row.mensaje_inicial_enviado_at ? new Date(row.mensaje_inicial_enviado_at) : null;
+    const respuestasPostCampana = campanaAt
+      ? (mensajesRows || []).filter((msg) => msg.telefono === row.telefono && msg.direccion === "entrante" && new Date(msg.created_at) > campanaAt)
+      : [];
+    const fechasPostCampana = respuestasPostCampana.map((msg) => msg.created_at).sort();
+    return normalizarResumenConversacion({
+      ...row,
+      ...metrics,
+      respuestas_post_campana: respuestasPostCampana.length,
+      fecha_primera_respuesta_post_campana: fechasPostCampana[0] || null,
+      fecha_ultima_respuesta_post_campana: fechasPostCampana[fechasPostCampana.length - 1] || null,
+      interactuo_post_campana: respuestasPostCampana.length > 0,
+      mensajes_pendientes: respuestasPostCampana.length,
+    });
   });
 }
 
@@ -418,7 +439,7 @@ async function enviarInicial(body) {
   const mensaje = mensajeInicial(lead.nombre);
   const whatsapp = await sendWhatsApp(telefono, mensaje);
   const now = new Date().toISOString();
-  await supabase.from("conversaciones").upsert({ telefono, estado: "contactado", bot_enabled: true, ultimo_mensaje: mensaje, fecha_ultimo_mensaje: now, mensaje_inicial_enviado: true }, { onConflict: "telefono" });
+  await supabase.from("conversaciones").upsert({ telefono, estado: "contactado", bot_enabled: true, ultimo_mensaje: mensaje, fecha_ultimo_mensaje: now, mensaje_inicial_enviado: true, mensaje_inicial_enviado_at: now }, { onConflict: "telefono" });
   await logEventoCRM(telefono, "mensaje_inicial_enviado", "Mensaje inicial enviado desde CRM", { mensaje });
   return { ok: true, mensaje, whatsapp };
 }

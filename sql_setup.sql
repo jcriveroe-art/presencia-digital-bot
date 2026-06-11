@@ -30,6 +30,7 @@ ADD COLUMN IF NOT EXISTS direccion TEXT,
 ADD COLUMN IF NOT EXISTS maps_url TEXT,
 ADD COLUMN IF NOT EXISTS ultimo_mensaje TEXT,
 ADD COLUMN IF NOT EXISTS mensaje_inicial_enviado BOOLEAN DEFAULT FALSE,
+ADD COLUMN IF NOT EXISTS mensaje_inicial_enviado_at TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS notas TEXT,
 ADD COLUMN IF NOT EXISTS proxima_accion TEXT,
 ADD COLUMN IF NOT EXISTS fecha_seguimiento TIMESTAMP WITH TIME ZONE,
@@ -111,6 +112,19 @@ pendientes AS (
   WHERE m.direccion = 'entrante'
     AND m.created_at > COALESCE(s.fecha_ultima_respuesta, '1970-01-01'::timestamptz)
   GROUP BY m.telefono
+),
+post_campana AS (
+  SELECT
+    c.telefono,
+    COUNT(m.*)::INTEGER AS respuestas_post_campana,
+    MIN(m.created_at) AS fecha_primera_respuesta_post_campana,
+    MAX(m.created_at) AS fecha_ultima_respuesta_post_campana
+  FROM conversaciones c
+  LEFT JOIN mensajes m ON m.telefono = c.telefono
+    AND m.direccion = 'entrante'
+    AND c.mensaje_inicial_enviado_at IS NOT NULL
+    AND m.created_at > c.mensaje_inicial_enviado_at
+  GROUP BY c.telefono
 )
 SELECT
   c.*,
@@ -121,11 +135,13 @@ SELECT
   u.direccion_ultimo_mensaje,
   u.texto_ultimo_mensaje,
   COALESCE(p.mensajes_pendientes, 0) AS mensajes_pendientes,
-  (
-    u.direccion_ultimo_mensaje = 'entrante'
-    AND COALESCE(p.mensajes_pendientes, 0) > 0
-  ) AS mensaje_nuevo
+  COALESCE(pc.respuestas_post_campana, 0) AS respuestas_post_campana,
+  pc.fecha_primera_respuesta_post_campana,
+  pc.fecha_ultima_respuesta_post_campana,
+  (COALESCE(pc.respuestas_post_campana, 0) > 0) AS interactuo_post_campana,
+  (COALESCE(pc.respuestas_post_campana, 0) > 0) AS mensaje_nuevo
 FROM conversaciones c
 LEFT JOIN mensaje_stats s ON s.telefono = c.telefono
 LEFT JOIN ultimo u ON u.telefono = c.telefono
-LEFT JOIN pendientes p ON p.telefono = c.telefono;
+LEFT JOIN pendientes p ON p.telefono = c.telefono
+LEFT JOIN post_campana pc ON pc.telefono = c.telefono;
