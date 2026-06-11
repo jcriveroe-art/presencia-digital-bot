@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
-const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("./_crm");
+const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("../lib/crm");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

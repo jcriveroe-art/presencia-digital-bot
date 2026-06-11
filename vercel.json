@@ -7,8 +7,12 @@
   ],
   "crons": [
     {
-      "path": "/api/cron",
+      "path": "/api/crm-actions?action=cron_recordatorios",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/crm-actions?action=cron_seguimientos",
+      "schedule": "30 15 * * *"
     }
   ]
 }

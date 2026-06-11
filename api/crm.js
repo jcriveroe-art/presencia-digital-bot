@@ -213,6 +213,14 @@ module.exports = async (req, res) => {
       return fetch(url, opts);
     }
 
+    async function actionFetch(action, payload) {
+      return apiFetch("/api/crm-actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.assign({ action }, payload || {})),
+      });
+    }
+
     function botOn(c) { return c && c.bot_enabled !== false; }
     function label(c) { return c.nombre || c.negocio || c.telefono; }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch])); }
@@ -220,7 +228,7 @@ module.exports = async (req, res) => {
     function uniqueValues(key) { return [...new Set(conversaciones.map(c => c[key]).filter(Boolean))].sort(); }
 
     async function loadConversaciones() {
-      const res = await apiFetch("/api/conversaciones");
+      const res = await actionFetch("conversaciones");
       const data = await res.json();
       conversaciones = data.conversaciones || [];
       fillFilters();
@@ -324,20 +332,16 @@ module.exports = async (req, res) => {
       if (!selected) return;
       const status = document.getElementById("followupStatus");
       status.textContent = "Guardando";
-      const res = await apiFetch("/api/lead-followup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          telefono: selected.telefono,
-          updates: {
-            proxima_accion: document.getElementById("opAccion").value,
-            fecha_seguimiento: fromLocalInput(document.getElementById("opFecha").value),
-            motivo_seguimiento: document.getElementById("opMotivo").value,
-            seguimiento_activo: document.getElementById("opActivo").value === "true",
-            objecion_principal: document.getElementById("opObjecion").value,
-            resultado_conversacion: document.getElementById("opResultado").value,
-          }
-        })
+      const res = await actionFetch("lead_followup", {
+        telefono: selected.telefono,
+        updates: {
+          proxima_accion: document.getElementById("opAccion").value,
+          fecha_seguimiento: fromLocalInput(document.getElementById("opFecha").value),
+          motivo_seguimiento: document.getElementById("opMotivo").value,
+          seguimiento_activo: document.getElementById("opActivo").value === "true",
+          objecion_principal: document.getElementById("opObjecion").value,
+          resultado_conversacion: document.getElementById("opResultado").value,
+        }
       });
       const data = await res.json();
       status.textContent = res.ok && data.ok ? "Guardado" : (data.error || "Error");
@@ -349,7 +353,7 @@ module.exports = async (req, res) => {
 
     async function loadTimeline(telefono) {
       const wrap = document.getElementById("timeline");
-      const res = await apiFetch("/api/eventos-crm?telefono=" + encodeURIComponent(telefono));
+      const res = await actionFetch("eventos_crm", { telefono });
       const data = await res.json();
       const eventos = data.eventos || [];
       wrap.innerHTML = eventos.map(e => '<div class="event"><strong>' + escapeHtml(e.tipo) + '</strong><div>' + escapeHtml(e.descripcion || '') + '</div><small>' + fmtDate(e.created_at) + '</small></div>').join("") || '<span class="badge">Sin eventos registrados.</span>';
@@ -407,11 +411,7 @@ module.exports = async (req, res) => {
       updates.telefono = telefono;
       editStatus.textContent = "Guardando";
       document.getElementById("saveEdit").disabled = true;
-      const res = await apiFetch("/api/lead-update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telefono_original: selected.telefono, updates })
-      });
+      const res = await actionFetch("lead_update", { telefono_original: selected.telefono, updates });
       const data = await res.json();
       document.getElementById("saveEdit").disabled = false;
       if (!res.ok || !data.ok) {
@@ -437,7 +437,7 @@ module.exports = async (req, res) => {
       manualText.disabled = false;
       sendManual.disabled = false;
       renderContext(selected);
-      const res = await fetch("/api/mensajes?telefono=" + encodeURIComponent(telefono));
+      const res = await actionFetch("mensajes", { telefono });
       const data = await res.json();
       const items = data.mensajes || [];
       messages.innerHTML = items.map(m => '<div class="msg ' + m.direccion + '">' + escapeHtml(m.mensaje) + '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small></div>').join("") || '<div class="empty">Sin mensajes guardados.</div>';
@@ -446,13 +446,13 @@ module.exports = async (req, res) => {
 
     async function setBot(value) {
       if (!selected) return;
-      await apiFetch("/api/bot-enabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, bot_enabled: value }) });
+      await actionFetch("bot_enabled", { telefono: selected.telefono, bot_enabled: value });
       await loadConversaciones();
     }
 
     async function setEstado(estado) {
       if (!selected) return;
-      await apiFetch("/api/lead-estado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, estado }) });
+      await actionFetch("lead_estado", { telefono: selected.telefono, estado });
       await loadConversaciones();
     }
 
@@ -465,7 +465,7 @@ module.exports = async (req, res) => {
       const contenido = importText.value.trim();
       if (!contenido) return;
       importStatus.textContent = "Importando";
-      const res = await apiFetch("/api/importar-prospector", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contenido }) });
+      const res = await actionFetch("importar_prospector", { contenido });
       const data = await res.json();
       importStatus.textContent = res.ok ? "Importados: " + data.importados : "Error";
       if (res.ok) { importText.value = ""; await loadConversaciones(); }
@@ -477,7 +477,7 @@ module.exports = async (req, res) => {
         alert("Agrega nombre antes de enviar mensaje inicial.");
         return;
       }
-      const res = await apiFetch("/api/enviar-inicial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono }) });
+      const res = await actionFetch("enviar_inicial", { telefono: selected.telefono });
       if (!res.ok) {
         const data = await res.json();
         alert(data.error || "No se pudo enviar el mensaje inicial.");
@@ -508,7 +508,7 @@ module.exports = async (req, res) => {
       const mensaje = manualText.value.trim();
       if (!selected || !mensaje) return;
       sendManual.disabled = true;
-      await apiFetch("/api/enviar-manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, mensaje }) });
+      await actionFetch("enviar_manual", { telefono: selected.telefono, mensaje });
       manualText.value = "";
       sendManual.disabled = false;
       await loadConversaciones();
