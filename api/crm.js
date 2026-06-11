@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
     :root { color-scheme: light; --line:#d8dee8; --ink:#17202a; --muted:#657386; --bg:#f6f8fb; --panel:#fff; --on:#137a4d; --off:#9b2c2c; --accent:#1358a8; --hot:#8a4b00; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--ink); }
-    header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    header { height: 56px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
     h1 { font-size: 18px; margin: 0; }
     h2 { font-size: 14px; margin: 0; }
     button, textarea, input, select { font: inherit; }
@@ -20,6 +20,9 @@ module.exports = async (req, res) => {
     button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     button.danger { color: var(--off); }
     button:disabled { cursor: not-allowed; opacity: .55; }
+    .top-nav { display: flex; gap: 6px; align-items: center; justify-content: center; }
+    .top-nav button { min-height: 32px; }
+    .top-nav button.active { background: var(--ink); border-color: var(--ink); color: #fff; }
     .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto auto 1fr; min-height: 0; }
     .dashboard { padding: 12px 16px; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .metric { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 62px; background: #fff; }
@@ -79,16 +82,41 @@ module.exports = async (req, res) => {
     .edit-grid label.wide { grid-column: span 3; }
     .edit-grid textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     .edit-status { margin-right: auto; color: var(--muted); font-size: 12px; }
-    @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 48vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } }
+    .page.view-chat { grid-template-rows: 1fr; }
+    .page.view-chat .dashboard, .page.view-chat .attention { display: none; }
+    .page.view-chat main { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
+    .page.view-chat .left { grid-template-rows: auto 1fr; }
+    .page.view-chat .left .import { display: none; }
+    .page.view-chat .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .page.view-chat .filters button { grid-column: span 2; }
+    .page.view-chat .detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); grid-template-rows: auto auto 1fr auto; min-width: 0; min-height: 0; }
+    .page.view-chat .detail-head { grid-column: 2; grid-row: 1; }
+    .page.view-chat .actions { grid-column: 2; grid-row: 2; justify-content: flex-start; }
+    .page.view-chat .context { grid-column: 2; grid-row: 3 / 5; max-height: none; border-bottom: 0; border-left: 1px solid var(--line); }
+    .page.view-chat .messages { grid-column: 1; grid-row: 1 / 4; }
+    .page.view-chat form { grid-column: 1; grid-row: 4; position: sticky; bottom: 0; z-index: 2; }
+    .page.view-leads .dashboard, .page.view-leads .attention { display: none; }
+    .page.view-leads main { grid-template-columns: 1fr; }
+    .page.view-leads .detail { display: none; }
+    .page.view-dashboard main { display: none; }
+    .page.view-dashboard .attention { display: none; }
+    .page.view-seguimiento .dashboard { display: none; }
+    @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
     @media (max-width: 760px) { .edit-grid { grid-template-columns: 1fr; } .edit-grid label.wide { grid-column: span 1; } }
   </style>
 </head>
 <body>
   <header>
     <h1>CRM ON</h1>
+    <nav class="top-nav" aria-label="Navegacion principal">
+      <button class="nav-btn active" data-view="chat">Chat</button>
+      <button class="nav-btn" data-view="seguimiento">Seguimiento</button>
+      <button class="nav-btn" data-view="leads">Leads</button>
+      <button class="nav-btn" data-view="dashboard">Dashboard</button>
+    </nav>
     <button id="refresh">Actualizar</button>
   </header>
-  <div class="page">
+  <div id="page" class="page view-chat">
     <div id="dashboard" class="dashboard"></div>
     <div id="attention" class="attention"></div>
     <main>
@@ -151,7 +179,9 @@ module.exports = async (req, res) => {
     let conversaciones = [];
     let filtered = [];
     let selected = null;
+    let currentView = "chat";
     const estadosBase = ["prospectado","contactado","interesado","cliente_caliente","diagnostico_pagado","diagnostico_entregado","seguimiento","perdido","nuevo","mini_diagnostico"];
+    const page = document.getElementById("page");
     const leads = document.getElementById("leads");
     const dashboard = document.getElementById("dashboard");
     const messages = document.getElementById("messages");
@@ -226,6 +256,14 @@ module.exports = async (req, res) => {
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch])); }
     function fmtDate(value) { return value ? new Date(value).toLocaleString() : "sin datos"; }
     function uniqueValues(key) { return [...new Set(conversaciones.map(c => c[key]).filter(Boolean))].sort(); }
+
+    function setView(view) {
+      currentView = view;
+      page.className = "page view-" + view;
+      document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+      if (view === "seguimiento") renderAttention();
+      if (view === "dashboard") renderDashboard();
+    }
 
     async function loadConversaciones() {
       const res = await actionFetch("conversaciones");
@@ -494,6 +532,7 @@ module.exports = async (req, res) => {
     document.getElementById("lostBtn").addEventListener("click", () => setEstado("perdido"));
     document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
+    document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
     document.getElementById("clearFilters").addEventListener("click", () => {
       document.getElementById("filterEstado").value = "";
       document.getElementById("filterPrioridad").value = "";
