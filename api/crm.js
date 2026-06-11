@@ -9,48 +9,57 @@ module.exports = async (req, res) => {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CRM ON</title>
   <style>
-    :root { color-scheme: light; --line:#d8dee8; --ink:#17202a; --muted:#657386; --bg:#f6f8fb; --panel:#ffffff; --on:#137a4d; --off:#9b2c2c; --accent:#1358a8; }
+    :root { color-scheme: light; --line:#d8dee8; --ink:#17202a; --muted:#657386; --bg:#f6f8fb; --panel:#fff; --on:#137a4d; --off:#9b2c2c; --accent:#1358a8; --hot:#8a4b00; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--ink); }
     header { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
     h1 { font-size: 18px; margin: 0; }
-    button, textarea, input { font: inherit; }
-    button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 6px; min-height: 36px; padding: 0 12px; cursor: pointer; }
+    h2 { font-size: 14px; margin: 0; }
+    button, textarea, input, select { font: inherit; }
+    button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 6px; min-height: 34px; padding: 0 10px; cursor: pointer; }
     button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-    main { display: grid; grid-template-columns: minmax(360px, 46vw) 1fr; height: calc(100vh - 56px); }
-    aside { border-right: 1px solid var(--line); background: var(--panel); overflow: auto; display: grid; grid-template-rows: auto auto 1fr; min-width: 0; }
-    .import { padding: 14px; border-bottom: 1px solid var(--line); display: grid; gap: 10px; }
-    .import h2 { font-size: 14px; margin: 0; }
-    .import textarea { width: 100%; min-height: 86px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
-    .import-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .table-wrap { overflow: auto; }
+    button.danger { color: var(--off); }
+    .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+    .dashboard { padding: 12px 16px; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .metric { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 62px; background: #fff; }
+    .metric strong { display: block; font-size: 22px; line-height: 1; }
+    .metric span { display: block; color: var(--muted); font-size: 12px; margin-top: 6px; }
+    main { min-height: 0; display: grid; grid-template-columns: minmax(520px, 58vw) 1fr; }
+    .left { min-width: 0; display: grid; grid-template-rows: auto auto 1fr; border-right: 1px solid var(--line); background: var(--panel); }
+    .import { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+    .import textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+    .import-row { display: grid; gap: 8px; }
+    .filters { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
+    label { color: var(--muted); font-size: 11px; display: grid; gap: 4px; }
+    select, input { border: 1px solid var(--line); border-radius: 6px; min-height: 34px; padding: 0 8px; background: #fff; min-width: 0; }
+    .table-wrap { overflow: auto; min-height: 0; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
     th { position: sticky; top: 0; background: #f3f6fa; z-index: 1; color: var(--muted); font-weight: 700; }
     tr { cursor: pointer; }
     tr.active { background: #edf4ff; }
-    .toolbar { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-    section { display: grid; grid-template-rows: auto auto 1fr auto; min-width: 0; }
+    .badge { border-radius: 999px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; min-height: 24px; }
+    .badge.on { color: var(--on); }
+    .badge.off { color: var(--off); }
+    .badge.hot { color: var(--hot); }
+    .detail { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto auto 1fr auto; background: var(--bg); }
     .detail-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .identity { min-width: 0; }
     .identity strong { display: block; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .identity span { color: var(--muted); font-size: 12px; }
-    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-    .badge { border-radius: 999px; padding: 5px 9px; font-size: 12px; border: 1px solid var(--line); }
-    .badge.on { color: var(--on); }
-    .badge.off { color: var(--off); }
-    .lead-context { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 8px; max-height: 210px; overflow: auto; }
+    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .context { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 10px; max-height: 250px; overflow: auto; }
     .context-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; font-size: 12px; }
     .context-grid strong { display: block; color: var(--muted); font-size: 11px; }
     .fugas { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.38; }
-    .messages { overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
-    .msg { max-width: min(680px, 82%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .messages { min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: min(680px, 84%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
     .msg.saliente { align-self: flex-end; background: #edf7f1; }
     .msg small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
-    form { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); background: var(--panel); }
-    form textarea { width: 100%; min-height: 58px; max-height: 150px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
-    .empty { padding: 24px; color: var(--muted); }
-    @media (max-width: 900px) { main { grid-template-columns: 1fr; grid-template-rows: 48vh 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
+    form { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); }
+    form textarea { width: 100%; min-height: 54px; max-height: 140px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+    .empty { padding: 18px; color: var(--muted); }
+    @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 48vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } }
   </style>
 </head>
 <body>
@@ -58,100 +67,181 @@ module.exports = async (req, res) => {
     <h1>CRM ON</h1>
     <button id="refresh">Actualizar</button>
   </header>
-  <main>
-    <aside>
-      <div class="import">
-        <h2>Importar Prospector ON</h2>
-        <input id="fileInput" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
-        <textarea id="importText" placeholder="Pega filas CSV o TSV de Prospector ON"></textarea>
-        <div class="import-actions"><button class="primary" id="importBtn">Importar</button><span id="importStatus" class="badge">Listo</span></div>
-      </div>
-      <div class="toolbar"><strong>Leads</strong><span id="count" class="badge">0</span></div>
-      <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Prioridad</th><th>Score</th><th>Total Fugas</th><th>Telefono</th><th>Estado</th></tr></thead><tbody id="leads"></tbody></table></div>
-    </aside>
-    <section>
-      <div class="detail-head">
-        <div class="identity"><strong id="title">Selecciona un lead</strong><span id="subtitle"></span></div>
-        <div class="actions"><span id="botBadge" class="badge">IA</span><button id="initialBtn" disabled>Enviar mensaje inicial</button><button id="toggleBot" disabled>IA ON/OFF</button></div>
-      </div>
-      <div id="context" class="lead-context"><div class="empty">Sin lead seleccionado.</div></div>
-      <div id="messages" class="messages"><div class="empty">Sin conversacion seleccionada.</div></div>
-      <form id="manualForm">
-        <textarea id="manualText" placeholder="Responder por WhatsApp" disabled></textarea>
-        <button class="primary" id="sendManual" disabled>Enviar</button>
-      </form>
-    </section>
-  </main>
+  <div class="page">
+    <div id="dashboard" class="dashboard"></div>
+    <main>
+      <section class="left">
+        <div class="import">
+          <div class="import-row">
+            <h2>Importar Prospector ON</h2>
+            <input id="fileInput" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
+            <textarea id="importText" placeholder="Pega filas CSV o TSV de Prospector ON"></textarea>
+          </div>
+          <div class="import-row"><button class="primary" id="importBtn">Importar</button><span id="importStatus" class="badge">Listo</span></div>
+        </div>
+        <div class="filters">
+          <label>Estado<select id="filterEstado"><option value="">Todos</option></select></label>
+          <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
+          <label>Categoria<select id="filterCategoria"><option value="">Todas</option></select></label>
+          <label>Caliente<select id="filterCaliente"><option value="">Todos</option><option value="true">Si</option><option value="false">No</option></select></label>
+          <button id="clearFilters">Limpiar</button>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Categoria</th><th>Prioridad</th><th>Score</th><th>Total fugas</th><th>Telefono</th><th>Estado</th><th>IA</th><th>Ultima actividad</th></tr></thead><tbody id="leads"></tbody></table></div>
+      </section>
+      <section class="detail">
+        <div class="detail-head">
+          <div class="identity"><strong id="title">Selecciona un lead</strong><span id="subtitle"></span></div>
+          <div><span id="botBadge" class="badge">IA</span> <span id="hotBadge" class="badge">Lead</span></div>
+        </div>
+        <div class="actions">
+          <button id="initialBtn" disabled>Enviar mensaje inicial</button>
+          <button id="pauseBtn" disabled>Pausar IA</button>
+          <button id="resumeBtn" disabled>Reanudar IA</button>
+          <button id="interestedBtn" disabled>Marcar interesado</button>
+          <button id="paidBtn" disabled>Marcar diagnostico pagado</button>
+          <button class="danger" id="lostBtn" disabled>Marcar perdido</button>
+        </div>
+        <div id="context" class="context"><div class="empty">Sin lead seleccionado.</div></div>
+        <div id="messages" class="messages"><div class="empty">Sin conversacion seleccionada.</div></div>
+        <form id="manualForm">
+          <textarea id="manualText" placeholder="Responder por WhatsApp" disabled></textarea>
+          <button class="primary" id="sendManual" disabled>Enviar</button>
+        </form>
+      </section>
+    </main>
+  </div>
   <script>
     let conversaciones = [];
+    let filtered = [];
     let selected = null;
+    const estadosBase = ["prospectado","contactado","interesado","cliente_caliente","diagnostico_pagado","diagnostico_entregado","seguimiento","perdido","nuevo","mini_diagnostico"];
     const leads = document.getElementById("leads");
+    const dashboard = document.getElementById("dashboard");
     const messages = document.getElementById("messages");
     const title = document.getElementById("title");
     const subtitle = document.getElementById("subtitle");
     const botBadge = document.getElementById("botBadge");
-    const toggleBot = document.getElementById("toggleBot");
-    const initialBtn = document.getElementById("initialBtn");
-    const manualText = document.getElementById("manualText");
-    const sendManual = document.getElementById("sendManual");
+    const hotBadge = document.getElementById("hotBadge");
     const context = document.getElementById("context");
     const importText = document.getElementById("importText");
     const importStatus = document.getElementById("importStatus");
+    const manualText = document.getElementById("manualText");
+    const sendManual = document.getElementById("sendManual");
+    const actionIds = ["initialBtn","pauseBtn","resumeBtn","interestedBtn","paidBtn","lostBtn"];
 
     function botOn(c) { return c && c.bot_enabled !== false; }
     function label(c) { return c.nombre || c.negocio || c.telefono; }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch])); }
+    function fmtDate(value) { return value ? new Date(value).toLocaleString() : "sin datos"; }
+    function uniqueValues(key) { return [...new Set(conversaciones.map(c => c[key]).filter(Boolean))].sort(); }
 
     async function loadConversaciones() {
       const res = await fetch("/api/conversaciones");
       const data = await res.json();
       conversaciones = data.conversaciones || [];
-      document.getElementById("count").textContent = conversaciones.length;
-      renderLeads();
+      fillFilters();
+      applyFilters();
+      renderDashboard();
       if (selected) {
-        selected = conversaciones.find(c => c.telefono === selected.telefono) || selected;
-        await selectLead(selected.telefono);
+        selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
+        if (selected) await selectLead(selected.telefono);
       }
     }
 
+    function metric(label, value) { return '<div class="metric"><strong>' + value + '</strong><span>' + label + '</span></div>'; }
+    function renderDashboard() {
+      const count = (fn) => conversaciones.filter(fn).length;
+      dashboard.innerHTML = [
+        metric("Total leads", conversaciones.length),
+        metric("Prospectados", count(c => (c.estado || "") === "prospectado")),
+        metric("Contactados", count(c => (c.estado || "") === "contactado")),
+        metric("Interesados", count(c => (c.estado || "") === "interesado")),
+        metric("Clientes calientes", count(c => c.caliente === true || c.estado === "cliente_caliente")),
+        metric("Diagnostico pagado", count(c => (c.estado || "") === "diagnostico_pagado")),
+        metric("Perdidos", count(c => (c.estado || "") === "perdido")),
+      ].join("");
+    }
+
+    function fillSelect(id, values, firstLabel) {
+      const select = document.getElementById(id);
+      const current = select.value;
+      select.innerHTML = '<option value="">' + firstLabel + '</option>' + values.map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>').join("");
+      select.value = current;
+    }
+
+    function fillFilters() {
+      fillSelect("filterEstado", [...new Set([...estadosBase, ...uniqueValues("estado")])].filter(Boolean), "Todos");
+      fillSelect("filterPrioridad", uniqueValues("prioridad"), "Todas");
+      fillSelect("filterCategoria", uniqueValues("categoria"), "Todas");
+    }
+
+    function applyFilters() {
+      const estado = document.getElementById("filterEstado").value;
+      const prioridad = document.getElementById("filterPrioridad").value;
+      const categoria = document.getElementById("filterCategoria").value;
+      const caliente = document.getElementById("filterCaliente").value;
+      filtered = conversaciones.filter(c => {
+        if (estado && (c.estado || "") !== estado) return false;
+        if (prioridad && (c.prioridad || "") !== prioridad) return false;
+        if (categoria && (c.categoria || "") !== categoria) return false;
+        if (caliente && String(c.caliente === true) !== caliente) return false;
+        return true;
+      });
+      renderLeads();
+    }
+
     function renderLeads() {
-      leads.innerHTML = conversaciones.map(c => '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + c.telefono + '"><td>' + escapeHtml(label(c)) + '</td><td>' + escapeHtml(c.categoria || '') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td><td>' + escapeHtml(c.score || '') + '</td><td>' + escapeHtml(c.total_fugas || '') + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td></tr>').join("") || '<tr><td colspan="7">Sin conversaciones.</td></tr>';
+      leads.innerHTML = filtered.map(c => '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + escapeHtml(label(c)) + '</td><td>' + escapeHtml(c.categoria || '') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td><td>' + escapeHtml(c.score || '') + '</td><td>' + escapeHtml(c.total_fugas || '') + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(fmtDate(c.fecha_ultimo_mensaje)) + '</td></tr>').join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
     }
 
     function renderContext(c) {
       if (!c) { context.innerHTML = '<div class="empty">Sin lead seleccionado.</div>'; return; }
-      const fields = [
-        ["Rating", c.rating], ["Reseñas", c.resenas], ["Fotos", c.fotos], ["Ultima reseña", c.ultima_resena],
-        ["Responde reseñas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
+      const negocio = [
+        ["Nombre", label(c)], ["Categoria", c.categoria], ["Prioridad", c.prioridad], ["Score", c.score],
+        ["Total fugas", c.total_fugas], ["Telefono", c.telefono], ["Estado", c.estado], ["Ultimo mensaje", c.ultimo_mensaje],
+        ["Rating", c.rating], ["Resenas", c.resenas], ["Fotos", c.fotos], ["Ultima resena", c.ultima_resena],
+        ["Responde resenas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
         ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
       ];
-      context.innerHTML = '<div><strong>Fugas detectadas</strong><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div></div><div class="context-grid">' + fields.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div>';
+      context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div>';
     }
 
     async function selectLead(telefono) {
       selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
       renderLeads();
       title.textContent = label(selected);
-      subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo");
+      subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo") + " | " + fmtDate(selected.fecha_ultimo_mensaje);
       botBadge.textContent = botOn(selected) ? "IA ON" : "IA OFF";
       botBadge.className = "badge " + (botOn(selected) ? "on" : "off");
-      toggleBot.disabled = false;
-      initialBtn.disabled = false;
+      hotBadge.textContent = selected.caliente ? "Caliente" : "Lead";
+      hotBadge.className = "badge " + (selected.caliente ? "hot" : "");
+      actionIds.forEach(id => document.getElementById(id).disabled = false);
       manualText.disabled = false;
       sendManual.disabled = false;
       renderContext(selected);
       const res = await fetch("/api/mensajes?telefono=" + encodeURIComponent(telefono));
       const data = await res.json();
       const items = data.mensajes || [];
-      messages.innerHTML = items.map(m => '<div class="msg ' + m.direccion + '">' + escapeHtml(m.mensaje) + '<small>' + m.direccion + ' | ' + new Date(m.created_at).toLocaleString() + '</small></div>').join("") || '<div class="empty">Sin mensajes guardados.</div>';
+      messages.innerHTML = items.map(m => '<div class="msg ' + m.direccion + '">' + escapeHtml(m.mensaje) + '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small></div>').join("") || '<div class="empty">Sin mensajes guardados.</div>';
       messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function setBot(value) {
+      if (!selected) return;
+      await fetch("/api/bot-enabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, bot_enabled: value }) });
+      await loadConversaciones();
+    }
+
+    async function setEstado(estado) {
+      if (!selected) return;
+      await fetch("/api/lead-estado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, estado }) });
+      await loadConversaciones();
     }
 
     document.getElementById("fileInput").addEventListener("change", async (event) => {
       const file = event.target.files[0];
-      if (!file) return;
-      importText.value = await file.text();
+      if (file) importText.value = await file.text();
     });
 
     document.getElementById("importBtn").addEventListener("click", async () => {
@@ -164,19 +254,25 @@ module.exports = async (req, res) => {
       if (res.ok) { importText.value = ""; await loadConversaciones(); }
     });
 
-    toggleBot.addEventListener("click", async () => {
+    document.getElementById("initialBtn").addEventListener("click", async () => {
       if (!selected) return;
-      await fetch("/api/bot-enabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, bot_enabled: !botOn(selected) }) });
-      await loadConversaciones();
-    });
-
-    initialBtn.addEventListener("click", async () => {
-      if (!selected) return;
-      initialBtn.disabled = true;
       await fetch("/api/enviar-inicial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono }) });
-      initialBtn.disabled = false;
       await loadConversaciones();
     });
+    document.getElementById("pauseBtn").addEventListener("click", () => setBot(false));
+    document.getElementById("resumeBtn").addEventListener("click", () => setBot(true));
+    document.getElementById("interestedBtn").addEventListener("click", () => setEstado("interesado"));
+    document.getElementById("lostBtn").addEventListener("click", () => setEstado("perdido"));
+    document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
+    document.getElementById("refresh").addEventListener("click", loadConversaciones);
+    document.getElementById("clearFilters").addEventListener("click", () => {
+      document.getElementById("filterEstado").value = "";
+      document.getElementById("filterPrioridad").value = "";
+      document.getElementById("filterCategoria").value = "";
+      document.getElementById("filterCaliente").value = "";
+      applyFilters();
+    });
+    ["filterEstado","filterPrioridad","filterCategoria","filterCaliente"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
 
     document.getElementById("manualForm").addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -186,10 +282,9 @@ module.exports = async (req, res) => {
       await fetch("/api/enviar-manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, mensaje }) });
       manualText.value = "";
       sendManual.disabled = false;
-      await selectLead(selected.telefono);
+      await loadConversaciones();
     });
 
-    document.getElementById("refresh").addEventListener("click", loadConversaciones);
     loadConversaciones();
   </script>
 </body>
