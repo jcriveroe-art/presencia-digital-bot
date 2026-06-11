@@ -365,6 +365,39 @@ async function getClaudeResponse(from, userMessage) {
   return texto;
 }
 
+// ─── Deteccion de bots y rate limiting ──────────────────────────────────────
+
+const LIMITE_MENSAJES_POR_HORA = 10;
+
+const PATRONES_BOT = [
+  /^(hola|hi|hello|hey),?\s*(soy|i am|im)\s+un?\s*(bot|asistente|assistant)/i,
+  /este\s+es\s+un\s+mensaje\s+autom/i,
+  /out\s+of\s+office/i,
+  /respuesta\s+autom/i,
+  /mensaje\s+autom/i,
+  /auto.?reply/i,
+  /autoresponder/i,
+];
+
+function esBot(texto) {
+  return PATRONES_BOT.some(patron => patron.test(texto));
+}
+
+async function superaLimite(telefono) {
+  try {
+    const { data } = await supabase
+      .from("conversaciones")
+      .select("historial")
+      .eq("telefono", telefono)
+      .single();
+    if (!data?.historial) return false;
+    const mensajesUsuario = data.historial.filter(m => m.role === "user");
+    return mensajesUsuario.length >= LIMITE_MENSAJES_POR_HORA;
+  } catch (e) {
+    return false;
+  }
+}
+
 // ─── Handler principal ───────────────────────────────────────────────────────
 
 module.exports = async (req, res) => {
@@ -395,6 +428,23 @@ module.exports = async (req, res) => {
             if (from === JUAN_CARLOS_NUMBER) {
               const esComando = await procesarComandoJC(text, from);
               if (esComando) continue;
+            }
+
+            // Ignorar mensajes de bots
+            if (esBot(text)) {
+              console.log(`Bot detectado, ignorando mensaje de ${from}`);
+              continue;
+            }
+
+            // Cortar si supera limite de mensajes
+            if (await superaLimite(from)) {
+              console.log(`Rate limit alcanzado para ${from}`);
+              await alertarJuanCarlos("intervencion", from, {
+                negocio: null,
+                nombre: null,
+                razon_intervencion: `Posible bot o spam — mas de ${LIMITE_MENSAJES_POR_HORA} mensajes. Revisar manualmente.`,
+              });
+              continue;
             }
 
             const reply = await getClaudeResponse(from, text);
