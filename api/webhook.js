@@ -16,7 +16,7 @@ Presencia Digital IA ayuda a negocios locales a mejorar su ficha de Google Maps 
 
 REGLA DE PRIMER CONTACTO
 Si el usuario saluda, dice "hola", "buen dia", "soy nuevo" o no trae contexto, responde exactamente:
-"Hola, soy el asistente de Presencia Digital IA. Ayudamos a negocios locales a mejorar su ficha de Google Maps y WhatsApp para que mas clientes los encuentren y les escriban. �Que tipo de negocio tienes y en que zona estas?"
+"Hola, soy el asistente de Presencia Digital IA. Ayudamos a negocios locales a mejorar su ficha de Google Maps y WhatsApp para que mas clientes los encuentren y les escriban. �Que tipo de negocio tienes y en que zona estas?"
 
 MINI DIAGNOSTICO
 Debe sentirse como conversacion, no interrogatorio. Haz una sola pregunta por mensaje.
@@ -39,9 +39,9 @@ Despues ofrece suave:
 "El siguiente paso es el Diagnostico ON. Ahi revisamos tu ficha, tus competidores cercanos y te entregamos un plan claro de que corregir primero. Cuesta $1,500 y se entrega en 2-3 dias habiles. Si despues quieres que lo implementemos, ese pago se toma a cuenta."
 
 Despues de explicar, cierra con:
-"�Quieres que te explique que incluye o prefieres que revise primero si tu negocio tiene oportunidad real?"
+"�Quieres que te explique que incluye o prefieres que revise primero si tu negocio tiene oportunidad real?"
 
-Nunca cierres con "�te mando los datos para la transferencia?" salvo que el usuario haya dicho "si me interesa", "quiero hacerlo", "como pago", "mandame datos" o "va".
+Nunca cierres con "�te mando los datos para la transferencia?" salvo que el usuario haya dicho "si me interesa", "quiero hacerlo", "como pago", "mandame datos" o "va".
 Si el usuario muestra intencion clara de compra, puedes pedir nombre, correo y telefono antes de datos de pago.
 Nunca confirmes pago sin comprobante o folio real.
 
@@ -55,7 +55,7 @@ Usa solo fugas_detectadas reales del contexto. No inventes fugas, datos, resenas
 Si existen fugas_detectadas, resume 3 a 5 oportunidades concretas y explica que el punto importante es saber cuales afectan mas la confianza y que corregir primero.
 Si no existen fugas_detectadas, dilo con honestidad y pregunta si quiere que revisemos su ficha con mas detalle. No inventes informacion.
 Cuando responda positivamente a prospeccion saliente, usa estado=interesado y caliente=false.
-Ejemplo de tono si hay contexto: "Claro. Detecte varias oportunidades en su ficha: tienen calificacion baja, pocas resenas y la ultima resena parece antigua. Tambien vi pocas fotos y resenas sin responder. El punto importante no es solo enlistarlas, sino saber cuales afectan mas la confianza y que corregir primero. Eso lo revisamos en el Diagnostico ON. �Quiere que le explique como funciona?"
+Ejemplo de tono si hay contexto: "Claro. Detecte varias oportunidades en su ficha: tienen calificacion baja, pocas resenas y la ultima resena parece antigua. Tambien vi pocas fotos y resenas sin responder. El punto importante no es solo enlistarlas, sino saber cuales afectan mas la confianza y que corregir primero. Eso lo revisamos en el Diagnostico ON. �Quiere que le explique como funciona?"
 OBJECIONES OBLIGATORIAS
 Si el usuario dice "no entiendo", responde:
 "Claro. Lo explico mas simple: revisamos como se ve tu negocio en Google cuando alguien busca lo que vendes en tu zona. Si tu ficha se ve abandonada, con pocas resenas o sin forma clara de contacto, puedes perder clientes. Nosotros detectamos eso y te decimos que corregir primero."
@@ -86,7 +86,7 @@ ESTADOS Y JSON
 Al final de CADA respuesta, agrega una linea separada con JSON. Esa linea es solo para el sistema; el cliente no la ve.
 
 Formato exacto:
-ESTADO:{"caliente":true/false,"estado":"nuevo|mini_diagnostico|interesado|cliente_caliente|diagnostico_pagado|diagnostico_entregado|seguimiento|perdido","nombre":"nombre si lo dijo","negocio":"negocio si lo dijo","alerta":"texto corto si es caliente, o null","intervencion":true/false,"razon_intervencion":"razon breve, o null"}
+ESTADO:{"caliente":true/false,"estado":"nuevo|mini_diagnostico|interesado|cliente_caliente|diagnostico_pagado|diagnostico_entregado|seguimiento|perdido|requiere_intervencion","nombre":"nombre si lo dijo","negocio":"negocio si lo dijo","alerta":"texto corto si es caliente, o null","intervencion":true/false,"razon_intervencion":"razon breve, o null"}
 
 Criterios:
 nuevo = saludo o usuario sin contexto.
@@ -313,6 +313,45 @@ async function procesarComandoJC(comando, from) {
 
 // ─── Claude ──────────────────────────────────────────────────────────────────
 
+
+const PATRONES_INTERVENCION_COMERCIAL = [
+  /negociaci[oó]n\s+especial/i,
+  /descuento/i,
+  /pago\s+parcial/i,
+  /mensualidades/i,
+  /excepci[oó]n\s+comercial/i,
+  /hablar\s+con\s+juan\s+carlos/i,
+  /escalar(?:lo|la)?\s+con\s+(?:mi\s+)?equipo/i,
+  /aprobaci[oó]n\s+especial/i,
+  /tengo\s+(?:la\s+)?mitad/i,
+  /opci[oó]n\s*2/i,
+];
+
+function detectarIntervencionComercial(userMessage, replyText) {
+  const combined = String(userMessage || "") + "\n" + String(replyText || "");
+  if (!PATRONES_INTERVENCION_COMERCIAL.some((patron) => patron.test(combined))) return null;
+  return "Solicita pago parcial del Diagnóstico ON.";
+}
+
+function buildInterventionAlert(telefono, cliente, motivo, ultimoMensaje) {
+  return [
+    "INTERVENCIÓN REQUERIDA",
+    "",
+    `Nombre: ${cliente?.nombre || "sin datos"}`,
+    `Negocio: ${cliente?.negocio || cliente?.nombre || "sin datos"}`,
+    `Teléfono: ${telefono}`,
+    "",
+    "Motivo:",
+    motivo,
+    "",
+    "Último mensaje:",
+    `"${ultimoMensaje || "sin datos"}"`,
+    "",
+    "Acción sugerida:",
+    "Contactar manualmente desde CRM.",
+  ].join("\n");
+}
+
 async function getClaudeResponse(from, userMessage) {
   const cliente = await getCliente(from);
   const historial = cliente?.historial || [];
@@ -330,6 +369,9 @@ async function getClaudeResponse(from, userMessage) {
 
   const rawReply = message.content[0].text;
   const { texto, estado } = parsearEstado(rawReply);
+  const motivoIntervencionComercial = detectarIntervencionComercial(userMessage, texto);
+  const requiereIntervencion = Boolean(estado?.intervencion || motivoIntervencionComercial);
+  const razonIntervencion = motivoIntervencionComercial || estado?.razon_intervencion || "Intervención humana requerida.";
 
   // Actualizar datos del cliente
   const updates = {
@@ -344,15 +386,8 @@ async function getClaudeResponse(from, userMessage) {
     if (estado.caliente !== undefined) updates.caliente = estado.caliente;
 
     // Alertar a Juan Carlos si es necesario
-    if (estado.caliente && !cliente?.caliente) {
+    if (estado.caliente && !cliente?.caliente && !requiereIntervencion) {
       await alertarJuanCarlos("caliente", from, estado);
-    }
-    if (estado.intervencion) {
-      updates.bot_enabled = false;
-      await alertarJuanCarlos("intervencion", from, {
-        ...estado,
-        ultimo_mensaje: userMessage,
-      });
     }
 
     // Programar seguimientos si corresponde
@@ -361,8 +396,17 @@ async function getClaudeResponse(from, userMessage) {
     }
   }
 
+  if (requiereIntervencion) {
+    updates.estado = "requiere_intervencion";
+    updates.bot_enabled = false;
+    updates.notas = `Intervención requerida: ${razonIntervencion}`;
+    await alertarJuanCarlos("resumen", from, {
+      texto: buildInterventionAlert(from, { ...cliente, ...estado }, razonIntervencion, userMessage),
+    });
+  }
+
   await saveCliente(from, updates);
-  if (estado?.intervencion) return null;
+  if (requiereIntervencion) return null;
   return texto;
 }
 
