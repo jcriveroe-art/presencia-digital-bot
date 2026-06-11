@@ -1,4 +1,4 @@
-const { json, supabase } = require("./_crm");
+const { json, logEventoCRM, requireCrmToken, supabase } = require("./_crm");
 
 const ESTADOS_VALIDOS = new Set([
   "prospectado",
@@ -9,10 +9,12 @@ const ESTADOS_VALIDOS = new Set([
   "diagnostico_entregado",
   "seguimiento",
   "perdido",
+  "requiere_intervencion",
 ]);
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+  if (!requireCrmToken(req, res)) return;
 
   const { telefono, estado } = req.body || {};
   if (!telefono || !ESTADOS_VALIDOS.has(estado)) {
@@ -29,6 +31,7 @@ module.exports = async (req, res) => {
   if (estado === "cliente_caliente") updates.caliente = true;
   if (estado === "diagnostico_pagado") updates.caliente = true;
   if (estado === "perdido") updates.caliente = false;
+  updates.ultima_accion_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("conversaciones")
@@ -37,5 +40,6 @@ module.exports = async (req, res) => {
     .single();
 
   if (error) return json(res, 500, { error: error.message });
+  await logEventoCRM(telefono, "estado_actualizado", `Estado actualizado a ${estado}`, { estado });
   return json(res, 200, { conversacion: data });
 };

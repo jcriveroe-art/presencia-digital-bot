@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
-const { logMensaje, sendWhatsApp, supabase } = require("./_crm");
+const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("./_crm");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -429,6 +429,7 @@ async function getClaudeResponse(from, userMessage) {
     await alertarJuanCarlos("resumen", from, {
       texto: buildInterventionAlert(from, { ...cliente, ...estado }, razonIntervencion, userMessage),
     });
+    await logEventoCRM(from, "requiere_intervencion", razonIntervencion, { ultimo_mensaje: userMessage });
   }
 
   await saveCliente(from, updates);
@@ -501,6 +502,7 @@ module.exports = async (req, res) => {
             if (!text) continue;
 
             await logMensaje(from, "entrante", text, msg);
+            await logEventoCRM(from, "mensaje_entrante", text, { raw: msg });
             await saveCliente(from, { ultimo_mensaje: text });
 
             const esAdmin = from === JUAN_CARLOS_NUMBER;

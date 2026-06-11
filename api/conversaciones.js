@@ -1,4 +1,4 @@
-const { json, supabase } = require("./_crm");
+const { json, requireCrmToken, supabase } = require("./_crm");
 
 const CAMPOS_DEFAULT = {
   telefono: null,
@@ -30,6 +30,15 @@ const CAMPOS_DEFAULT = {
   ultimo_mensaje: null,
   mensaje_inicial_enviado: false,
   notas: null,
+  proxima_accion: null,
+  fecha_seguimiento: null,
+  seguimiento_activo: true,
+  motivo_seguimiento: null,
+  resultado_conversacion: null,
+  objecion_principal: null,
+  etapa_perdida: null,
+  ultima_accion_at: null,
+  ultimo_recordatorio_at: null,
 };
 
 function normalizarConversacion(row) {
@@ -38,6 +47,7 @@ function normalizarConversacion(row) {
 
 module.exports = async (req, res) => {
   if (req.method !== "GET") return res.status(405).send("Method Not Allowed");
+  if (!requireCrmToken(req, res)) return;
 
   try {
     const { data, error } = await supabase

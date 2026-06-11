@@ -1,4 +1,4 @@
-const { json, supabase } = require("./_crm");
+const { json, logEventoCRM, requireCrmToken, supabase } = require("./_crm");
 
 const COLUMNAS_OLD = [
   "nombre",
@@ -170,6 +170,7 @@ function soloBase(row) {
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+  if (!requireCrmToken(req, res)) return;
 
   try {
     if (!req.body || typeof req.body !== "object") {
@@ -211,6 +212,10 @@ module.exports = async (req, res) => {
       console.error("POST /api/importar-prospector Supabase error:", error.message);
       return json(res, 500, { ok: false, error: error.message });
     }
+
+    await Promise.all((data || rows).map((row) =>
+      logEventoCRM(row.telefono, "lead_importado", "Lead importado desde Prospector ON", { nombre: row.nombre })
+    ));
 
     return json(res, 200, {
       ok: true,

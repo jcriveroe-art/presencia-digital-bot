@@ -1,4 +1,4 @@
-const { json, sendWhatsApp, supabase } = require("./_crm");
+const { json, logEventoCRM, requireCrmToken, sendWhatsApp, supabase } = require("./_crm");
 
 function mensajeInicial(nombre) {
   return `Hola, soy Juan Carlos de Presencia Digital. Vi ${nombre} en Google Maps y detecté detalles que podrían estar haciendo que algunos clientes elijan otra opción antes de escribirles. ¿Les puedo compartir qué encontré?`;
@@ -6,6 +6,7 @@ function mensajeInicial(nombre) {
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+  if (!requireCrmToken(req, res)) return;
 
   const { telefono } = req.body || {};
   if (!telefono) return json(res, 400, { error: "telefono requerido" });
@@ -17,7 +18,7 @@ module.exports = async (req, res) => {
     .single();
 
   if (error || !lead) return json(res, 404, { error: "Lead no encontrado" });
-  if (!lead.nombre || !String(lead.nombre).trim()) {
+  if (!lead.nombre || !String(lead.nombre).trim() || String(lead.nombre).trim().toLowerCase() === "sin_dato") {
     return json(res, 400, { error: "nombre requerido para enviar mensaje inicial" });
   }
 
@@ -38,6 +39,7 @@ module.exports = async (req, res) => {
         },
         { onConflict: "telefono" }
       );
+    await logEventoCRM(telefono, "mensaje_inicial_enviado", "Mensaje inicial enviado desde CRM", { mensaje });
     return json(res, 200, { ok: true, mensaje, whatsapp });
   } catch (e) {
     const detail = e.response?.data || e.message;

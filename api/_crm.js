@@ -13,6 +13,14 @@ function json(res, status, payload) {
   res.status(status).json(payload);
 }
 
+function requireCrmToken(req, res) {
+  const expected = process.env.CRM_API_TOKEN;
+  if (!expected) return true;
+  if (req.headers["x-crm-token"] === expected) return true;
+  json(res, 401, { ok: false, error: "CRM token invalido o faltante" });
+  return false;
+}
+
 async function logMensaje(telefono, direccion, mensaje, raw) {
   try {
     const { error } = await supabase.from("mensajes").insert({
@@ -24,6 +32,20 @@ async function logMensaje(telefono, direccion, mensaje, raw) {
     if (error) console.error("Supabase mensajes error:", error.message);
   } catch (e) {
     console.error("Supabase mensajes exception:", e.message);
+  }
+}
+
+async function logEventoCRM(telefono, tipo, descripcion, metadata) {
+  try {
+    const { error } = await supabase.from("eventos_crm").insert({
+      telefono,
+      tipo,
+      descripcion: descripcion || null,
+      metadata: metadata || null,
+    });
+    if (error) console.error("Supabase eventos_crm error:", error.message);
+  } catch (e) {
+    console.error("Supabase eventos_crm exception:", e.message);
   }
 }
 
@@ -45,12 +67,15 @@ async function sendWhatsApp(to, message) {
   );
 
   await logMensaje(to, "saliente", message, response.data);
+  await logEventoCRM(to, "mensaje_saliente", message, { whatsapp: response.data });
   return response.data;
 }
 
 module.exports = {
   json,
   logMensaje,
+  logEventoCRM,
+  requireCrmToken,
   sendWhatsApp,
   supabase,
 };

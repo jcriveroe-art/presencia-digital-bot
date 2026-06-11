@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
     button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     button.danger { color: var(--off); }
     button:disabled { cursor: not-allowed; opacity: .55; }
-    .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+    .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto auto 1fr; min-height: 0; }
     .dashboard { padding: 12px 16px; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .metric { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 62px; background: #fff; }
     .metric strong { display: block; font-size: 22px; line-height: 1; }
@@ -31,6 +31,9 @@ module.exports = async (req, res) => {
     .import textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     .import-row { display: grid; gap: 8px; }
     .filters { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
+    .attention { padding: 10px 16px; border-bottom: 1px solid var(--line); background: #fff8eb; display: grid; gap: 8px; }
+    .attention-list { display: flex; gap: 8px; overflow: auto; padding-bottom: 2px; }
+    .attention button { white-space: nowrap; background: #fff; }
     label { color: var(--muted); font-size: 11px; display: grid; gap: 4px; }
     select, input { border: 1px solid var(--line); border-radius: 6px; min-height: 34px; padding: 0 8px; background: #fff; min-width: 0; }
     .table-wrap { overflow: auto; min-height: 0; }
@@ -54,6 +57,12 @@ module.exports = async (req, res) => {
     .context-grid strong { display: block; color: var(--muted); font-size: 11px; }
     .fugas { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.38; }
     .notes { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.38; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; }
+    .ops { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .ops label.wide { grid-column: span 2; }
+    .ops textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+    .timeline { display: grid; gap: 8px; }
+    .event { border-left: 3px solid var(--accent); padding-left: 8px; font-size: 12px; }
+    .event small { color: var(--muted); display: block; margin-top: 2px; }
     .messages { min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
     .msg { max-width: min(680px, 84%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
     .msg.saliente { align-self: flex-end; background: #edf7f1; }
@@ -81,6 +90,7 @@ module.exports = async (req, res) => {
   </header>
   <div class="page">
     <div id="dashboard" class="dashboard"></div>
+    <div id="attention" class="attention"></div>
     <main>
       <section class="left">
         <div class="import">
@@ -184,6 +194,24 @@ module.exports = async (req, res) => {
       ["fugas_detectadas", "Fugas detectadas", "textarea"],
       ["notas", "Notas internas", "textarea"],
     ];
+    let crmToken = localStorage.getItem("crmToken") || "";
+
+    function headers(extra) {
+      const base = Object.assign({}, extra || {});
+      if (crmToken) base["x-crm-token"] = crmToken;
+      return base;
+    }
+
+    async function apiFetch(url, options) {
+      const opts = Object.assign({}, options || {});
+      opts.headers = headers(opts.headers);
+      const res = await fetch(url, opts);
+      if (res.status !== 401) return res;
+      crmToken = prompt("Token CRM") || "";
+      localStorage.setItem("crmToken", crmToken);
+      opts.headers = headers(options?.headers || {});
+      return fetch(url, opts);
+    }
 
     function botOn(c) { return c && c.bot_enabled !== false; }
     function label(c) { return c.nombre || c.negocio || c.telefono; }
@@ -192,12 +220,13 @@ module.exports = async (req, res) => {
     function uniqueValues(key) { return [...new Set(conversaciones.map(c => c[key]).filter(Boolean))].sort(); }
 
     async function loadConversaciones() {
-      const res = await fetch("/api/conversaciones");
+      const res = await apiFetch("/api/conversaciones");
       const data = await res.json();
       conversaciones = data.conversaciones || [];
       fillFilters();
       applyFilters();
       renderDashboard();
+      renderAttention();
       if (selected) {
         selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
         if (selected) await selectLead(selected.telefono);
@@ -216,6 +245,20 @@ module.exports = async (req, res) => {
         metric("Diagnostico pagado", count(c => (c.estado || "") === "diagnostico_pagado")),
         metric("Perdidos", count(c => (c.estado || "") === "perdido")),
       ].join("");
+    }
+
+    function needsAttention(c) {
+      const due = c.fecha_seguimiento && new Date(c.fecha_seguimiento).getTime() <= Date.now();
+      const interested = c.estado === "interesado" && c.seguimiento_activo !== false;
+      const hot = (c.estado === "cliente_caliente" || c.caliente === true) && c.estado !== "diagnostico_pagado";
+      return c.seguimiento_activo !== false && (c.estado === "requiere_intervencion" || due || interested || hot);
+    }
+
+    function renderAttention() {
+      const items = conversaciones.filter(needsAttention).slice(0, 20);
+      const wrap = document.getElementById("attention");
+      wrap.innerHTML = '<h2>Requiere atencion</h2><div class="attention-list">' + (items.map(c => '<button data-tel="' + escapeHtml(c.telefono) + '">' + escapeHtml(label(c)) + ' | ' + escapeHtml(c.estado || 'nuevo') + '</button>').join("") || '<span class="badge">Sin pendientes operativos</span>') + '</div>';
+      wrap.querySelectorAll("button[data-tel]").forEach(btn => btn.addEventListener("click", () => selectLead(btn.dataset.tel)));
     }
 
     function fillSelect(id, values, firstLabel) {
@@ -260,7 +303,56 @@ module.exports = async (req, res) => {
         ["Responde resenas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
         ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
       ];
-      context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div><h2>Notas internas</h2><div class="notes">' + escapeHtml(c.notas || 'Sin notas internas.') + '</div>';
+      context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Seguimiento operativo</h2><div class="ops"><label>Proxima accion<input id="opAccion" value="' + escapeHtml(c.proxima_accion || '') + '"></label><label>Fecha seguimiento<input id="opFecha" type="datetime-local" value="' + toLocalInput(c.fecha_seguimiento) + '"></label><label>Motivo seguimiento<textarea id="opMotivo">' + escapeHtml(c.motivo_seguimiento || '') + '</textarea></label><label>Seguimiento activo<select id="opActivo"><option value="true"' + (c.seguimiento_activo !== false ? ' selected' : '') + '>ON</option><option value="false"' + (c.seguimiento_activo === false ? ' selected' : '') + '>OFF</option></select></label><label>Objecion principal<input id="opObjecion" value="' + escapeHtml(c.objecion_principal || '') + '"></label><label class="wide">Resultado conversacion<textarea id="opResultado">' + escapeHtml(c.resultado_conversacion || '') + '</textarea></label><button class="primary" id="saveFollowup">Guardar seguimiento</button><span id="followupStatus" class="badge">Listo</span></div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div><h2>Notas internas</h2><div class="notes">' + escapeHtml(c.notas || 'Sin notas internas.') + '</div><h2>Timeline</h2><div id="timeline" class="timeline"><span class="badge">Cargando eventos</span></div>';
+      document.getElementById("saveFollowup").addEventListener("click", saveFollowup);
+      loadTimeline(c.telefono);
+    }
+
+    function toLocalInput(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 16);
+    }
+
+    function fromLocalInput(value) {
+      return value ? new Date(value).toISOString() : null;
+    }
+
+    async function saveFollowup() {
+      if (!selected) return;
+      const status = document.getElementById("followupStatus");
+      status.textContent = "Guardando";
+      const res = await apiFetch("/api/lead-followup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefono: selected.telefono,
+          updates: {
+            proxima_accion: document.getElementById("opAccion").value,
+            fecha_seguimiento: fromLocalInput(document.getElementById("opFecha").value),
+            motivo_seguimiento: document.getElementById("opMotivo").value,
+            seguimiento_activo: document.getElementById("opActivo").value === "true",
+            objecion_principal: document.getElementById("opObjecion").value,
+            resultado_conversacion: document.getElementById("opResultado").value,
+          }
+        })
+      });
+      const data = await res.json();
+      status.textContent = res.ok && data.ok ? "Guardado" : (data.error || "Error");
+      if (res.ok && data.ok) {
+        selected = data.conversacion;
+        await loadConversaciones();
+      }
+    }
+
+    async function loadTimeline(telefono) {
+      const wrap = document.getElementById("timeline");
+      const res = await apiFetch("/api/eventos-crm?telefono=" + encodeURIComponent(telefono));
+      const data = await res.json();
+      const eventos = data.eventos || [];
+      wrap.innerHTML = eventos.map(e => '<div class="event"><strong>' + escapeHtml(e.tipo) + '</strong><div>' + escapeHtml(e.descripcion || '') + '</div><small>' + fmtDate(e.created_at) + '</small></div>').join("") || '<span class="badge">Sin eventos registrados.</span>';
     }
 
     function renderEditForm() {
@@ -315,7 +407,7 @@ module.exports = async (req, res) => {
       updates.telefono = telefono;
       editStatus.textContent = "Guardando";
       document.getElementById("saveEdit").disabled = true;
-      const res = await fetch("/api/lead-update", {
+      const res = await apiFetch("/api/lead-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ telefono_original: selected.telefono, updates })
@@ -354,13 +446,13 @@ module.exports = async (req, res) => {
 
     async function setBot(value) {
       if (!selected) return;
-      await fetch("/api/bot-enabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, bot_enabled: value }) });
+      await apiFetch("/api/bot-enabled", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, bot_enabled: value }) });
       await loadConversaciones();
     }
 
     async function setEstado(estado) {
       if (!selected) return;
-      await fetch("/api/lead-estado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, estado }) });
+      await apiFetch("/api/lead-estado", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, estado }) });
       await loadConversaciones();
     }
 
@@ -373,7 +465,7 @@ module.exports = async (req, res) => {
       const contenido = importText.value.trim();
       if (!contenido) return;
       importStatus.textContent = "Importando";
-      const res = await fetch("/api/importar-prospector", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contenido }) });
+      const res = await apiFetch("/api/importar-prospector", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contenido }) });
       const data = await res.json();
       importStatus.textContent = res.ok ? "Importados: " + data.importados : "Error";
       if (res.ok) { importText.value = ""; await loadConversaciones(); }
@@ -385,7 +477,7 @@ module.exports = async (req, res) => {
         alert("Agrega nombre antes de enviar mensaje inicial.");
         return;
       }
-      const res = await fetch("/api/enviar-inicial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono }) });
+      const res = await apiFetch("/api/enviar-inicial", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono }) });
       if (!res.ok) {
         const data = await res.json();
         alert(data.error || "No se pudo enviar el mensaje inicial.");
@@ -416,7 +508,7 @@ module.exports = async (req, res) => {
       const mensaje = manualText.value.trim();
       if (!selected || !mensaje) return;
       sendManual.disabled = true;
-      await fetch("/api/enviar-manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, mensaje }) });
+      await apiFetch("/api/enviar-manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telefono: selected.telefono, mensaje }) });
       manualText.value = "";
       sendManual.disabled = false;
       await loadConversaciones();

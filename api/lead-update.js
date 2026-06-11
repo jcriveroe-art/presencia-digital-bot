@@ -1,4 +1,4 @@
-const { json, supabase } = require("./_crm");
+const { json, logEventoCRM, requireCrmToken, supabase } = require("./_crm");
 
 const CAMPOS_EDITABLES = new Set([
   "nombre",
@@ -48,6 +48,7 @@ function cleanBoolean(value) {
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
+  if (!requireCrmToken(req, res)) return;
 
   try {
     const { telefono_original, updates } = req.body || {};
@@ -99,6 +100,11 @@ module.exports = async (req, res) => {
     if (!data) {
       return json(res, 404, { ok: false, error: "Lead no encontrado" });
     }
+
+    await logEventoCRM(payload.telefono, "nota_actualizada", "Prospecto editado desde CRM", {
+      telefono_original: telefonoOriginal,
+      campos: Object.keys(payload).filter((campo) => campo !== "fecha_ultimo_mensaje"),
+    });
 
     return json(res, 200, { ok: true, conversacion: data });
   } catch (e) {
