@@ -10,7 +10,15 @@ const axios = require("axios");
 axios.post = async () => ({ data: { ok: true } });
 
 const { sendWhatsApp } = require("../lib/crm");
-const { contieneEstadoInterno, parsearEstado, prepararRespuestaCliente, sanitizarRespuestaCliente } = require("../api/webhook").__test;
+const {
+  contieneAlucinacionComercialCritica,
+  contieneEstadoInterno,
+  parsearEstado,
+  preguntaComoPagar,
+  preguntaPrecio,
+  prepararRespuestaCliente,
+  sanitizarRespuestaCliente,
+} = require("../api/webhook").__test;
 
 const claude = [
   "Hola, claro.",
@@ -48,6 +56,21 @@ assert.deepStrictEqual(onlyJson, {
   cleanText: "",
   bloqueada: true,
 });
+
+assert.strictEqual(preguntaPrecio("¿Cuánto cuesta?"), true);
+assert.strictEqual(preguntaComoPagar("¿Cómo pago?"), true);
+assert.strictEqual(contieneAlucinacionComercialCritica("El Diagnóstico ON cuesta $1,500 MXN."), false);
+assert.strictEqual(contieneAlucinacionComercialCritica("Te hago promo en $999."), true);
+assert.strictEqual(contieneAlucinacionComercialCritica("Transfiere por SPEI a la CLABE 123."), true);
+
+const safePrice = prepararRespuestaCliente("El Diagnóstico ON cuesta $1,500 MXN.");
+assert.deepStrictEqual(safePrice, {
+  cleanText: "El Diagnóstico ON cuesta $1,500 MXN.",
+  bloqueada: false,
+});
+
+const fakeBank = prepararRespuestaCliente("Puedes transferir al banco con CLABE 123.");
+assert.strictEqual(fakeBank.bloqueada, true);
 
 (async () => {
   await assert.rejects(

@@ -57,6 +57,8 @@ module.exports = async (req, res) => {
     th { position: sticky; top: 0; background: #f3f6fa; z-index: 1; color: var(--muted); font-weight: 700; }
     tr { cursor: pointer; }
     tr.active { background: #edf4ff; }
+    .lead-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lead-actions button { min-height: 30px; padding: 0 8px; }
     .badge { border-radius: 999px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; min-height: 24px; }
     .badge.on { color: var(--on); }
     .badge.off { color: var(--off); }
@@ -111,8 +113,8 @@ module.exports = async (req, res) => {
     .page.view-chat .messages { grid-column: 1; grid-row: 1 / 4; }
     .page.view-chat form { grid-column: 1; grid-row: 4; position: sticky; bottom: 0; z-index: 2; }
     .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
-    .page.view-leads main { grid-template-columns: 1fr; }
-    .page.view-leads .detail { display: none; }
+    .page.view-leads main { grid-template-columns: minmax(520px, 56vw) minmax(360px, 1fr); }
+    .page.view-leads .detail { display: grid; }
     .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
     .page.view-dashboard .attention { display: none; }
     .page.view-seguimiento .dashboard, .page.view-seguimiento .chat-dashboard { display: none; }
@@ -198,7 +200,7 @@ module.exports = async (req, res) => {
           <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Respondieron campaña</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option></select></label>
           <button id="clearFilters">Limpiar</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Estado</th><th>Mensajes</th><th>Ultimo mensaje</th><th>IA</th><th>Prioridad</th></tr></thead><tbody id="leads"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Estado</th><th>Mensajes</th><th>Ultimo mensaje</th><th>IA</th><th>Prioridad</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <section class="detail">
         <div class="detail-head">
@@ -215,6 +217,7 @@ module.exports = async (req, res) => {
           <button id="interestedBtn" disabled>Marcar interesado</button>
           <button id="paidBtn" disabled>Marcar diagnostico pagado</button>
           <button class="danger" id="lostBtn" disabled>Marcar perdido</button>
+          <button class="danger" id="deleteBtn" disabled>Borrar lead</button>
         </div>
         <div id="context" class="context"><div class="empty">Sin lead seleccionado.</div></div>
         <div id="messages" class="messages"><div class="empty">Sin conversacion seleccionada.</div></div>
@@ -260,33 +263,19 @@ module.exports = async (req, res) => {
     const importStatus = document.getElementById("importStatus");
     const manualText = document.getElementById("manualText");
     const sendManual = document.getElementById("sendManual");
-    const actionIds = ["initialBtn","editBtn","pauseBtn","resumeBtn","interestedBtn","paidBtn","lostBtn"];
+    const actionIds = ["initialBtn","editBtn","pauseBtn","resumeBtn","interestedBtn","paidBtn","lostBtn","deleteBtn"];
     const editModal = document.getElementById("editModal");
     const editForm = document.getElementById("editForm");
     const editStatus = document.getElementById("editStatus");
     const editableFields = [
       ["nombre", "Nombre", "input"],
+      ["telefono", "Telefono", "input"],
       ["categoria", "Categoria", "input"],
+      ["estado", "Estado", "input"],
       ["prioridad", "Prioridad", "input"],
       ["score", "Score", "input"],
-      ["total_fugas", "Total fugas", "input"],
-      ["rating", "Rating", "input"],
-      ["resenas", "Resenas", "input"],
-      ["fotos_estimadas", "Fotos estimadas", "input"],
-      ["diagnostico_fotos", "Diagnostico fotos", "textarea"],
-      ["ultima_resena", "Ultima resena", "input"],
-      ["responde_resenas", "Responde resenas", "input"],
-      ["publicaciones", "Publicaciones", "input"],
-      ["website", "Website", "input"],
-      ["horarios", "Horarios", "input"],
-      ["telefono", "Telefono", "input"],
-      ["whatsapp_link", "WhatsApp link", "input"],
-      ["direccion", "Direccion", "textarea"],
       ["maps_url", "Maps URL", "input"],
-      ["estado", "Estado", "input"],
-      ["caliente", "Caliente", "selectBoolean"],
-      ["bot_enabled", "IA activa", "selectBoolean"],
-      ["descripcion", "Descripcion", "textarea"],
+      ["whatsapp_link", "WhatsApp link", "input"],
       ["fugas_detectadas", "Fugas detectadas", "textarea"],
       ["notas", "Notas internas", "textarea"],
     ];
@@ -537,7 +526,25 @@ module.exports = async (req, res) => {
       return actor + " " + relativeTime(c.fecha_ultimo_mensaje_real || c.fecha_ultimo_mensaje);
     }
 
+    function bindLeadRowActions() {
+      leads.querySelectorAll("button[data-chat]").forEach(btn => btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        setView("chat");
+        await selectLead(btn.dataset.chat);
+      }));
+      leads.querySelectorAll("button[data-edit]").forEach(btn => btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await selectLead(btn.dataset.edit);
+        openEdit();
+      }));
+      leads.querySelectorAll("button[data-delete]").forEach(btn => btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await deleteLead(btn.dataset.delete);
+      }));
+    }
+
     function renderLeads() {
+      const leadActions = (telefono) => '<div class="lead-actions"><button type="button" data-chat="' + escapeHtml(telefono) + '">Ver chat</button><button type="button" data-edit="' + escapeHtml(telefono) + '">Editar</button><button class="danger" type="button" data-delete="' + escapeHtml(telefono) + '">Borrar</button></div>';
       if (currentView === "chat") {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
@@ -545,7 +552,7 @@ module.exports = async (req, res) => {
           const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
           return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="7"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + '</small><br><small>Mensajes: ' + escapeHtml(c.total_mensajes || 0) + ' total · ' + escapeHtml(c.mensajes_entrantes || 0) + ' in · ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small></td></tr>';
         }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
-        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { setView("chat"); selectLead(row.dataset.tel); }));
         return;
       }
       if (isMobile()) {
@@ -553,9 +560,13 @@ module.exports = async (req, res) => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
           return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="7"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(pending) + ')</span> <span class="badge new">Respondió</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + '</small><br><small>Estado: ' + escapeHtml(c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Ultimo mensaje: ' + escapeHtml(lastMessageLabel(c)) + '</small><br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
         }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
-        leads.querySelectorAll("button[data-chat]").forEach(btn => btn.addEventListener("click", (event) => { event.stopPropagation(); setView("chat"); selectLead(btn.dataset.chat); }));
+        leads.querySelectorAll("tr[data-tel] td").forEach(td => {
+          const tel = td.parentElement.dataset.tel;
+          td.insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
+        });
+        bindLeadRowActions();
         leads.querySelectorAll("button[data-initial]").forEach(btn => btn.addEventListener("click", async (event) => { event.stopPropagation(); selected = conversaciones.find(c => c.telefono === btn.dataset.initial); if (selected) document.getElementById("initialBtn").click(); }));
-        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { setView("chat"); selectLead(row.dataset.tel); }));
         return;
       }
       leads.innerHTML = filtered.map(c => {
@@ -563,8 +574,9 @@ module.exports = async (req, res) => {
         const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
         const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
         const counts = escapeHtml(c.total_mensajes || 0) + ' total<br><small>' + escapeHtml(c.mensajes_entrantes || 0) + ' in / ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small>';
-        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + name + newBadge + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + counts + '</td><td><strong>Ultimo mensaje:</strong><br>' + escapeHtml(lastMessageLabel(c)) + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td></tr>';
-      }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + name + newBadge + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + counts + '</td><td><strong>Ultimo mensaje:</strong><br>' + escapeHtml(lastMessageLabel(c)) + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td><td>' + leadActions(c.telefono) + '</td></tr>';
+      }).join("") || '<tr><td colspan="8">Sin leads con esos filtros.</td></tr>';
+      bindLeadRowActions();
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
     }
 
@@ -690,6 +702,28 @@ module.exports = async (req, res) => {
       await selectLead(selected.telefono);
     }
 
+    async function deleteLead(telefono) {
+      const target = telefono || selected?.telefono;
+      if (!target) return;
+      const lead = conversaciones.find(c => c.telefono === target) || selected || { telefono: target };
+      if (!confirm("¿Seguro que quieres borrar este lead? No se borrará el historial de mensajes.")) return;
+      const res = await actionFetch("eliminar_lead", { telefono: target });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data.error || "No se pudo borrar el lead.");
+        return;
+      }
+      if (selected?.telefono === target) {
+        selected = null;
+        title.textContent = "Selecciona un lead";
+        subtitle.textContent = "";
+        context.innerHTML = '<div class="empty">Sin lead seleccionado.</div>';
+        messages.innerHTML = '<div class="empty">Sin conversacion seleccionada.</div>';
+        actionIds.forEach(id => document.getElementById(id).disabled = true);
+      }
+      await loadConversaciones();
+    }
+
     async function selectLead(telefono) {
       selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
       if (currentView === "chat" && isMobile()) page.classList.add("mobile-chat-open");
@@ -760,6 +794,7 @@ module.exports = async (req, res) => {
     document.getElementById("interestedBtn").addEventListener("click", () => setEstado("interesado"));
     document.getElementById("lostBtn").addEventListener("click", () => setEstado("perdido"));
     document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
+    document.getElementById("deleteBtn").addEventListener("click", () => deleteLead());
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
     document.getElementById("backToLeads").addEventListener("click", () => page.classList.remove("mobile-chat-open", "show-mobile-context"));

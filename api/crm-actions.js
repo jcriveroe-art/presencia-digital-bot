@@ -496,6 +496,17 @@ async function leadUpdate(body) {
   return { ok: true, conversacion: data };
 }
 
+async function eliminarLead(body) {
+  const telefono = normalizarTelefono(body.telefono);
+  if (!telefono) return { status: 400, payload: { ok: false, error: "telefono requerido" } };
+  await logEventoCRM(telefono, "lead_eliminado", "Lead eliminado desde CRM", {
+    conservar_historial: true,
+  });
+  const { error } = await supabase.from("conversaciones").delete().eq("telefono", telefono);
+  if (error) throw error;
+  return { ok: true, telefono };
+}
+
 async function leadFollowup(body) {
   const telefono = normalizarTelefono(body.telefono);
   if (!telefono) return { status: 400, payload: { ok: false, error: "telefono requerido" } };
@@ -587,6 +598,7 @@ async function dispatch(action, body, req, res) {
     enviar_manual: enviarManual,
     lead_estado: leadEstado,
     lead_update: leadUpdate,
+    eliminar_lead: eliminarLead,
     lead_followup: leadFollowup,
     eventos_crm: eventosCrm,
     dashboard_data: dashboardData,

@@ -13,6 +13,17 @@ const MAX_MENSAJES = 30;
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
 const VALIDACION_SIN_FILTROS_INBOUND = true;
+const CONFIG_DIAGNOSTICO_PRECIO = 1500;
+const CONFIG_ACTIVACION_PRECIO = 5500;
+const CONFIG_ACTIVACION_CON_DIAGNOSTICO = 4000;
+const CONFIG_CONTROL_PRECIO = 3500;
+const CONFIG_METODO_PAGO = "manual";
+const PRECIOS_CONFIGURADOS = new Set([
+  CONFIG_DIAGNOSTICO_PRECIO,
+  CONFIG_ACTIVACION_PRECIO,
+  CONFIG_ACTIVACION_CON_DIAGNOSTICO,
+  CONFIG_CONTROL_PRECIO,
+]);
 
 const SYSTEM_PROMPT = `Eres el asistente de ventas de Presencia Digital IA por WhatsApp. Tu trabajo es orientar con calma a negocios locales, hacer un mini diagnostico conversacional y avanzar solo cuando exista interes real.
 
@@ -34,6 +45,8 @@ Activacion ON = $5,500 MXN.
 Activacion ON con Diagnostico = $4,000 MXN.
 Control ON = $3,500 MXN/mes.
 Nunca uses otros precios.
+Nunca inventes cuentas bancarias, CLABE, titulares, links de pago, promociones ni descuentos.
+Si preguntan como pagar, responde que Juan Carlos compartira los datos de pago para continuar.
 
 CIERRE
 Si el prospecto dice "si", "ok", "me interesa", "cuanto cuesta", "como pago" o "quiero hacerlo", responde:
@@ -346,11 +359,35 @@ function contieneEstadoInterno(texto) {
   return /ESTADO\s*:|"caliente"\s*:|"estado"\s*:|"intervencion"\s*:|"razon_intervencion"\s*:|"bot_enabled"\s*:|requiere_intervencion/i.test(String(texto || ""));
 }
 
+function normalizarTexto(texto) {
+  return String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function preguntaPrecio(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(cuanto|precio|costo|cuesta|vale|tarifa)\b/.test(clean);
+}
+
+function preguntaComoPagar(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(como\s+pago|como\s+te\s+pago|como\s+les\s+pago|donde\s+pago|datos\s+(?:de\s+)?(?:pago|transferencia)|clabe|cuenta|spei|transferencia)\b/.test(clean);
+}
+
+function contieneAlucinacionComercialCritica(texto) {
+  const clean = normalizarTexto(texto);
+  const mencionaDatosPago = /\b(banco|cuenta|clabe|transferencia|spei|titular|link\s+de\s+pago|liga\s+de\s+pago|tarjeta|deposito|dep[oó]sito|paypal|mercado\s+pago)\b/.test(clean);
+  const mencionaPromocion = /\b(promo|promocion|descuento|oferta|rebaja|bono\s+especial)\b/.test(clean);
+  const precios = [...String(texto || "").matchAll(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,6})(?:\s*(?:mxn|pesos))?/gi)]
+    .map((match) => Number(match[1].replace(/,/g, "")));
+  const precioNoConfigurado = precios.some((precio) => !PRECIOS_CONFIGURADOS.has(precio));
+  return mencionaDatosPago || mencionaPromocion || precioNoConfigurado;
+}
+
 function prepararRespuestaCliente(texto) {
   const cleanText = sanitizarRespuestaCliente(texto);
   return {
     cleanText,
-    bloqueada: !cleanText || contieneEstadoInterno(cleanText),
+    bloqueada: !cleanText || contieneEstadoInterno(cleanText) || contieneAlucinacionComercialCritica(cleanText),
   };
 }
 
@@ -373,6 +410,34 @@ async function alertarJsonBloqueado(telefono, cliente) {
     ].join("\n"),
   });
   await saveCliente(telefono, { ultima_alerta_json_bloqueado_at: new Date().toISOString() });
+}
+
+async function responderComercialCritico(telefono, mensaje, cliente) {
+  if (preguntaComoPagar(mensaje)) {
+    const respuesta = "Perfecto. Juan Carlos te compartirá los datos de pago para continuar.";
+    await logEventoCRM(telefono, "datos_pago_solicitados", "Lead pregunto como pagar", {
+      metodo_pago: CONFIG_METODO_PAGO,
+    });
+    await alertarJuanCarlos("resumen", telefono, {
+      texto: [
+        "INTERVENCION REQUERIDA",
+        `Numero: ${telefono}`,
+        `Negocio: ${cliente?.negocio || cliente?.nombre || "sin datos"}`,
+        `Ultimo mensaje: ${mensaje || "sin datos"}`,
+        "Razon: Solicita datos de pago. Compartir datos manualmente.",
+        "Responder manualmente desde CRM.",
+      ].join("\n"),
+    });
+    await saveCliente(telefono, { estado: "cliente_caliente", caliente: true });
+    return respuesta;
+  }
+
+  if (preguntaPrecio(mensaje)) {
+    await saveCliente(telefono, { estado: "interesado" });
+    return `El Diagnóstico ON cuesta $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN y si después decide avanzar con la implementación, se bonifica.\n\n¿Quiere que le comparta los datos para apartarlo?`;
+  }
+
+  return null;
 }
 
 // ─── Comandos de Juan Carlos ─────────────────────────────────────────────────
@@ -705,6 +770,12 @@ module.exports = async (req, res) => {
               continue;
             }
 
+            const respuestaCritica = await responderComercialCritico(from, text, cliente);
+            if (respuestaCritica) {
+              await sendMessage(from, respuestaCritica);
+              continue;
+            }
+
             const reply = await getClaudeResponse(from, text);
             if (reply) {
               const { cleanText, bloqueada } = prepararRespuestaCliente(reply);
@@ -728,7 +799,10 @@ module.exports = async (req, res) => {
 
 module.exports.__test = {
   contieneEstadoInterno,
+  contieneAlucinacionComercialCritica,
   parsearEstado,
+  preguntaComoPagar,
+  preguntaPrecio,
   prepararRespuestaCliente,
   sanitizarRespuestaCliente,
 };
