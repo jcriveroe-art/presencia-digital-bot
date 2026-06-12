@@ -14,12 +14,14 @@ const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
 const VALIDACION_SIN_FILTROS_INBOUND = true;
 const CONFIG_DIAGNOSTICO_PRECIO = 1500;
+const CONFIG_DIAGNOSTICO_PILOTO_PRECIO = 1000;
 const CONFIG_ACTIVACION_PRECIO = 5500;
 const CONFIG_ACTIVACION_CON_DIAGNOSTICO = 4000;
 const CONFIG_CONTROL_PRECIO = 3500;
 const CONFIG_METODO_PAGO = "manual";
 const PRECIOS_CONFIGURADOS = new Set([
   CONFIG_DIAGNOSTICO_PRECIO,
+  CONFIG_DIAGNOSTICO_PILOTO_PRECIO,
   CONFIG_ACTIVACION_PRECIO,
   CONFIG_ACTIVACION_CON_DIAGNOSTICO,
   CONFIG_CONTROL_PRECIO,
@@ -41,12 +43,15 @@ Si no tienes un dato, di: "No tengo ese dato todavía."
 
 PRECIOS FIJOS
 Diagnostico ON = $1,500 MXN.
+Diagnostico piloto permitido = $1,000 MXN solo si pide descuento, promocion o dice que tiene menos presupuesto.
 Activacion ON = $5,500 MXN.
 Activacion ON con Diagnostico = $4,000 MXN.
 Control ON = $3,500 MXN/mes.
 Nunca uses otros precios.
 Nunca inventes cuentas bancarias, CLABE, titulares, links de pago, promociones ni descuentos.
+Unico apoyo permitido: diagnostico piloto de $1,000 MXN si pide descuento o tiene menos presupuesto.
 Si preguntan como pagar, responde que Juan Carlos compartira los datos de pago para continuar.
+Nunca aceptes menos de $1,000 MXN. Si ofrecen menos, reafirma precio normal y minimo piloto sin seguir negociando.
 
 CIERRE
 Si el prospecto dice "si", "ok", "me interesa", "cuanto cuesta", "como pago" o "quiero hacerlo", responde:
@@ -373,14 +378,25 @@ function preguntaComoPagar(texto) {
   return /\b(como\s+pago|como\s+te\s+pago|como\s+les\s+pago|donde\s+pago|datos\s+(?:de\s+)?(?:pago|transferencia)|clabe|cuenta|spei|transferencia)\b/.test(clean);
 }
 
+function pideDescuentoOPiloto(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(descuento|promo|promocion|menos\s+presupuesto|no\s+tengo\s+(?:todo|completo)|se\s+puede\s+menos|muy\s+caro|tengo\s+menos|solo\s+tengo)\b/.test(clean);
+}
+
+function montosMencionados(texto) {
+  return [...String(texto || "").matchAll(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})(?:\s*(?:mxn|pesos))?/gi)]
+    .map((match) => Number(match[1].replace(/,/g, "")))
+    .filter((monto) => Number.isFinite(monto));
+}
+
 function contieneAlucinacionComercialCritica(texto) {
   const clean = normalizarTexto(texto);
   const mencionaDatosPago = /\b(banco|cuenta|clabe|transferencia|spei|titular|link\s+de\s+pago|liga\s+de\s+pago|tarjeta|deposito|dep[oó]sito|paypal|mercado\s+pago)\b/.test(clean);
   const mencionaPromocion = /\b(promo|promocion|descuento|oferta|rebaja|bono\s+especial)\b/.test(clean);
-  const precios = [...String(texto || "").matchAll(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{4,6})(?:\s*(?:mxn|pesos))?/gi)]
-    .map((match) => Number(match[1].replace(/,/g, "")));
+  const precios = montosMencionados(texto);
   const precioNoConfigurado = precios.some((precio) => !PRECIOS_CONFIGURADOS.has(precio));
-  return mencionaDatosPago || mencionaPromocion || precioNoConfigurado;
+  const promocionConfigurada = clean.includes("diagnostico piloto") && precios.includes(CONFIG_DIAGNOSTICO_PILOTO_PRECIO);
+  return mencionaDatosPago || (mencionaPromocion && !promocionConfigurada) || precioNoConfigurado;
 }
 
 function prepararRespuestaCliente(texto) {
@@ -430,6 +446,18 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
     });
     await saveCliente(telefono, { estado: "cliente_caliente", caliente: true });
     return respuesta;
+  }
+
+  if (pideDescuentoOPiloto(mensaje)) {
+    const montos = montosMencionados(mensaje);
+    const ofertaMenorAlMinimo = montos.some((monto) => monto > 0 && monto < CONFIG_DIAGNOSTICO_PILOTO_PRECIO);
+    await saveCliente(telefono, { estado: "interesado" });
+
+    if (ofertaMenorAlMinimo) {
+      return `Por esa cantidad no se puede hacer el Diagnóstico ON porque requiere revisión manual de Google Maps, competencia, WhatsApp y oportunidades principales.\n\nPrecio normal: $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN.\nMínimo piloto: $${CONFIG_DIAGNOSTICO_PILOTO_PRECIO.toLocaleString("es-MX")} MXN.`;
+    }
+
+    return `El precio normal es $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN. Puedo apoyarte con $${CONFIG_DIAGNOSTICO_PILOTO_PRECIO.toLocaleString("es-MX")} MXN como diagnóstico piloto.\n\n¿Quieres que avancemos con el piloto?`;
   }
 
   if (preguntaPrecio(mensaje)) {

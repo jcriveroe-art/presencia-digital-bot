@@ -61,6 +61,8 @@ assert.strictEqual(preguntaPrecio("¿Cuánto cuesta?"), true);
 assert.strictEqual(preguntaComoPagar("¿Cómo pago?"), true);
 assert.strictEqual(contieneAlucinacionComercialCritica("El Diagnóstico ON cuesta $1,500 MXN."), false);
 assert.strictEqual(contieneAlucinacionComercialCritica("Te hago promo en $999."), true);
+assert.strictEqual(contieneAlucinacionComercialCritica("Puedo apoyarte con $1,000 MXN como diagnóstico piloto."), false);
+assert.strictEqual(contieneAlucinacionComercialCritica("Te dejo descuento en $1,200."), true);
 assert.strictEqual(contieneAlucinacionComercialCritica("Transfiere por SPEI a la CLABE 123."), true);
 
 const safePrice = prepararRespuestaCliente("El Diagnóstico ON cuesta $1,500 MXN.");
@@ -71,6 +73,9 @@ assert.deepStrictEqual(safePrice, {
 
 const fakeBank = prepararRespuestaCliente("Puedes transferir al banco con CLABE 123.");
 assert.strictEqual(fakeBank.bloqueada, true);
+
+const pilot = prepararRespuestaCliente("El precio normal es $1,500 MXN. Puedo apoyarte con $1,000 MXN como diagnóstico piloto.");
+assert.strictEqual(pilot.bloqueada, false);
 
 (async () => {
   await assert.rejects(
