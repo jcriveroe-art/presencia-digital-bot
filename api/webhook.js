@@ -12,10 +12,34 @@ const BOT_NUMBER = process.env.BOT_NUMBER || process.env.WHATSAPP_NUMBER || proc
 const MAX_MENSAJES = 30;
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
+const VALIDACION_SIN_FILTROS_INBOUND = true;
 
 const SYSTEM_PROMPT = `Eres el asistente de ventas de Presencia Digital IA por WhatsApp. Tu trabajo es orientar con calma a negocios locales, hacer un mini diagnostico conversacional y avanzar solo cuando exista interes real.
 
 Presencia Digital IA ayuda a negocios locales en M?xico a mejorar su presencia en Google Maps y WhatsApp para que mas clientes los encuentren, confien y escriban. No somos agencia de redes sociales. No vendemos likes, publicaciones ni anuncios.
+
+PRIORIDAD COMERCIAL
+No perder conversaciones. No inventar informacion. Resolver dudas y cerrar Diagnostico ON.
+Antes de responder, usa el historial reciente y no repitas preguntas ya contestadas.
+No converses por conversar: resuelve la duda y avanza al cierre cuando haya interes.
+
+NO INVENTAR
+Puedes decir: "Vi su ficha en Google Maps", "Encontre su negocio en Maps" o "Estaba revisando negocios de la zona".
+No digas que detectaste fugas, problemas, perdida de clientes o competencia ganando salvo que exista evidencia real en CONTEXTO DEL LEAD o Prospector.
+Si no tienes un dato, di: "No tengo ese dato todavía."
+
+PRECIOS FIJOS
+Diagnostico ON = $1,500 MXN.
+Activacion ON = $5,500 MXN.
+Activacion ON con Diagnostico = $4,000 MXN.
+Control ON = $3,500 MXN/mes.
+Nunca uses otros precios.
+
+CIERRE
+Si el prospecto dice "si", "ok", "me interesa", "cuanto cuesta", "como pago" o "quiero hacerlo", responde:
+"El Diagnóstico ON cuesta $1,500 MXN y si después decide avanzar con la implementación, se bonifica.
+
+¿Quiere que le comparta los datos para apartarlo?"
 
 REGLA DE PRIMER CONTACTO
 Si el usuario saluda, dice "hola", "buen dia", "soy nuevo" o no trae contexto, responde exactamente:
@@ -218,13 +242,10 @@ async function alertarInboundCRM(telefono, cliente, mensaje) {
   try {
     if (!telefono || telefono === JUAN_CARLOS_NUMBER || telefono === BOT_NUMBER) return;
 
-    const ultimaAlerta = cliente?.ultima_alerta_inbound_at ? new Date(cliente.ultima_alerta_inbound_at).getTime() : 0;
-    if (ultimaAlerta && Date.now() - ultimaAlerta < DIEZ_MINUTOS_MS) return;
-
     const nombreLead = cliente?.nombre || cliente?.negocio || telefono;
     const estado = cliente?.estado || "nuevo";
     const alerta = [
-      "🔔 CRM ON",
+      "🔔 Nuevo mensaje CRM ON",
       "",
       `Lead: ${nombreLead}`,
       "",
@@ -668,13 +689,13 @@ module.exports = async (req, res) => {
             }
 
             // Ignorar mensajes de bots
-            if (!esAdmin && esBot(text)) {
+            if (!VALIDACION_SIN_FILTROS_INBOUND && !esAdmin && esBot(text)) {
               console.log(`Bot detectado, ignorando mensaje de ${from}`);
               continue;
             }
 
             // Cortar si supera limite de mensajes
-            if (!esAdmin && await superaLimite(from)) {
+            if (!VALIDACION_SIN_FILTROS_INBOUND && !esAdmin && await superaLimite(from)) {
               console.log(`Rate limit alcanzado para ${from}`);
               await alertarJuanCarlos("intervencion", from, {
                 negocio: null,
