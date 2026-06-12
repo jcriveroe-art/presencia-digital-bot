@@ -244,7 +244,52 @@ function parseContenido(contenido) {
     row.ultimo_mensaje = null;
     row.fecha_ultimo_mensaje = new Date().toISOString();
     return row;
-  }).filter((row) => row.telefono);
+  });
+}
+
+function normalizarFilaImportacion(row) {
+  const clean = { ...(row || {}) };
+  clean.telefono = normalizarTelefono(clean.telefono);
+  if (clean.fotos && !clean.fotos_estimadas) clean.fotos_estimadas = clean.fotos;
+  delete clean.fotos;
+  if (!clean.diagnostico_fotos && clean.fotos_estimadas) clean.diagnostico_fotos = "posible baja actividad visual en la ficha";
+  clean.estado = clean.estado || "prospectado";
+  clean.bot_enabled = clean.bot_enabled === undefined ? true : clean.bot_enabled;
+  if (!("ultimo_mensaje" in clean)) clean.ultimo_mensaje = null;
+  clean.fecha_ultimo_mensaje = clean.fecha_ultimo_mensaje || new Date().toISOString();
+  return clean;
+}
+
+function filasImportacion(body) {
+  if (Array.isArray(body.rows)) return body.rows.map(normalizarFilaImportacion);
+  if (body.rows && typeof body.rows === "object") return [normalizarFilaImportacion(body.rows)];
+  if (body.row && typeof body.row === "object") return [normalizarFilaImportacion(body.row)];
+  if (body.lead && typeof body.lead === "object") return [normalizarFilaImportacion(body.lead)];
+  return parseContenido(body.contenido);
+}
+
+function dedupeImportacionPorTelefono(rows) {
+  const recibidas = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+  const porTelefono = new Map();
+  const duplicadas = new Set();
+  let invalidas = 0;
+
+  recibidas.forEach((row) => {
+    const clean = normalizarFilaImportacion(row);
+    if (!clean.telefono) {
+      invalidas += 1;
+      return;
+    }
+    if (porTelefono.has(clean.telefono)) duplicadas.add(clean.telefono);
+    porTelefono.set(clean.telefono, { ...porTelefono.get(clean.telefono), ...clean });
+  });
+
+  return {
+    recibidas: recibidas.length,
+    rows: Array.from(porTelefono.values()),
+    duplicadas: Array.from(duplicadas),
+    invalidas,
+  };
 }
 
 function esErrorColumnas(error) {
@@ -415,7 +460,15 @@ async function dashboardData() {
 }
 
 async function importarProspector(body) {
-  const rows = parseContenido(body.contenido);
+  const dedupe = dedupeImportacionPorTelefono(filasImportacion(body));
+  const rows = dedupe.rows;
+  console.log("importar_prospector upsert", {
+    onConflict: "telefono",
+    cantidad_recibida: dedupe.recibidas,
+    cantidad_despues_dedupe: rows.length,
+    cantidad_invalidas: dedupe.invalidas,
+    llaves_duplicadas_detectadas: dedupe.duplicadas,
+  });
   if (!rows.length) return { status: 400, payload: { ok: false, error: "No se encontraron filas validas con telefono" } };
   let { data, error } = await supabase.from("conversaciones").upsert(rows, { onConflict: "telefono" }).select("telefono, nombre, estado");
   if (error && esErrorColumnas(error)) {
