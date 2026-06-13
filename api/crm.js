@@ -128,6 +128,16 @@ module.exports = async (req, res) => {
     .page.view-reportes main, .page.view-reportes .dashboard, .page.view-reportes .attention, .page.view-reportes .chat-dashboard { display: none; }
     .page.view-reportes #reports { display: grid; grid-template-columns: 1fr; align-content: start; }
     .page.view-seguimiento .dashboard, .page.view-seguimiento .chat-dashboard { display: none; }
+    .page.view-seguimiento main { display: none; }
+    .page.view-seguimiento .attention { overflow: auto; align-content: start; padding: 14px 16px; }
+    .followup-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .followup-block { display: grid; align-content: start; gap: 8px; min-width: 0; }
+    .followup-block h2 { font-size: 14px; }
+    .followup-card { border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 10px; display: grid; gap: 7px; font-size: 12px; }
+    .followup-card strong { font-size: 13px; overflow-wrap: anywhere; }
+    .followup-meta { color: var(--muted); line-height: 1.3; overflow-wrap: anywhere; }
+    .followup-badges, .followup-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .followup-actions button { min-height: 28px; padding: 0 8px; font-size: 12px; }
     @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .pane-resizer { display: none; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
     @media (max-width: 768px) {
       html, body { width: 100%; max-width: 100%; overflow: hidden; }
@@ -143,6 +153,7 @@ module.exports = async (req, res) => {
       .page { height: calc(100vh - 52px); overflow: hidden; }
       .chat-dashboard { grid-template-columns: 1fr !important; }
       .dashboard { grid-template-columns: 1fr; overflow: auto; }
+      .followup-board { grid-template-columns: 1fr; }
       .dashboard-panel { overflow: auto; padding: 12px; }
       .funnel { grid-template-columns: 1fr; }
       main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
@@ -682,10 +693,20 @@ module.exports = async (req, res) => {
     }
 
     function renderAttention() {
-      const items = conversaciones.filter(needsAttention).slice(0, 20);
+      const atencion = conversaciones.filter(needsAttention).slice(0, 30);
+      const interesados = conversaciones.filter(c => c.estado === "interesado" || c.estado === "cliente_caliente" || c.caliente === true || ["Interesado","Diagnóstico ofrecido","Activación ofrecida"].includes(commercialState(c))).slice(0, 30);
+      const proximos = conversaciones.filter(c => c.fecha_siguiente_seguimiento || c.fecha_seguimiento).filter(c => !isOverdue(c)).sort((a, b) => new Date(a.fecha_siguiente_seguimiento || a.fecha_seguimiento || 0) - new Date(b.fecha_siguiente_seguimiento || b.fecha_seguimiento || 0)).slice(0, 30);
       const wrap = document.getElementById("attention");
-      wrap.innerHTML = '<h2>Requiere atencion</h2><div class="attention-list">' + (items.map(c => '<button data-tel="' + escapeHtml(c.telefono) + '"><strong>' + escapeHtml(label(c)) + '</strong><br><small>' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + ' | ' + escapeHtml(c.siguiente_accion || c.proxima_accion || 'sin accion') + '</small><br><small>' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : (c.fecha_seguimiento ? fmtDate(c.fecha_seguimiento) : 'sin fecha')) + '</small><br><small>' + escapeHtml(alertasLead(c).join(' | ') || c.motivo_seguimiento || 'sin motivo') + '</small><br><span class="badge">Ver chat</span></button>').join("") || '<span class="badge">Sin pendientes operativos</span>') + '</div>';
-      wrap.querySelectorAll("button[data-tel]").forEach(btn => btn.addEventListener("click", () => { setView("chat"); selectLead(btn.dataset.tel); }));
+      const card = (c) => '<article class="followup-card"><strong>' + escapeHtml(label(c)) + '</strong><div class="followup-meta">' + escapeHtml(c.telefono || 'sin telefono') + '<br>' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + '<br>Ultimo: ' + escapeHtml(c.ultimo_mensaje || c.texto_ultimo_mensaje || 'sin mensaje') + '<br>Accion: ' + escapeHtml(c.siguiente_accion || c.proxima_accion || 'sin accion') + '<br>Seguimiento: ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : (c.fecha_seguimiento ? fmtDate(c.fecha_seguimiento) : 'sin fecha')) + '</div><div class="followup-badges">' + (botOn(c) ? '<span class="badge on">IA ON</span>' : '<span class="badge off">IA OFF</span>') + (c.caliente ? '<span class="badge hot">Caliente</span>' : '') + (hasNewMessage(c) ? '<span class="badge new">Respondio</span>' : '') + (c.prioridad ? '<span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="followup-actions"><button data-follow-chat="' + escapeHtml(c.telefono) + '">Ver chat</button><button data-follow-status="contactado" data-tel="' + escapeHtml(c.telefono) + '">Contactado</button><button data-follow-status="interesado" data-tel="' + escapeHtml(c.telefono) + '">Interesado</button><button class="danger" data-follow-status="perdido" data-tel="' + escapeHtml(c.telefono) + '">Perdido</button><button data-follow-bot="' + escapeHtml(c.telefono) + '" data-value="' + (!botOn(c)) + '">' + (botOn(c) ? 'Pausar IA' : 'Reanudar IA') + '</button></div></article>';
+      const block = (title, items, empty) => '<section class="followup-block"><h2>' + title + '</h2>' + (items.length ? items.map(card).join("") : '<span class="badge">' + empty + '</span>') + '</section>';
+      wrap.innerHTML = '<div class="followup-board">' + [
+        block("Requiere atencion", atencion, "Sin pendientes"),
+        block("Interesados / calientes", interesados, "Sin interesados"),
+        block("Proximos seguimientos", proximos, "Sin proximos seguimientos"),
+      ].join("") + '</div>';
+      wrap.querySelectorAll("[data-follow-chat]").forEach(btn => btn.addEventListener("click", () => { setView("chat"); selectLead(btn.dataset.followChat); }));
+      wrap.querySelectorAll("[data-follow-status]").forEach(btn => btn.addEventListener("click", async () => { selected = conversaciones.find(c => c.telefono === btn.dataset.tel) || { telefono: btn.dataset.tel }; await setEstado(btn.dataset.followStatus); }));
+      wrap.querySelectorAll("[data-follow-bot]").forEach(btn => btn.addEventListener("click", async () => { selected = conversaciones.find(c => c.telefono === btn.dataset.followBot) || { telefono: btn.dataset.followBot }; await setBot(btn.dataset.value === "true"); }));
     }
 
     function fillSelect(id, values, firstLabel) {
