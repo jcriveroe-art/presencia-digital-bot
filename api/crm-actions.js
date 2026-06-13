@@ -292,6 +292,17 @@ function dedupeImportacionPorTelefono(rows) {
   };
 }
 
+function logUpsert(action, tabla, onConflict, cantidadRecibida, cantidadDedupe, duplicadas) {
+  console.log("crm-actions upsert", {
+    action,
+    tabla,
+    onConflict,
+    cantidad_recibida: cantidadRecibida,
+    cantidad_despues_dedupe: cantidadDedupe,
+    duplicadas_detectadas: duplicadas || [],
+  });
+}
+
 function esErrorColumnas(error) {
   const message = String(error?.message || "").toLowerCase();
   return message.includes("column") || message.includes("schema cache") || message.includes("could not find");
@@ -462,17 +473,14 @@ async function dashboardData() {
 async function importarProspector(body) {
   const dedupe = dedupeImportacionPorTelefono(filasImportacion(body));
   const rows = dedupe.rows;
-  console.log("importar_prospector upsert", {
-    onConflict: "telefono",
-    cantidad_recibida: dedupe.recibidas,
-    cantidad_despues_dedupe: rows.length,
-    cantidad_invalidas: dedupe.invalidas,
-    llaves_duplicadas_detectadas: dedupe.duplicadas,
-  });
+  logUpsert("importar_prospector", "conversaciones", "telefono", dedupe.recibidas, rows.length, dedupe.duplicadas);
+  if (dedupe.invalidas) console.log("importar_prospector filas invalidas filtradas", { cantidad_invalidas: dedupe.invalidas });
   if (!rows.length) return { status: 400, payload: { ok: false, error: "No se encontraron filas validas con telefono" } };
   let { data, error } = await supabase.from("conversaciones").upsert(rows, { onConflict: "telefono" }).select("telefono, nombre, estado");
   if (error && esErrorColumnas(error)) {
-    const retry = await supabase.from("conversaciones").upsert(rows.map(soloBase), { onConflict: "telefono" }).select("telefono, nombre, estado");
+    const baseRows = dedupeImportacionPorTelefono(rows.map(soloBase)).rows;
+    logUpsert("importar_prospector_retry_base", "conversaciones", "telefono", rows.length, baseRows.length, []);
+    const retry = await supabase.from("conversaciones").upsert(baseRows, { onConflict: "telefono" }).select("telefono, nombre, estado");
     data = retry.data;
     error = retry.error;
   }
@@ -492,6 +500,7 @@ async function enviarInicial(body) {
   const mensaje = mensajeInicial(lead.nombre);
   const whatsapp = await sendWhatsApp(telefono, mensaje);
   const now = new Date().toISOString();
+  logUpsert("enviar_inicial", "conversaciones", "telefono", 1, 1, []);
   await supabase.from("conversaciones").upsert({ telefono, estado: "contactado", bot_enabled: true, ultimo_mensaje: mensaje, fecha_ultimo_mensaje: now, mensaje_inicial_enviado: true, mensaje_inicial_enviado_at: now }, { onConflict: "telefono" });
   await logEventoCRM(telefono, "mensaje_inicial_enviado", "Mensaje inicial enviado desde CRM", { mensaje });
   return { ok: true, mensaje, whatsapp };
@@ -502,6 +511,7 @@ async function enviarManual(body) {
   const mensaje = String(body.mensaje || "").trim();
   if (!telefono || !mensaje) return { status: 400, payload: { ok: false, error: "telefono y mensaje son requeridos" } };
   const whatsapp = await sendWhatsApp(telefono, mensaje);
+  logUpsert("enviar_manual", "conversaciones", "telefono", 1, 1, []);
   await supabase.from("conversaciones").upsert({ telefono, ultimo_mensaje: mensaje, fecha_ultimo_mensaje: new Date().toISOString() }, { onConflict: "telefono" });
   await logEventoCRM(telefono, "mensaje_saliente", "Mensaje manual enviado desde CRM", { mensaje });
   return { ok: true, whatsapp };
@@ -514,6 +524,7 @@ async function leadEstado(body) {
   if (body.estado === "interesado") updates.caliente = false;
   if (body.estado === "cliente_caliente" || body.estado === "diagnostico_pagado") updates.caliente = true;
   if (body.estado === "perdido") updates.caliente = false;
+  logUpsert("lead_estado", "conversaciones", "telefono", 1, 1, []);
   const { data, error } = await supabase.from("conversaciones").upsert(updates, { onConflict: "telefono" }).select("telefono, estado, caliente").single();
   if (error) throw error;
   await logEventoCRM(telefono, "estado_actualizado", `Estado actualizado a ${body.estado}`, { estado: body.estado });
@@ -523,6 +534,7 @@ async function leadEstado(body) {
 async function botEnabled(body) {
   const telefono = normalizarTelefono(body.telefono);
   if (!telefono || typeof body.bot_enabled !== "boolean") return { status: 400, payload: { ok: false, error: "telefono y bot_enabled boolean son requeridos" } };
+  logUpsert("bot_enabled", "conversaciones", "telefono", 1, 1, []);
   const { data, error } = await supabase.from("conversaciones").upsert({ telefono, bot_enabled: body.bot_enabled, fecha_ultimo_mensaje: new Date().toISOString() }, { onConflict: "telefono" }).select("telefono, bot_enabled").single();
   if (error) throw error;
   await logEventoCRM(telefono, body.bot_enabled ? "ia_reanudada" : "ia_pausada", body.bot_enabled ? "IA reanudada desde CRM" : "IA pausada desde CRM", { bot_enabled: body.bot_enabled });
@@ -665,9 +677,10 @@ async function dispatch(action, body, req, res) {
 
 module.exports = async (req, res) => {
   if (req.method !== "POST" && req.method !== "GET") return res.status(405).send("Method Not Allowed");
+  let body = {};
 
   try {
-    const body = req.method === "GET" ? { action: req.query.action } : (req.body || {});
+    body = req.method === "GET" ? { action: req.query.action } : (req.body || {});
     const action = body.action;
     if (req.method === "GET" && action !== "cron_recordatorios" && action !== "cron_seguimientos") {
       return json(res, 405, { ok: false, error: "GET solo esta permitido para crons" });
@@ -677,7 +690,12 @@ module.exports = async (req, res) => {
     if (result?.payload) return json(res, result.status || 200, result.payload);
     return json(res, 200, result);
   } catch (e) {
-    console.error("POST /api/crm-actions exception:", e.message);
+    console.error("POST /api/crm-actions exception:", {
+      action: body?.action || null,
+      tipo: body?.tipo || null,
+      body_keys: Object.keys(body || {}),
+      error: e.message,
+    });
     return json(res, 500, { ok: false, error: e.message });
   }
 };
