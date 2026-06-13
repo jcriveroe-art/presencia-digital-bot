@@ -182,8 +182,11 @@ module.exports = async (req, res) => {
       .page.view-reportes #reports .table-wrap { overflow: visible; }
       .page.view-reportes #reports table, .page.view-reportes #reports tbody, .page.view-reportes #reports tr, .page.view-reportes #reports td { display: block; width: 100%; }
       .page.view-reportes #reports tr { padding: 8px; margin-bottom: 7px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
-      .page.view-reportes #reports td { display: inline-block; width: auto; max-width: 100%; padding: 2px 8px 2px 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+      .page.view-reportes #reports td { display: inline-grid; grid-template-columns: minmax(72px, auto) 1fr; gap: 5px; width: auto; max-width: 100%; padding: 2px 8px 2px 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+      .page.view-reportes #reports td::before { content: attr(data-label); color: var(--ink); font-weight: 700; }
       .page.view-reportes #reports td:first-child { display: block; padding: 0 0 5px; color: var(--ink); font-size: 12px; font-weight: 700; }
+      .page.view-reportes #reports td:first-child::before { display: none; }
+      .page.view-reportes #reports td[data-label="Diag. ofrecidos"], .page.view-reportes #reports td[data-label="Diag. vendidos"], .page.view-reportes #reports td[data-label="Act. ofrecidas"], .page.view-reportes #reports td[data-label="Act. vendidas"], .page.view-reportes #reports td[data-label="Vendidos"], .page.view-reportes #reports td[data-label="Descartados"], .page.view-reportes #reports td[data-label="Interes"] { display: none; }
       main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
       .left { border-right: 0; min-height: 0; }
       .mobile-collapse summary { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
@@ -661,7 +664,16 @@ module.exports = async (req, res) => {
       return Array.from(groups.values()).sort((a, b) => a.key.localeCompare(b.key));
     }
     function reportTable(title, headers, rows) {
-      return '<section class="dashboard-section"><h2>' + title + '</h2><div class="table-wrap"><table><thead><tr>' + headers.map(h => '<th>' + h + '</th>').join("") + '</tr></thead><tbody>' + (rows.join("") || '<tr><td colspan="' + headers.length + '">Sin datos.</td></tr>') + '</tbody></table></div></section>';
+      const mobileLabels = { "Resp.": "Tasa respuesta", "Interes": "Tasa interes" };
+      const labeledRows = rows.map(row => {
+        let index = 0;
+        return row.replace(/<td(.*?)>/g, (match, attrs) => {
+          const label = mobileLabels[headers[index]] || headers[index] || "";
+          index += 1;
+          return '<td' + attrs + ' data-label="' + escapeHtml(label) + '">';
+        });
+      });
+      return '<section class="dashboard-section"><h2>' + title + '</h2><div class="table-wrap"><table><thead><tr>' + headers.map(h => '<th>' + h + '</th>').join("") + '</tr></thead><tbody>' + (labeledRows.join("") || '<tr><td colspan="' + headers.length + '" data-label="">Sin datos.</td></tr>') + '</tbody></table></div></section>';
     }
     function renderReports() {
       const byZona = groupReport(c => zonaLabel(c.zona));
