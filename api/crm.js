@@ -258,6 +258,7 @@ module.exports = async (req, res) => {
     let selected = null;
     let currentView = "chat";
     let dashboardInfo = { eventos: [], objeciones: [] };
+    const DEBUG_CRM = false;
     const estadosBase = ["prospectado","contactado","interesado","cliente_caliente","diagnostico_pagado","diagnostico_entregado","seguimiento","perdido","nuevo","mini_diagnostico"];
     const estadosContacto = ["Pendiente de contactar","Contactado","Respondió","Pidió información","Interesado","Diagnóstico ofrecido","Diagnóstico vendido","Activación ofrecida","Activación vendida","Control ON ofrecido","Cliente recurrente","Seguimiento","No interesado","Descartado"];
     const productosInteres = ["Sin dato","Diagnóstico ON","Activación ON","Control ON","Otro"];
@@ -599,7 +600,7 @@ module.exports = async (req, res) => {
         sin_zona: conversaciones.filter(c => normalizeZona(c.zona) === "__sin_zona__").length,
         sin_telefono: conversaciones.filter(c => !String(c.telefono || "").trim()).length,
       };
-      console.log("CRM resumen reportes", { total, contactados, respondieron, interesados, seguimiento, cotizado, pagado });
+      if (DEBUG_CRM) console.log("CRM resumen reportes", { total, contactados, respondieron, interesados, seguimiento, cotizado, pagado });
       reports.innerHTML = '<div class="dashboard-panel">' + [
         '<section class="dashboard-section"><h2>Resumen general</h2><div class="chat-dashboard">' + [
           metric("Leads totales", total), metric("Contactados", contactados), metric("Respondieron", respondieron), metric("Interesados", interesados),
@@ -652,7 +653,7 @@ module.exports = async (req, res) => {
 
     function fillZonaSelect() {
       const zonas = zonasDetectadas();
-      console.log("CRM zonas detectadas", zonas);
+      if (DEBUG_CRM) console.log("CRM zonas detectadas", zonas);
       const select = document.getElementById("filterZona");
       const current = select.value;
       select.innerHTML = '<option value="">Todas las zonas</option><option value="__sin_zona__">Sin zona</option>' + zonas.map(z => '<option value="' + escapeHtml(z) + '">' + escapeHtml(z) + '</option>').join("");
@@ -661,7 +662,7 @@ module.exports = async (req, res) => {
 
     function fillFuenteSelect() {
       const fuentes = fuentesDetectadas();
-      console.log("CRM fuentes detectadas", fuentes);
+      if (DEBUG_CRM) console.log("CRM fuentes detectadas", fuentes);
       const select = document.getElementById("filterFuente");
       const current = select.value;
       select.innerHTML = '<option value="">Todas las fuentes</option><option value="__sin_fuente__">Sin fuente</option>' + fuentes.map(f => '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>').join("");
@@ -707,7 +708,7 @@ module.exports = async (req, res) => {
         if (operativo === "hoy_vencidos" && !isDueTodayOrOverdue(c)) return false;
         return true;
       }).sort(compareLeads);
-      console.log("CRM filtros", { zona_seleccionada: zona || "Todas las zonas", fuente_seleccionada: fuente || "Todas las fuentes", estado_seleccionado: estadoContacto || estado || "Todos", leads_filtrados: filtered.length, seguimientos_vencidos: conversaciones.filter(isOverdue).length });
+      if (DEBUG_CRM) console.log("CRM filtros", { zona_seleccionada: zona || "Todas las zonas", fuente_seleccionada: fuente || "Todas las fuentes", estado_seleccionado: estadoContacto || estado || "Todos", leads_filtrados: filtered.length, seguimientos_vencidos: conversaciones.filter(isOverdue).length });
       renderLeads();
     }
 
@@ -879,15 +880,20 @@ module.exports = async (req, res) => {
 
     function openEdit() {
       if (!selected) return;
+      openEdit.trigger = document.activeElement;
       editStatus.textContent = "";
       renderEditForm();
-      editModal.classList.add("open");
       editModal.setAttribute("aria-hidden", "false");
+      editModal.classList.add("open");
+      document.getElementById("closeEdit").focus();
     }
 
     function closeEdit() {
+      const trigger = openEdit.trigger;
+      if (editModal.contains(document.activeElement)) document.activeElement.blur();
       editModal.classList.remove("open");
       editModal.setAttribute("aria-hidden", "true");
+      if (trigger && typeof trigger.focus === "function" && document.contains(trigger)) trigger.focus();
     }
 
     function collectEditUpdates() {
@@ -914,7 +920,7 @@ module.exports = async (req, res) => {
         return;
       }
       updates.telefono = telefono;
-      console.log("CRM lead_update payload", { telefono_original: selected.telefono, updates });
+      if (DEBUG_CRM) console.log("CRM lead_update payload", { telefono_original: selected.telefono, updates });
       editStatus.textContent = "Guardando";
       document.getElementById("saveEdit").disabled = true;
       const res = await actionFetch("lead_update", { telefono_original: selected.telefono, updates });

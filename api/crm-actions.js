@@ -8,6 +8,7 @@ const JUAN_CARLOS_NUMBER = "5215647943262";
 const CRM_URL = "https://presencia-digital-bot.vercel.app/crm";
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 const SALES_PLAYBOOK_PATH = path.join(__dirname, "..", "playbooks", "sales_playbook_v1.md");
+const DEBUG_CRM_ACTIONS = false;
 
 const COLUMNAS_OLD = ["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url"];
 const COLUMNAS_NEW = ["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url"];
@@ -310,6 +311,7 @@ function dedupeImportacionPorTelefono(rows) {
 }
 
 function logUpsert(action, tabla, onConflict, cantidadRecibida, cantidadDedupe, duplicadas) {
+  if (!DEBUG_CRM_ACTIONS) return;
   console.log("crm-actions upsert", {
     action,
     tabla,
@@ -482,7 +484,7 @@ async function importarProspector(body) {
   const dedupe = dedupeImportacionPorTelefono(filasImportacion(body));
   const rows = dedupe.rows;
   logUpsert("importar_prospector", "conversaciones", "telefono", dedupe.recibidas, rows.length, dedupe.duplicadas);
-  if (dedupe.invalidas) console.log("importar_prospector filas invalidas filtradas", { cantidad_invalidas: dedupe.invalidas });
+  if (DEBUG_CRM_ACTIONS && dedupe.invalidas) console.log("importar_prospector filas invalidas filtradas", { cantidad_invalidas: dedupe.invalidas });
   if (!rows.length) return { status: 400, payload: { ok: false, error: "No se encontraron filas validas con telefono" } };
   let { data, error } = await supabase.from("conversaciones").upsert(rows, { onConflict: "telefono" }).select("telefono, nombre, estado");
   if (error && esErrorColumnas(error)) {
@@ -553,11 +555,6 @@ async function leadUpdate(body) {
   const telefonoOriginal = normalizarTelefono(body.telefono_original);
   if (!telefonoOriginal) return { status: 400, payload: { ok: false, error: "telefono_original requerido" } };
   if (!body.updates || typeof body.updates !== "object") return { status: 400, payload: { ok: false, error: "updates debe ser un objeto" } };
-  console.log("lead_update body recibido", {
-    telefono_original: body.telefono_original,
-    update_keys: Object.keys(body.updates || {}),
-    updates: body.updates,
-  });
   const payload = {};
   for (const [campo, valor] of Object.entries(body.updates)) {
     if (!CAMPOS_EDITABLES.has(campo)) continue;
@@ -568,9 +565,7 @@ async function leadUpdate(body) {
   if ("telefono" in payload && !payload.telefono) return { status: 400, payload: { ok: false, error: "telefono no puede quedar vacio" } };
   if (!("telefono" in payload)) payload.telefono = telefonoOriginal;
   payload.fecha_ultimo_mensaje = new Date().toISOString();
-  console.log("lead_update payload supabase", { telefono_original: telefonoOriginal, payload });
   const { data, error } = await supabase.from("conversaciones").update(payload).eq("telefono", telefonoOriginal).select("*").single();
-  console.log("lead_update supabase resultado", { error: error?.message || null, data });
   if (error) throw error;
   await logEventoCRM(payload.telefono, "nota_actualizada", "Prospecto editado desde CRM", { telefono_original: telefonoOriginal, campos: Object.keys(payload).filter((campo) => campo !== "fecha_ultimo_mensaje") });
   return { ok: true, conversacion: data };
