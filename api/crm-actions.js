@@ -502,10 +502,29 @@ async function importarProspector(body) {
 async function enviarInicial(body) {
   const telefono = normalizarTelefono(body.telefono);
   if (!telefono) return { status: 400, payload: { ok: false, error: "telefono requerido" } };
-  const { data: lead, error } = await supabase.from("conversaciones").select("telefono, nombre").eq("telefono", telefono).single();
+  const { data: lead, error } = await supabase.from("conversaciones").select("*").eq("telefono", telefono).single();
   if (error || !lead) return { status: 404, payload: { ok: false, error: "Lead no encontrado" } };
   if (!lead.nombre || !String(lead.nombre).trim() || String(lead.nombre).trim().toLowerCase() === "sin_dato") {
     return { status: 400, payload: { ok: false, error: "nombre requerido para enviar mensaje inicial" } };
+  }
+  const estadoContacto = String(lead.estado_contacto || "").trim().toLowerCase();
+  const estadoComercial = String(lead.estado_comercial || "").trim().toLowerCase();
+  const yaContactado =
+    lead.mensaje_inicial_enviado === true ||
+    Boolean(lead.mensaje_inicial_enviado_at) ||
+    String(lead.estado || "").trim().toLowerCase() === "contactado" ||
+    estadoContacto === "contactado" ||
+    estadoComercial === "contactado" ||
+    (Boolean(lead.fecha_ultimo_mensaje) && Boolean(String(lead.ultimo_mensaje || "").trim()));
+  if (yaContactado) {
+    const motivo = lead.mensaje_inicial_enviado === true ? "mensaje_inicial_enviado" :
+      lead.mensaje_inicial_enviado_at ? "mensaje_inicial_enviado_at" :
+      String(lead.estado || "").trim().toLowerCase() === "contactado" ? "estado_contactado" :
+      estadoContacto === "contactado" ? "estado_contacto_contactado" :
+      estadoComercial === "contactado" ? "estado_comercial_contactado" :
+      "ultimo_mensaje_existente";
+    console.log("enviar_inicial bloqueado", { telefono, motivo, estado: lead.estado, estado_contacto: lead.estado_contacto, estado_comercial: lead.estado_comercial });
+    return { status: 409, payload: { ok: false, blocked: true, mensaje: "Este lead ya fue contactado. No se envio mensaje inicial." } };
   }
   const mensaje = mensajeInicial(lead.nombre);
   const whatsapp = await sendWhatsApp(telefono, mensaje);
