@@ -47,6 +47,7 @@ module.exports = async (req, res) => {
     .import { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
     .import textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     .import-row { display: grid; gap: 8px; }
+    .mobile-collapse summary { display: none; }
     .filters { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
     .attention { padding: 10px 16px; border-bottom: 1px solid var(--line); background: #fff8eb; display: grid; gap: 8px; }
     .attention-list { display: flex; gap: 8px; overflow: auto; padding-bottom: 2px; }
@@ -146,8 +147,16 @@ module.exports = async (req, res) => {
       .funnel { grid-template-columns: 1fr; }
       main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
       .left { border-right: 0; min-height: 0; }
+      .mobile-collapse summary { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
+      .mobile-collapse summary::-webkit-details-marker { display: none; }
+      .mobile-collapse summary::after { content: "+"; color: var(--muted); font-size: 18px; }
+      .mobile-collapse[open] summary::after { content: "−"; }
+      .page.view-leads .mobile-collapse:not([open]) { display: block; border-bottom: 1px solid var(--line); }
+      .page.view-leads .mobile-collapse:not([open]) > :not(summary) { display: none; }
       .filters { grid-template-columns: 1fr 1fr; padding: 8px 10px; gap: 6px; }
-      .import { grid-template-columns: 1fr; }
+      .import { grid-template-columns: 1fr; padding: 0; }
+      .import[open] { padding-bottom: 8px; }
+      .import[open] .import-row { padding: 8px 10px 0; }
       .import textarea { min-height: 90px; }
       .import button { min-height: 42px; }
       .table-wrap { overflow: auto; }
@@ -165,7 +174,7 @@ module.exports = async (req, res) => {
       .page.view-leads.mobile-chat-open .left { display: none; }
       .page.view-leads.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; }
       .page.view-leads.mobile-chat-open .detail-head { grid-row: 1; }
-      .page.view-leads.mobile-chat-open .actions { grid-row: 2; }
+      .page.view-leads.mobile-chat-open .actions { grid-row: 2; max-height: 126px; overflow-y: auto; }
       .page.view-leads.mobile-chat-open .messages { grid-row: 3; min-height: 0; overflow: auto; }
       .page.view-leads.mobile-chat-open .context { display: none; grid-row: 3; max-height: none; overflow: auto; }
       .page.view-leads.mobile-chat-open.show-mobile-context .context { display: grid; }
@@ -177,7 +186,9 @@ module.exports = async (req, res) => {
       .page.view-chat.mobile-chat-open .messages { grid-row: 2; grid-column: 1; }
       .page.view-chat.mobile-chat-open form { grid-row: 3; grid-column: 1; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
       .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 132px; overflow-y: auto; overflow-x: hidden; }
-      .page.view-chat.mobile-chat-open .actions button, .page.view-leads.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; white-space: normal; }
+      .page.view-chat.mobile-chat-open .actions button, .page.view-leads.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; min-height: 34px; padding: 0 8px; white-space: normal; font-size: 13px; }
+      .page.view-leads.mobile-chat-open #initialBtn, .page.view-leads.mobile-chat-open #contactedBtn, .page.view-leads.mobile-chat-open #interestedBtn, .page.view-leads.mobile-chat-open #lostBtn { flex-basis: calc(50% - 8px); }
+      .page.view-leads.mobile-chat-open #editBtn, .page.view-leads.mobile-chat-open #paidBtn, .page.view-leads.mobile-chat-open #deleteBtn { flex-basis: calc(33.333% - 8px); font-size: 12px; min-height: 30px; }
       .page.view-chat.mobile-chat-open .context { display: none; grid-row: 5; grid-column: 1; max-height: 46vh; overflow: auto; border-left: 0; }
       .page.view-chat.mobile-chat-open.show-mobile-context .context { display: grid; }
       .page.view-leads.mobile-chat-open.show-mobile-context .messages { display: none; }
@@ -215,15 +226,17 @@ module.exports = async (req, res) => {
     <div id="reports" class="dashboard"></div>
     <main>
       <section class="left">
-        <div class="import">
+        <details class="import mobile-collapse">
+          <summary>Importar leads</summary>
           <div class="import-row">
             <h2>Importar Prospector ON</h2>
             <input id="fileInput" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
             <textarea id="importText" placeholder="Pega filas CSV o TSV de Prospector ON"></textarea>
           </div>
           <div class="import-row"><button class="primary" id="importBtn">Importar</button><span id="importStatus" class="badge">Listo</span></div>
-        </div>
-        <div class="filters">
+        </details>
+        <details class="filters mobile-collapse">
+          <summary>Filtros</summary>
           <label>Estado<select id="filterEstado"><option value="">Todos</option></select></label>
           <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
           <label>Categoria<select id="filterCategoria"><option value="">Todas</option></select></label>
@@ -234,7 +247,7 @@ module.exports = async (req, res) => {
           <label>Caliente<select id="filterCaliente"><option value="">Todos</option><option value="true">Si</option><option value="false">No</option></select></label>
           <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Respondieron campaña</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option><option value="hoy_vencidos">Hoy / Vencidos</option></select></label>
           <button id="clearFilters">Limpiar</button>
-        </div>
+        </details>
         <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <div id="paneResizer" class="pane-resizer" role="separator" aria-label="Ajustar ancho de leads" aria-orientation="vertical"></div>
