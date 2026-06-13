@@ -171,6 +171,19 @@ module.exports = async (req, res) => {
       .page.view-dashboard .funnel-step, .page.view-dashboard .activity-item, .page.view-dashboard .objection-item { padding: 8px; font-size: 11px; border-radius: 7px; }
       .page.view-dashboard .funnel-step strong { font-size: 16px; }
       .page.view-dashboard .activity-list, .page.view-dashboard .objection-list { gap: 6px; }
+      .page.view-reportes #reports { padding: 8px; overflow: auto; align-content: start; }
+      .page.view-reportes #reports .dashboard-panel { padding: 0; gap: 10px; border-bottom: 0; background: transparent; }
+      .page.view-reportes #reports .dashboard-section { gap: 6px; }
+      .page.view-reportes #reports .dashboard-section h2 { font-size: 13px; padding: 0 2px; }
+      .page.view-reportes #reports .chat-dashboard { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 6px; padding: 0; border-bottom: 0; background: transparent; }
+      .page.view-reportes #reports .metric { min-height: 46px; padding: 7px 8px; border-radius: 7px; }
+      .page.view-reportes #reports .metric strong { font-size: 17px; }
+      .page.view-reportes #reports .metric span { font-size: 10px; line-height: 1.15; margin-top: 4px; }
+      .page.view-reportes #reports .table-wrap { overflow: visible; }
+      .page.view-reportes #reports table, .page.view-reportes #reports tbody, .page.view-reportes #reports tr, .page.view-reportes #reports td { display: block; width: 100%; }
+      .page.view-reportes #reports tr { padding: 8px; margin-bottom: 7px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+      .page.view-reportes #reports td { display: inline-block; width: auto; max-width: 100%; padding: 2px 8px 2px 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+      .page.view-reportes #reports td:first-child { display: block; padding: 0 0 5px; color: var(--ink); font-size: 12px; font-weight: 700; }
       main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
       .left { border-right: 0; min-height: 0; }
       .mobile-collapse summary { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
