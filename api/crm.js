@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
     .bar { height: 6px; background: #e8edf5; border-radius: 999px; overflow: hidden; margin-top: 8px; }
     .bar span { display: block; height: 100%; background: var(--accent); }
     .activity-list, .objection-list { display: grid; gap: 8px; }
-    main { min-height: 0; display: grid; grid-template-columns: minmax(420px, var(--lead-pane-width, 58vw)) 7px minmax(320px, 1fr); }
+    main { min-height: 0; display: grid; grid-template-columns: minmax(420px, var(--lead-pane-width, 58vw)) 7px minmax(320px, 1fr); position: relative; }
     .left { min-width: 0; display: grid; grid-template-rows: auto auto 1fr; background: var(--panel); }
     .pane-resizer { cursor: col-resize; background: var(--line); position: relative; z-index: 3; }
     .pane-resizer::after { content: ""; position: absolute; inset: 0 2px; background: transparent; }
@@ -89,6 +89,7 @@ module.exports = async (req, res) => {
     .event { border-left: 3px solid var(--accent); padding-left: 8px; font-size: 12px; }
     .event small { color: var(--muted); display: block; margin-top: 2px; }
     .mobile-only { display: none; }
+    .detail-toggle { display: none; }
     .messages { min-height: 0; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
     .msg { max-width: min(680px, 84%); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); line-height: 1.38; white-space: pre-wrap; overflow-wrap: anywhere; }
     .msg.saliente { align-self: flex-end; background: #edf7f1; }
@@ -123,6 +124,12 @@ module.exports = async (req, res) => {
     .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(360px, 1fr); }
     .page.view-leads .detail { display: grid; }
     .page.view-leads .context { max-height: none; align-content: start; }
+    @media (min-width: 1051px) {
+      .page.view-chat .detail-toggle, .page.view-leads .detail-toggle { display: inline-flex; align-items: center; position: absolute; top: 10px; right: 12px; z-index: 6; min-height: 30px; font-size: 12px; background: #fff; box-shadow: 0 1px 5px rgba(17, 24, 39, .08); }
+      .page.view-chat.detail-collapsed main, .page.view-leads.detail-collapsed main { grid-template-columns: minmax(0, 1fr); }
+      .page.view-chat.detail-collapsed .pane-resizer, .page.view-chat.detail-collapsed .detail, .page.view-leads.detail-collapsed .pane-resizer, .page.view-leads.detail-collapsed .detail { display: none; }
+      .page.view-chat.detail-collapsed .left, .page.view-leads.detail-collapsed .left { border-right: 0; }
+    }
     .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
     .page.view-dashboard .attention { display: none; }
     .page.view-reportes main, .page.view-reportes .dashboard, .page.view-reportes .attention, .page.view-reportes .chat-dashboard { display: none; }
@@ -294,6 +301,7 @@ module.exports = async (req, res) => {
         </details>
         <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
+      <button id="toggleDetailPanel" class="detail-toggle" type="button">Ocultar detalle</button>
       <div id="paneResizer" class="pane-resizer" role="separator" aria-label="Ajustar ancho de leads" aria-orientation="vertical"></div>
       <section class="detail">
         <div class="detail-head">
@@ -341,6 +349,7 @@ module.exports = async (req, res) => {
     let filtered = [];
     let selected = null;
     let currentView = "chat";
+    let detailCollapsed = false;
     let dashboardInfo = { eventos: [], objeciones: [] };
     const DEBUG_CRM = false;
     const estadosBase = ["prospectado","contactado","interesado","cliente_caliente","diagnostico_pagado","diagnostico_entregado","seguimiento","perdido","nuevo","mini_diagnostico"];
@@ -350,6 +359,7 @@ module.exports = async (req, res) => {
     const page = document.getElementById("page");
     const leads = document.getElementById("leads");
     const paneResizer = document.getElementById("paneResizer");
+    const toggleDetailPanel = document.getElementById("toggleDetailPanel");
     const dashboard = document.getElementById("dashboard");
     const reports = document.getElementById("reports");
     const chatDashboard = document.getElementById("chatDashboard");
@@ -507,6 +517,8 @@ module.exports = async (req, res) => {
       currentView = view;
       page.classList.remove("mobile-chat-open", "show-mobile-context");
       page.className = "page view-" + view;
+      if (detailCollapsed && !isMobile() && (view === "chat" || view === "leads")) page.classList.add("detail-collapsed");
+      updateDetailToggle();
       document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
       renderLeads();
       if (view === "seguimiento") renderAttention();
@@ -516,6 +528,13 @@ module.exports = async (req, res) => {
 
     function isMobile() {
       return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+    }
+
+    function updateDetailToggle() {
+      const visible = !isMobile() && (currentView === "chat" || currentView === "leads");
+      toggleDetailPanel.hidden = !visible;
+      toggleDetailPanel.textContent = detailCollapsed ? "Mostrar detalle" : "Ocultar detalle";
+      page.classList.toggle("detail-collapsed", visible && detailCollapsed);
     }
 
     function clearFilterValues() {
@@ -1139,6 +1158,11 @@ module.exports = async (req, res) => {
     document.getElementById("deleteBtn").addEventListener("click", () => deleteLead());
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
+    toggleDetailPanel.addEventListener("click", () => {
+      detailCollapsed = !detailCollapsed;
+      updateDetailToggle();
+    });
+    window.addEventListener("resize", updateDetailToggle);
     document.getElementById("backToLeads").addEventListener("click", () => page.classList.remove("mobile-chat-open", "show-mobile-context"));
     document.getElementById("toggleLeadData").addEventListener("click", () => page.classList.toggle("show-mobile-context"));
     document.getElementById("clearFilters").addEventListener("click", () => {
