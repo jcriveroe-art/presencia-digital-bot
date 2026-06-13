@@ -131,12 +131,14 @@ module.exports = async (req, res) => {
     @media (max-width: 768px) {
       html, body { width: 100%; max-width: 100%; overflow: hidden; }
       body { padding-top: 52px; }
-      header { height: 52px; grid-template-columns: auto minmax(0, 1fr) auto; padding: 0 10px; gap: 8px; }
+      header { height: 52px; grid-template-columns: auto minmax(0, 1fr) auto; padding: 0 8px; gap: 6px; }
       h1 { font-size: 15px; white-space: nowrap; }
       .top-nav { justify-content: flex-start; overflow-x: auto; padding-bottom: 2px; }
       .top-nav { scrollbar-width: none; }
       .top-nav::-webkit-scrollbar { display: none; }
-      header > #refresh { justify-self: end; min-width: 84px; }
+      .top-nav button { min-width: max-content; padding: 0 9px; }
+      header > #refresh { justify-self: end; min-width: 42px; max-width: 42px; padding: 0; overflow: hidden; color: transparent; position: relative; }
+      header > #refresh::after { content: "↻"; color: var(--ink); position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; }
       .page { height: calc(100vh - 52px); overflow: hidden; }
       .chat-dashboard { grid-template-columns: 1fr !important; }
       .dashboard { grid-template-columns: 1fr; overflow: auto; }
@@ -144,7 +146,7 @@ module.exports = async (req, res) => {
       .funnel { grid-template-columns: 1fr; }
       main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
       .left { border-right: 0; min-height: 0; }
-      .filters { grid-template-columns: 1fr 1fr; }
+      .filters { grid-template-columns: 1fr 1fr; padding: 8px 10px; gap: 6px; }
       .import { grid-template-columns: 1fr; }
       .import textarea { min-height: 90px; }
       .import button { min-height: 42px; }
@@ -153,23 +155,40 @@ module.exports = async (req, res) => {
       thead { display: none; }
       tr { border-bottom: 1px solid var(--line); padding: 10px; }
       td { border-bottom: 0; padding: 2px 0; }
+      .page.view-chat main { grid-template-rows: minmax(0, 1fr); }
+      .page.view-chat .left { grid-template-rows: auto minmax(0, 1fr); }
+      .page.view-chat .filters { display: none; }
+      .page.view-chat .table-wrap { min-height: 0; }
+      .page.view-leads main { grid-template-rows: minmax(0, 1fr); }
+      .page.view-leads .left { grid-template-rows: auto auto minmax(0, 1fr); }
+      .page.view-leads .detail { display: none; }
+      .page.view-leads.mobile-chat-open .left { display: none; }
+      .page.view-leads.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; }
+      .page.view-leads.mobile-chat-open .detail-head { grid-row: 1; }
+      .page.view-leads.mobile-chat-open .actions { grid-row: 2; }
+      .page.view-leads.mobile-chat-open .messages { grid-row: 3; min-height: 0; overflow: auto; }
+      .page.view-leads.mobile-chat-open .context { display: none; grid-row: 3; max-height: none; overflow: auto; }
+      .page.view-leads.mobile-chat-open.show-mobile-context .context { display: grid; }
+      .page.view-leads.mobile-chat-open form { grid-row: 4; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
       .page.view-chat .detail { display: none; }
       .page.view-chat.mobile-chat-open .left { display: none; }
       .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; overflow: hidden; }
       .page.view-chat.mobile-chat-open .detail-head { grid-row: 1; grid-column: 1; }
       .page.view-chat.mobile-chat-open .messages { grid-row: 2; grid-column: 1; }
       .page.view-chat.mobile-chat-open form { grid-row: 3; grid-column: 1; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
-      .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 112px; overflow-y: auto; overflow-x: hidden; }
-      .page.view-chat.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; white-space: normal; }
+      .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 132px; overflow-y: auto; overflow-x: hidden; }
+      .page.view-chat.mobile-chat-open .actions button, .page.view-leads.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; white-space: normal; }
       .page.view-chat.mobile-chat-open .context { display: none; grid-row: 5; grid-column: 1; max-height: 46vh; overflow: auto; border-left: 0; }
       .page.view-chat.mobile-chat-open.show-mobile-context .context { display: grid; }
+      .page.view-leads.mobile-chat-open.show-mobile-context .messages { display: none; }
       .mobile-only { display: inline-flex; }
       .messages { padding: 10px; min-width: 0; overflow-x: hidden; }
       .msg { max-width: 94%; box-sizing: border-box; }
       .msg.saliente { max-width: 88%; }
       .detail-head { padding: 10px; min-width: 0; flex-wrap: wrap; }
       .detail-head .identity { min-width: 0; flex: 1 1 150px; }
-      .actions { padding: 8px 10px; }
+      .actions { padding: 8px 10px; justify-content: flex-start; }
+      form textarea { min-height: 48px; max-height: 96px; }
       .context-grid, .ops { grid-template-columns: 1fr; }
       .ops label.wide { grid-column: span 1; }
       .edit-grid { grid-template-columns: 1fr; }
@@ -222,8 +241,8 @@ module.exports = async (req, res) => {
       <section class="detail">
         <div class="detail-head">
           <div class="identity"><strong id="title">Selecciona un lead</strong><span id="subtitle"></span></div>
-          <button class="mobile-only" id="backToLeads" type="button">Volver a leads</button>
-          <button class="mobile-only" id="toggleLeadData" type="button">Ver datos</button>
+          <button class="mobile-only" id="backToLeads" type="button">Lista</button>
+          <button class="mobile-only" id="toggleLeadData" type="button">Datos</button>
           <div><span id="botBadge" class="badge">IA</span> <span id="hotBadge" class="badge">Lead</span></div>
         </div>
         <div class="actions">
@@ -231,6 +250,7 @@ module.exports = async (req, res) => {
           <button id="editBtn" disabled>Editar prospecto</button>
           <button id="pauseBtn" disabled>Pausar IA</button>
           <button id="resumeBtn" disabled>Reanudar IA</button>
+          <button id="contactedBtn" disabled>Marcar contactado</button>
           <button id="interestedBtn" disabled>Marcar interesado</button>
           <button id="paidBtn" disabled>Marcar diagnostico pagado</button>
           <button class="danger" id="lostBtn" disabled>Marcar perdido</button>
@@ -286,7 +306,7 @@ module.exports = async (req, res) => {
     const importStatus = document.getElementById("importStatus");
     const manualText = document.getElementById("manualText");
     const sendManual = document.getElementById("sendManual");
-    const actionIds = ["initialBtn","editBtn","pauseBtn","resumeBtn","interestedBtn","paidBtn","lostBtn","deleteBtn"];
+    const actionIds = ["initialBtn","editBtn","pauseBtn","resumeBtn","contactedBtn","interestedBtn","paidBtn","lostBtn","deleteBtn"];
     const editModal = document.getElementById("editModal");
     const editForm = document.getElementById("editForm");
     const editStatus = document.getElementById("editStatus");
@@ -781,7 +801,7 @@ module.exports = async (req, res) => {
           const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
           return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | ' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + '</small><br><small>Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + ' | ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin seguimiento') + '</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small><br>' + alertBadges(c) + '</td></tr>';
         }).join("") || '<tr><td colspan="11">Sin leads con esos filtros.</td></tr>';
-        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { setView("chat"); selectLead(row.dataset.tel); }));
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
         return;
       }
       if (isMobile()) {
@@ -795,7 +815,7 @@ module.exports = async (req, res) => {
         });
         bindLeadRowActions();
         leads.querySelectorAll("button[data-initial]").forEach(btn => btn.addEventListener("click", async (event) => { event.stopPropagation(); selected = conversaciones.find(c => c.telefono === btn.dataset.initial); if (selected) document.getElementById("initialBtn").click(); }));
-        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { setView("chat"); selectLead(row.dataset.tel); }));
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
         return;
       }
       leads.innerHTML = filtered.map(c => {
@@ -971,7 +991,7 @@ module.exports = async (req, res) => {
 
     async function selectLead(telefono) {
       selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
-      if (currentView === "chat" && isMobile()) page.classList.add("mobile-chat-open");
+      if ((currentView === "chat" || currentView === "leads") && isMobile()) page.classList.add("mobile-chat-open");
       renderLeads();
       title.textContent = label(selected);
       subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo") + " | " + fmtDate(selected.fecha_ultimo_mensaje);
@@ -1036,6 +1056,7 @@ module.exports = async (req, res) => {
     document.getElementById("saveEdit").addEventListener("click", saveEdit);
     document.getElementById("pauseBtn").addEventListener("click", () => setBot(false));
     document.getElementById("resumeBtn").addEventListener("click", () => setBot(true));
+    document.getElementById("contactedBtn").addEventListener("click", () => setEstado("contactado"));
     document.getElementById("interestedBtn").addEventListener("click", () => setEstado("interesado"));
     document.getElementById("lostBtn").addEventListener("click", () => setEstado("perdido"));
     document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
