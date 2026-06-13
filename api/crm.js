@@ -39,8 +39,11 @@ module.exports = async (req, res) => {
     .bar { height: 6px; background: #e8edf5; border-radius: 999px; overflow: hidden; margin-top: 8px; }
     .bar span { display: block; height: 100%; background: var(--accent); }
     .activity-list, .objection-list { display: grid; gap: 8px; }
-    main { min-height: 0; display: grid; grid-template-columns: minmax(520px, 58vw) 1fr; }
-    .left { min-width: 0; display: grid; grid-template-rows: auto auto 1fr; border-right: 1px solid var(--line); background: var(--panel); }
+    main { min-height: 0; display: grid; grid-template-columns: minmax(420px, var(--lead-pane-width, 58vw)) 7px minmax(320px, 1fr); }
+    .left { min-width: 0; display: grid; grid-template-rows: auto auto 1fr; background: var(--panel); }
+    .pane-resizer { cursor: col-resize; background: var(--line); position: relative; z-index: 3; }
+    .pane-resizer::after { content: ""; position: absolute; inset: 0 2px; background: transparent; }
+    .pane-resizer:hover, body.resizing-pane .pane-resizer { background: var(--accent); }
     .import { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
     .import textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     .import-row { display: grid; gap: 8px; }
@@ -102,7 +105,7 @@ module.exports = async (req, res) => {
     .page.view-chat { grid-template-rows: auto 1fr; }
     .page.view-chat .dashboard, .page.view-chat .attention { display: none; }
     .page.view-chat .chat-dashboard { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); }
-    .page.view-chat main { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); }
+    .page.view-chat main { grid-template-columns: minmax(280px, var(--lead-pane-width, 340px)) 7px minmax(0, 1fr); }
     .page.view-chat .left { grid-template-rows: auto 1fr; }
     .page.view-chat .left .import { display: none; }
     .page.view-chat .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -114,14 +117,14 @@ module.exports = async (req, res) => {
     .page.view-chat .messages { grid-column: 1; grid-row: 1 / 4; }
     .page.view-chat form { grid-column: 1; grid-row: 4; position: sticky; bottom: 0; z-index: 2; }
     .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
-    .page.view-leads main { grid-template-columns: minmax(520px, 56vw) minmax(360px, 1fr); }
+    .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(360px, 1fr); }
     .page.view-leads .detail { display: grid; }
     .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
     .page.view-dashboard .attention { display: none; }
     .page.view-reportes main, .page.view-reportes .dashboard, .page.view-reportes .attention, .page.view-reportes .chat-dashboard { display: none; }
     .page.view-reportes #reports { display: grid; grid-template-columns: 1fr; align-content: start; }
     .page.view-seguimiento .dashboard, .page.view-seguimiento .chat-dashboard { display: none; }
-    @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
+    @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .pane-resizer { display: none; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
     @media (max-width: 768px) {
       html, body { width: 100%; max-width: 100%; overflow: hidden; }
       body { padding-top: 52px; }
@@ -212,6 +215,7 @@ module.exports = async (req, res) => {
         </div>
         <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
+      <div id="paneResizer" class="pane-resizer" role="separator" aria-label="Ajustar ancho de leads" aria-orientation="vertical"></div>
       <section class="detail">
         <div class="detail-head">
           <div class="identity"><strong id="title">Selecciona un lead</strong><span id="subtitle"></span></div>
@@ -265,6 +269,7 @@ module.exports = async (req, res) => {
     const estadosPago = ["Sin pago","Pendiente","Anticipo","Pagado","Vencido","Cancelado"];
     const page = document.getElementById("page");
     const leads = document.getElementById("leads");
+    const paneResizer = document.getElementById("paneResizer");
     const dashboard = document.getElementById("dashboard");
     const reports = document.getElementById("reports");
     const chatDashboard = document.getElementById("chatDashboard");
@@ -309,6 +314,9 @@ module.exports = async (req, res) => {
       ["notas_internas", "Notas comerciales", "textarea"],
     ];
     let crmToken = localStorage.getItem("crmToken") || "";
+
+    const savedPaneWidth = localStorage.getItem("crmLeadPaneWidth");
+    if (savedPaneWidth) document.documentElement.style.setProperty("--lead-pane-width", savedPaneWidth);
 
     function headers(extra) {
       const base = Object.assign({}, extra || {});
@@ -1036,6 +1044,27 @@ module.exports = async (req, res) => {
     document.getElementById("clearFilters").addEventListener("click", () => {
       clearFilterValues();
       applyFilters();
+    });
+    paneResizer.addEventListener("pointerdown", (event) => {
+      if (isMobile()) return;
+      event.preventDefault();
+      paneResizer.setPointerCapture(event.pointerId);
+      document.body.classList.add("resizing-pane");
+      const resize = (moveEvent) => {
+        const width = Math.min(Math.max(moveEvent.clientX, 360), Math.round(window.innerWidth * 0.82));
+        const value = width + "px";
+        document.documentElement.style.setProperty("--lead-pane-width", value);
+        localStorage.setItem("crmLeadPaneWidth", value);
+      };
+      const stop = () => {
+        document.body.classList.remove("resizing-pane");
+        paneResizer.removeEventListener("pointermove", resize);
+        paneResizer.removeEventListener("pointerup", stop);
+        paneResizer.removeEventListener("pointercancel", stop);
+      };
+      paneResizer.addEventListener("pointermove", resize);
+      paneResizer.addEventListener("pointerup", stop);
+      paneResizer.addEventListener("pointercancel", stop);
     });
     ["filterEstado","filterPrioridad","filterCategoria","filterZona","filterFuente","filterEstadoContacto","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
     document.getElementById("filterTexto").addEventListener("input", applyFilters);
