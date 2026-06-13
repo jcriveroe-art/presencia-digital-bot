@@ -270,7 +270,7 @@ module.exports = async (req, res) => {
     <div id="reports" class="dashboard"></div>
     <main>
       <section class="left">
-        <details class="import mobile-collapse">
+        <details class="import mobile-collapse" open>
           <summary>Importar leads</summary>
           <div class="import-row">
             <h2>Importar Prospector ON</h2>
@@ -279,7 +279,7 @@ module.exports = async (req, res) => {
           </div>
           <div class="import-row"><button class="primary" id="importBtn">Importar</button><span id="importStatus" class="badge">Listo</span></div>
         </details>
-        <details class="filters mobile-collapse">
+        <details class="filters mobile-collapse" open>
           <summary>Filtros</summary>
           <label>Estado<select id="filterEstado"><option value="">Todos</option></select></label>
           <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
@@ -1181,6 +1181,7 @@ module.exports = async (req, res) => {
     });
 
     const initialView = (location.hash || "#chat").replace("#", "");
+    if (isMobile()) document.querySelectorAll(".mobile-collapse").forEach(el => el.removeAttribute("open"));
     if (["chat","seguimiento","leads","dashboard","reportes"].includes(initialView)) setView(initialView);
     loadConversaciones();
   </script>
