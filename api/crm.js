@@ -157,9 +157,20 @@ module.exports = async (req, res) => {
       .page.view-chat .chat-dashboard .metric strong { font-size: 16px; }
       .page.view-chat .chat-dashboard .metric span { font-size: 10px; line-height: 1.15; margin-top: 3px; }
       .dashboard { grid-template-columns: 1fr; overflow: auto; }
+      .page.view-dashboard .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 8px; align-content: start; }
+      .page.view-dashboard .metric { min-height: 48px; padding: 7px 8px; border-radius: 7px; }
+      .page.view-dashboard .metric strong { font-size: 18px; }
+      .page.view-dashboard .metric span { font-size: 10px; line-height: 1.2; margin-top: 4px; }
       .followup-board { grid-template-columns: 1fr; }
       .dashboard-panel { overflow: auto; padding: 12px; }
       .funnel { grid-template-columns: 1fr; }
+      .page.view-dashboard .dashboard-panel { padding: 8px; gap: 10px; }
+      .page.view-dashboard .dashboard-section { gap: 6px; }
+      .page.view-dashboard .dashboard-section h2 { font-size: 13px; }
+      .page.view-dashboard .funnel { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .page.view-dashboard .funnel-step, .page.view-dashboard .activity-item, .page.view-dashboard .objection-item { padding: 8px; font-size: 11px; border-radius: 7px; }
+      .page.view-dashboard .funnel-step strong { font-size: 16px; }
+      .page.view-dashboard .activity-list, .page.view-dashboard .objection-list { gap: 6px; }
       main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
       .left { border-right: 0; min-height: 0; }
       .mobile-collapse summary { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
