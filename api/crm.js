@@ -23,8 +23,9 @@ module.exports = async (req, res) => {
     .top-nav { display: flex; gap: 6px; align-items: center; justify-content: center; }
     .top-nav button { min-height: 32px; }
     .top-nav button.active { background: var(--ink); border-color: var(--ink); color: #fff; }
-    .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto auto 1fr; min-height: 0; }
+    .page { height: calc(100vh - 56px); display: grid; grid-template-rows: auto auto auto 1fr; min-height: 0; }
     .dashboard { padding: 12px 16px; display: grid; grid-template-columns: repeat(7, minmax(110px, 1fr)); gap: 10px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    #reports { display: none; overflow: auto; }
     .metric { border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-height: 62px; background: #fff; }
     .metric.clickable { cursor: pointer; transition: border-color .15s ease, background .15s ease; }
     .metric.clickable:hover { border-color: var(--accent); background: #f7fbff; }
@@ -117,6 +118,8 @@ module.exports = async (req, res) => {
     .page.view-leads .detail { display: grid; }
     .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
     .page.view-dashboard .attention { display: none; }
+    .page.view-reportes main, .page.view-reportes .dashboard, .page.view-reportes .attention, .page.view-reportes .chat-dashboard { display: none; }
+    .page.view-reportes #reports { display: grid; grid-template-columns: 1fr; align-content: start; }
     .page.view-seguimiento .dashboard, .page.view-seguimiento .chat-dashboard { display: none; }
     @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
     @media (max-width: 768px) {
@@ -175,6 +178,7 @@ module.exports = async (req, res) => {
       <button class="nav-btn" data-view="seguimiento">Seguimiento</button>
       <button class="nav-btn" data-view="leads">Leads</button>
       <button class="nav-btn" data-view="dashboard">Dashboard</button>
+      <button class="nav-btn" data-view="reportes">Reportes</button>
     </nav>
     <button id="refresh">Actualizar</button>
   </header>
@@ -182,6 +186,7 @@ module.exports = async (req, res) => {
     <div id="dashboard" class="dashboard"></div>
     <div id="attention" class="attention"></div>
     <div id="chatDashboard" class="chat-dashboard"></div>
+    <div id="reports" class="dashboard"></div>
     <main>
       <section class="left">
         <div class="import">
@@ -196,12 +201,15 @@ module.exports = async (req, res) => {
           <label>Estado<select id="filterEstado"><option value="">Todos</option></select></label>
           <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
           <label>Categoria<select id="filterCategoria"><option value="">Todas</option></select></label>
+          <label>Buscar<input id="filterTexto" placeholder="Nombre, telefono, zona" /></label>
           <label>Zona<select id="filterZona"><option value="">Todas las zonas</option><option value="__sin_zona__">Sin zona</option></select></label>
+          <label>Fuente<select id="filterFuente"><option value="">Todas las fuentes</option><option value="__sin_fuente__">Sin fuente</option></select></label>
+          <label>Estado comercial<select id="filterEstadoContacto"><option value="">Todos</option></select></label>
           <label>Caliente<select id="filterCaliente"><option value="">Todos</option><option value="true">Si</option><option value="false">No</option></select></label>
-          <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Respondieron campaña</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option></select></label>
+          <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Respondieron campaña</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option><option value="hoy_vencidos">Hoy / Vencidos</option></select></label>
           <button id="clearFilters">Limpiar</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Estado</th><th>Mensajes</th><th>Ultimo mensaje</th><th>IA</th><th>Prioridad</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <section class="detail">
         <div class="detail-head">
@@ -250,9 +258,13 @@ module.exports = async (req, res) => {
     let currentView = "chat";
     let dashboardInfo = { eventos: [], objeciones: [] };
     const estadosBase = ["prospectado","contactado","interesado","cliente_caliente","diagnostico_pagado","diagnostico_entregado","seguimiento","perdido","nuevo","mini_diagnostico"];
+    const estadosContacto = ["Pendiente de contactar","Contactado","Respondió","Pidió información","Interesado","Diagnóstico ofrecido","Diagnóstico vendido","Activación ofrecida","Activación vendida","Control ON ofrecido","Cliente recurrente","Seguimiento","No interesado","Descartado"];
+    const productosInteres = ["Sin dato","Diagnóstico ON","Activación ON","Control ON","Otro"];
+    const estadosPago = ["Sin pago","Pendiente","Anticipo","Pagado","Vencido","Cancelado"];
     const page = document.getElementById("page");
     const leads = document.getElementById("leads");
     const dashboard = document.getElementById("dashboard");
+    const reports = document.getElementById("reports");
     const chatDashboard = document.getElementById("chatDashboard");
     const messages = document.getElementById("messages");
     const title = document.getElementById("title");
@@ -273,13 +285,26 @@ module.exports = async (req, res) => {
       ["telefono", "Telefono", "input"],
       ["categoria", "Categoria", "input"],
       ["zona", "Zona", "input"],
-      ["estado", "Estado", "input"],
+      ["fuente_busqueda", "Fuente busqueda", "input"],
+      ["estado_contacto", "Estado comercial", "input"],
+      ["siguiente_accion", "Siguiente accion", "input"],
+      ["fecha_siguiente_seguimiento", "Fecha siguiente seguimiento", "datetime"],
+      ["ultimo_contacto", "Ultimo contacto", "datetime"],
+      ["ultima_respuesta", "Ultima respuesta", "datetime"],
+      ["intentos_contacto", "Intentos contacto", "input"],
+      ["producto_interesado", "Producto interesado", "input"],
+      ["monto_cotizado", "Monto cotizado", "input"],
+      ["monto_pagado", "Monto pagado", "input"],
+      ["estado_pago", "Estado pago", "input"],
+      ["fecha_venta", "Fecha venta", "datetime"],
+      ["estado", "Estado CRM", "input"],
       ["prioridad", "Prioridad", "input"],
       ["score", "Score", "input"],
       ["maps_url", "Maps URL", "input"],
       ["whatsapp_link", "WhatsApp link", "input"],
       ["fugas_detectadas", "Fugas detectadas", "textarea"],
       ["notas", "Notas internas", "textarea"],
+      ["notas_internas", "Notas comerciales", "textarea"],
     ];
     let crmToken = localStorage.getItem("crmToken") || "";
 
@@ -323,6 +348,70 @@ module.exports = async (req, res) => {
     function zonasDetectadas() {
       return [...new Set(conversaciones.map(c => String(c.zona ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
     }
+    function normalizeFuente(value) {
+      const fuente = String(value ?? "").trim();
+      return fuente || "__sin_fuente__";
+    }
+    function fuenteLabel(value) {
+      return normalizeFuente(value) === "__sin_fuente__" ? "Sin fuente" : String(value).trim();
+    }
+    function fuentesDetectadas() {
+      return [...new Set(conversaciones.map(c => String(c.fuente_busqueda ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    }
+    function safeDato(value) {
+      const text = String(value ?? "").trim();
+      return text || "Sin dato";
+    }
+    function money(value) {
+      const n = Number(value || 0);
+      return n ? n.toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }) : "$0";
+    }
+    function pct1(value, total) {
+      return total > 0 ? ((value / total) * 100).toFixed(1) + "%" : "0%";
+    }
+    function todayStart() {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    function tomorrowStart() {
+      const d = todayStart();
+      d.setDate(d.getDate() + 1);
+      return d;
+    }
+    function commercialState(c) {
+      return String(c.estado_contacto || "").trim();
+    }
+    function isSold(c) {
+      return ["Diagnóstico vendido","Activación vendida","Cliente recurrente"].includes(commercialState(c));
+    }
+    function isDiscarded(c) {
+      return ["No interesado","Descartado"].includes(commercialState(c));
+    }
+    function isFollowupRelevant(c) {
+      return ["Respondió","Pidió información","Interesado","Diagnóstico ofrecido","Activación ofrecida","Seguimiento"].includes(commercialState(c));
+    }
+    function isDueTodayOrOverdue(c) {
+      if (!c.fecha_siguiente_seguimiento || isSold(c) || isDiscarded(c)) return false;
+      const date = new Date(c.fecha_siguiente_seguimiento);
+      return !Number.isNaN(date.getTime()) && date < tomorrowStart() && isFollowupRelevant(c);
+    }
+    function isOverdue(c) {
+      if (!c.fecha_siguiente_seguimiento || isSold(c) || isDiscarded(c)) return false;
+      const date = new Date(c.fecha_siguiente_seguimiento);
+      return !Number.isNaN(date.getTime()) && date < todayStart();
+    }
+    function alertasLead(c) {
+      const out = [];
+      if (normalizeZona(c.zona) === "__sin_zona__") out.push("Sin zona");
+      if (normalizeFuente(c.fuente_busqueda) === "__sin_fuente__") out.push("Sin fuente");
+      if (!String(c.telefono || "").trim()) out.push("Sin telefono");
+      if (!String(c.siguiente_accion || "").trim()) out.push("Sin siguiente accion");
+      if (isOverdue(c)) out.push("Seguimiento vencido");
+      if (commercialState(c) === "Contactado" && !c.ultima_respuesta) out.push("Contactado sin respuesta");
+      if (commercialState(c) === "Interesado" && !c.fecha_siguiente_seguimiento) out.push("Interesado sin seguimiento");
+      return out;
+    }
 
     function setView(view) {
       currentView = view;
@@ -332,6 +421,7 @@ module.exports = async (req, res) => {
       renderLeads();
       if (view === "seguimiento") renderAttention();
       if (view === "dashboard") renderDashboard();
+      if (view === "reportes") renderReports();
     }
 
     function isMobile() {
@@ -339,10 +429,13 @@ module.exports = async (req, res) => {
     }
 
     function clearFilterValues() {
+      document.getElementById("filterTexto").value = "";
       document.getElementById("filterEstado").value = "";
       document.getElementById("filterPrioridad").value = "";
       document.getElementById("filterCategoria").value = "";
       document.getElementById("filterZona").value = "";
+      document.getElementById("filterFuente").value = "";
+      document.getElementById("filterEstadoContacto").value = "";
       document.getElementById("filterCaliente").value = "";
       document.getElementById("filterOperativo").value = "";
     }
@@ -357,6 +450,7 @@ module.exports = async (req, res) => {
       renderDashboard();
       renderChatDashboard();
       renderAttention();
+      if (currentView === "reportes") renderReports();
       if (selected) {
         selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
         if (selected) await selectLead(selected.telefono);
@@ -448,6 +542,79 @@ module.exports = async (req, res) => {
       return c.interactuo_post_campana === true || c.mensaje_nuevo === true || Number(c.respuestas_post_campana || 0) > 0;
     }
 
+    function isContactedCommercial(c) {
+      const state = commercialState(c);
+      return state && state !== "Pendiente de contactar";
+    }
+    function isRespondedCommercial(c) {
+      return ["Respondió","Pidió información","Interesado","Diagnóstico ofrecido","Diagnóstico vendido","Activación ofrecida","Activación vendida","Control ON ofrecido","Cliente recurrente"].includes(commercialState(c));
+    }
+    function isInterestedCommercial(c) {
+      return ["Interesado","Diagnóstico ofrecido","Diagnóstico vendido","Activación ofrecida","Activación vendida","Control ON ofrecido","Cliente recurrente"].includes(commercialState(c));
+    }
+    function groupReport(keyFn) {
+      const groups = new Map();
+      conversaciones.forEach(c => {
+        const key = keyFn(c);
+        const row = groups.get(key) || { key, leads_totales: 0, contactados: 0, respondieron: 0, interesados: 0, diagnosticos_ofrecidos: 0, diagnosticos_vendidos: 0, activaciones_ofrecidas: 0, activaciones_vendidas: 0, vendidos_total: 0, descartados: 0, monto_cotizado_total: 0, monto_pagado_total: 0 };
+        row.leads_totales += 1;
+        if (isContactedCommercial(c)) row.contactados += 1;
+        if (isRespondedCommercial(c)) row.respondieron += 1;
+        if (isInterestedCommercial(c)) row.interesados += 1;
+        if (commercialState(c) === "Diagnóstico ofrecido") row.diagnosticos_ofrecidos += 1;
+        if (commercialState(c) === "Diagnóstico vendido") row.diagnosticos_vendidos += 1;
+        if (commercialState(c) === "Activación ofrecida") row.activaciones_ofrecidas += 1;
+        if (commercialState(c) === "Activación vendida") row.activaciones_vendidas += 1;
+        if (isSold(c)) row.vendidos_total += 1;
+        if (isDiscarded(c)) row.descartados += 1;
+        row.monto_cotizado_total += Number(c.monto_cotizado || 0);
+        row.monto_pagado_total += Number(c.monto_pagado || 0);
+        groups.set(key, row);
+      });
+      return Array.from(groups.values()).sort((a, b) => a.key.localeCompare(b.key));
+    }
+    function reportTable(title, headers, rows) {
+      return '<section class="dashboard-section"><h2>' + title + '</h2><div class="table-wrap"><table><thead><tr>' + headers.map(h => '<th>' + h + '</th>').join("") + '</tr></thead><tbody>' + (rows.join("") || '<tr><td colspan="' + headers.length + '">Sin datos.</td></tr>') + '</tbody></table></div></section>';
+    }
+    function renderReports() {
+      const byZona = groupReport(c => zonaLabel(c.zona));
+      const byFuente = groupReport(c => fuenteLabel(c.fuente_busqueda));
+      const byEstado = groupReport(c => commercialState(c) || "Sin dato");
+      const total = conversaciones.length;
+      const contactados = conversaciones.filter(isContactedCommercial).length;
+      const respondieron = conversaciones.filter(isRespondedCommercial).length;
+      const interesados = conversaciones.filter(isInterestedCommercial).length;
+      const diagVendidos = conversaciones.filter(c => commercialState(c) === "Diagnóstico vendido").length;
+      const actVendidas = conversaciones.filter(c => commercialState(c) === "Activación vendida").length;
+      const recurrentes = conversaciones.filter(c => commercialState(c) === "Cliente recurrente").length;
+      const cotizado = conversaciones.reduce((sum, c) => sum + Number(c.monto_cotizado || 0), 0);
+      const pagado = conversaciones.reduce((sum, c) => sum + Number(c.monto_pagado || 0), 0);
+      const seguimiento = {
+        vencidos: conversaciones.filter(isOverdue).length,
+        hoy: conversaciones.filter(c => isDueTodayOrOverdue(c) && !isOverdue(c)).length,
+        interesados_abiertos: conversaciones.filter(c => commercialState(c) === "Interesado").length,
+        contactados_sin_respuesta: conversaciones.filter(c => commercialState(c) === "Contactado" && !c.ultima_respuesta).length,
+        sin_accion: conversaciones.filter(c => !String(c.siguiente_accion || "").trim()).length,
+        sin_zona: conversaciones.filter(c => normalizeZona(c.zona) === "__sin_zona__").length,
+        sin_telefono: conversaciones.filter(c => !String(c.telefono || "").trim()).length,
+      };
+      console.log("CRM resumen reportes", { total, contactados, respondieron, interesados, seguimiento, cotizado, pagado });
+      reports.innerHTML = '<div class="dashboard-panel">' + [
+        '<section class="dashboard-section"><h2>Resumen general</h2><div class="chat-dashboard">' + [
+          metric("Leads totales", total), metric("Contactados", contactados), metric("Respondieron", respondieron), metric("Interesados", interesados),
+          metric("Diagnosticos vendidos", diagVendidos), metric("Activaciones vendidas", actVendidas), metric("Clientes recurrentes", recurrentes),
+          metric("Cotizado", money(cotizado)), metric("Pagado", money(pagado)), metric("Tasa respuesta", pct1(respondieron, contactados)), metric("Tasa interes", pct1(interesados, respondieron)),
+        ].join("") + '</div></section>',
+        reportTable("Por zona", ["Zona","Leads","Contactados","Respondieron","Interesados","Diag. ofrecidos","Diag. vendidos","Act. ofrecidas","Act. vendidas","Vendidos","Descartados","Resp.","Interes","Cotizado","Pagado"], byZona.map(r => '<tr><td>' + escapeHtml(r.key) + '</td><td>' + r.leads_totales + '</td><td>' + r.contactados + '</td><td>' + r.respondieron + '</td><td>' + r.interesados + '</td><td>' + r.diagnosticos_ofrecidos + '</td><td>' + r.diagnosticos_vendidos + '</td><td>' + r.activaciones_ofrecidas + '</td><td>' + r.activaciones_vendidas + '</td><td>' + r.vendidos_total + '</td><td>' + r.descartados + '</td><td>' + pct1(r.respondieron, r.contactados) + '</td><td>' + pct1(r.interesados, r.respondieron) + '</td><td>' + money(r.monto_cotizado_total) + '</td><td>' + money(r.monto_pagado_total) + '</td></tr>')),
+        reportTable("Por fuente busqueda", ["Fuente","Leads","Contactados","Respondieron","Interesados","Diag. vendidos","Act. vendidas","Vendidos","Resp.","Interes","Cotizado","Pagado"], byFuente.map(r => '<tr><td>' + escapeHtml(r.key) + '</td><td>' + r.leads_totales + '</td><td>' + r.contactados + '</td><td>' + r.respondieron + '</td><td>' + r.interesados + '</td><td>' + r.diagnosticos_vendidos + '</td><td>' + r.activaciones_vendidas + '</td><td>' + r.vendidos_total + '</td><td>' + pct1(r.respondieron, r.contactados) + '</td><td>' + pct1(r.interesados, r.respondieron) + '</td><td>' + money(r.monto_cotizado_total) + '</td><td>' + money(r.monto_pagado_total) + '</td></tr>')),
+        reportTable("Por estado comercial", ["Estado comercial","Total leads"], byEstado.map(r => '<tr><td>' + escapeHtml(r.key) + '</td><td>' + r.leads_totales + '</td></tr>')),
+        '<section class="dashboard-section"><h2>Seguimiento</h2><div class="chat-dashboard">' + [
+          metric("Seguimientos vencidos", seguimiento.vencidos), metric("Seguimientos hoy", seguimiento.hoy), metric("Interesados abiertos", seguimiento.interesados_abiertos),
+          metric("Contactados sin respuesta", seguimiento.contactados_sin_respuesta), metric("Sin siguiente accion", seguimiento.sin_accion), metric("Sin zona", seguimiento.sin_zona), metric("Sin telefono", seguimiento.sin_telefono),
+        ].join("") + '</div></section>',
+      ].join("") + '</div>';
+    }
+
     function renderChatDashboard() {
       const nuevos = conversaciones.filter(hasNewMessage).length;
       const atencion = conversaciones.filter(needsAttention).length;
@@ -462,15 +629,16 @@ module.exports = async (req, res) => {
 
     function needsAttention(c) {
       const due = c.fecha_seguimiento && new Date(c.fecha_seguimiento).getTime() <= Date.now();
+      const commercialDue = isDueTodayOrOverdue(c);
       const interested = c.estado === "interesado" && c.seguimiento_activo !== false;
       const hot = (c.estado === "cliente_caliente" || c.caliente === true) && c.estado !== "diagnostico_pagado";
-      return c.seguimiento_activo !== false && (c.estado === "requiere_intervencion" || due || interested || hot);
+      return c.seguimiento_activo !== false && (c.estado === "requiere_intervencion" || due || commercialDue || interested || hot);
     }
 
     function renderAttention() {
       const items = conversaciones.filter(needsAttention).slice(0, 20);
       const wrap = document.getElementById("attention");
-      wrap.innerHTML = '<h2>Requiere atencion</h2><div class="attention-list">' + (items.map(c => '<button data-tel="' + escapeHtml(c.telefono) + '"><strong>' + escapeHtml(label(c)) + '</strong><br><small>' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.proxima_accion || 'sin accion') + '</small><br><small>' + escapeHtml(c.fecha_seguimiento ? fmtDate(c.fecha_seguimiento) : 'sin fecha') + '</small><br><small>' + escapeHtml(c.motivo_seguimiento || 'sin motivo') + '</small><br><span class="badge">Ver chat</span></button>').join("") || '<span class="badge">Sin pendientes operativos</span>') + '</div>';
+      wrap.innerHTML = '<h2>Requiere atencion</h2><div class="attention-list">' + (items.map(c => '<button data-tel="' + escapeHtml(c.telefono) + '"><strong>' + escapeHtml(label(c)) + '</strong><br><small>' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + ' | ' + escapeHtml(c.siguiente_accion || c.proxima_accion || 'sin accion') + '</small><br><small>' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : (c.fecha_seguimiento ? fmtDate(c.fecha_seguimiento) : 'sin fecha')) + '</small><br><small>' + escapeHtml(alertasLead(c).join(' | ') || c.motivo_seguimiento || 'sin motivo') + '</small><br><span class="badge">Ver chat</span></button>').join("") || '<span class="badge">Sin pendientes operativos</span>') + '</div>';
       wrap.querySelectorAll("button[data-tel]").forEach(btn => btn.addEventListener("click", () => { setView("chat"); selectLead(btn.dataset.tel); }));
     }
 
@@ -490,34 +658,55 @@ module.exports = async (req, res) => {
       select.value = current && [...zonas, "__sin_zona__"].includes(current) ? current : "";
     }
 
+    function fillFuenteSelect() {
+      const fuentes = fuentesDetectadas();
+      console.log("CRM fuentes detectadas", fuentes);
+      const select = document.getElementById("filterFuente");
+      const current = select.value;
+      select.innerHTML = '<option value="">Todas las fuentes</option><option value="__sin_fuente__">Sin fuente</option>' + fuentes.map(f => '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>').join("");
+      select.value = current && [...fuentes, "__sin_fuente__"].includes(current) ? current : "";
+    }
+
     function fillFilters() {
       fillSelect("filterEstado", [...new Set([...estadosBase, ...uniqueValues("estado")])].filter(Boolean), "Todos");
       fillSelect("filterPrioridad", uniqueValues("prioridad"), "Todas");
       fillSelect("filterCategoria", uniqueValues("categoria"), "Todas");
       fillZonaSelect();
+      fillFuenteSelect();
+      fillSelect("filterEstadoContacto", estadosContacto, "Todos");
     }
 
     function applyFilters() {
+      const texto = document.getElementById("filterTexto").value.trim().toLowerCase();
       const estado = document.getElementById("filterEstado").value;
       const prioridad = document.getElementById("filterPrioridad").value;
       const categoria = document.getElementById("filterCategoria").value;
       const zona = document.getElementById("filterZona").value;
+      const fuente = document.getElementById("filterFuente").value;
+      const estadoContacto = document.getElementById("filterEstadoContacto").value;
       const caliente = document.getElementById("filterCaliente").value;
       const operativo = document.getElementById("filterOperativo").value;
       filtered = conversaciones.filter(c => {
+        if (texto) {
+          const haystack = [label(c), c.telefono, c.categoria, c.zona, c.fuente_busqueda, c.estado_contacto, c.siguiente_accion].map(v => String(v || "").toLowerCase()).join(" ");
+          if (!haystack.includes(texto)) return false;
+        }
         if (estado && (c.estado || "") !== estado) return false;
         if (prioridad && (c.prioridad || "") !== prioridad) return false;
         if (categoria && (c.categoria || "") !== categoria) return false;
         if (zona && normalizeZona(c.zona) !== zona) return false;
+        if (fuente && normalizeFuente(c.fuente_busqueda) !== fuente) return false;
+        if (estadoContacto && commercialState(c) !== estadoContacto) return false;
         if (caliente && String(c.caliente === true) !== caliente) return false;
         if (operativo === "nuevo" && !hasNewMessage(c)) return false;
         if (operativo === "requiere_intervencion" && c.estado !== "requiere_intervencion") return false;
         if (operativo === "interesados" && c.estado !== "interesado") return false;
         if (operativo === "calientes" && !(c.caliente === true || c.estado === "cliente_caliente")) return false;
         if (operativo === "diagnostico_pagado" && c.estado !== "diagnostico_pagado") return false;
+        if (operativo === "hoy_vencidos" && !isDueTodayOrOverdue(c)) return false;
         return true;
       }).sort(compareLeads);
-      console.log("CRM filtro zona", { zona_seleccionada: zona || "Todas las zonas", leads_filtrados: filtered.length });
+      console.log("CRM filtros", { zona_seleccionada: zona || "Todas las zonas", fuente_seleccionada: fuente || "Todas las fuentes", estado_seleccionado: estadoContacto || estado || "Todos", leads_filtrados: filtered.length, seguimientos_vencidos: conversaciones.filter(isOverdue).length });
       renderLeads();
     }
 
@@ -571,21 +760,22 @@ module.exports = async (req, res) => {
 
     function renderLeads() {
       const leadActions = (telefono) => '<div class="lead-actions"><button type="button" data-chat="' + escapeHtml(telefono) + '">Ver chat</button><button type="button" data-edit="' + escapeHtml(telefono) + '">Editar</button><button class="danger" type="button" data-delete="' + escapeHtml(telefono) + '">Borrar</button></div>';
+      const alertBadges = (c) => alertasLead(c).map(a => '<span class="badge off">' + escapeHtml(a) + '</span>').join(" ");
       if (currentView === "chat") {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
           const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
           const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="9"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + '</small><br><small>Mensajes: ' + escapeHtml(c.total_mensajes || 0) + ' total · ' + escapeHtml(c.mensajes_entrantes || 0) + ' in · ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small></td></tr>';
-        }).join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | ' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + '</small><br><small>Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + ' | ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin seguimiento') + '</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small><br>' + alertBadges(c) + '</td></tr>';
+        }).join("") || '<tr><td colspan="11">Sin leads con esos filtros.</td></tr>';
         leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { setView("chat"); selectLead(row.dataset.tel); }));
         return;
       }
       if (isMobile()) {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="9"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(pending) + ')</span> <span class="badge new">Respondió</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + ' | Zona: ' + escapeHtml(zonaLabel(c.zona)) + '</small><br><small>Estado: ' + escapeHtml(c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Ultimo mensaje: ' + escapeHtml(lastMessageLabel(c)) + '</small><br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
-        }).join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(pending) + ')</span> <span class="badge new">Respondió</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + ' | Zona: ' + escapeHtml(zonaLabel(c.zona)) + ' | Fuente: ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</small><br><small>Estado: ' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + ' | ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin seguimiento') + '</small><br>' + alertBadges(c) + '<br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
+        }).join("") || '<tr><td colspan="11">Sin leads con esos filtros.</td></tr>';
         leads.querySelectorAll("tr[data-tel] td").forEach(td => {
           const tel = td.parentElement.dataset.tel;
           td.insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
@@ -600,8 +790,8 @@ module.exports = async (req, res) => {
         const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
         const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
         const counts = escapeHtml(c.total_mensajes || 0) + ' total<br><small>' + escapeHtml(c.mensajes_entrantes || 0) + ' in / ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small>';
-        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + name + newBadge + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(zonaLabel(c.zona)) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + counts + '</td><td><strong>Ultimo mensaje:</strong><br>' + escapeHtml(lastMessageLabel(c)) + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td><td>' + leadActions(c.telefono) + '</td></tr>';
-      }).join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td><strong>' + name + newBadge + '</strong><br><small>' + escapeHtml(c.categoria || 'Sin nicho') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</small><br>' + alertBadges(c) + '</td><td>' + escapeHtml(c.telefono || 'Sin telefono') + '</td><td>' + escapeHtml(zonaLabel(c.zona)) + '</td><td>' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td>' + escapeHtml(safeDato(c.siguiente_accion)) + '</td><td>' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
+      }).join("") || '<tr><td colspan="11">Sin leads con esos filtros.</td></tr>';
       bindLeadRowActions();
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
     }
@@ -609,8 +799,9 @@ module.exports = async (req, res) => {
     function renderContext(c) {
       if (!c) { context.innerHTML = '<div class="empty">Sin lead seleccionado.</div>'; return; }
       const negocio = [
-        ["Nombre", label(c)], ["Categoria", c.categoria], ["Zona", zonaLabel(c.zona)], ["Prioridad", c.prioridad], ["Score", c.score],
+        ["Nombre", label(c)], ["Categoria", c.categoria], ["Zona", zonaLabel(c.zona)], ["Fuente", fuenteLabel(c.fuente_busqueda)], ["Estado comercial", commercialState(c) || "Sin dato"], ["Prioridad", c.prioridad], ["Score", c.score],
         ["Total fugas", c.total_fugas], ["Telefono", c.telefono], ["Estado", c.estado], ["Ultimo mensaje", c.ultimo_mensaje],
+        ["Siguiente accion", c.siguiente_accion], ["Fecha seguimiento", c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : "Sin dato"], ["Producto", c.producto_interesado], ["Monto cotizado", money(c.monto_cotizado)], ["Monto pagado", money(c.monto_pagado)], ["Estado pago", c.estado_pago], ["Ultima respuesta", c.ultima_respuesta ? fmtDate(c.ultima_respuesta) : "Sin dato"],
         ["Rating", c.rating], ["Resenas", c.resenas], ["Fotos estimadas", c.fotos_estimadas || c.fotos], ["Diagnostico fotos", c.diagnostico_fotos], ["Ultima resena", c.ultima_resena],
         ["Responde resenas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
         ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
@@ -671,13 +862,18 @@ module.exports = async (req, res) => {
         if (type === "textarea") {
           return '<label class="' + wide.trim() + '">' + labelText + '<textarea data-field="' + key + '">' + escapeHtml(value || '') + '</textarea></label>';
         }
+        if (type === "datetime") {
+          return '<label>' + labelText + '<input type="datetime-local" data-field="' + key + '" value="' + toLocalInput(value) + '" /></label>';
+        }
         if (type === "selectBoolean") {
           return '<label>' + labelText + '<select data-field="' + key + '"><option value="true"' + (value === true || (key === "bot_enabled" && value !== false) ? ' selected' : '') + '>Si</option><option value="false"' + (value === false ? ' selected' : '') + '>No</option></select></label>';
         }
-        const list = key === "zona" ? ' list="zonasList"' : "";
+        const list = key === "zona" ? ' list="zonasList"' : (key === "fuente_busqueda" ? ' list="fuentesList"' : (key === "estado_contacto" ? ' list="estadosContactoList"' : (key === "producto_interesado" ? ' list="productosList"' : (key === "estado_pago" ? ' list="estadosPagoList"' : ""))));
         return '<label>' + labelText + '<input data-field="' + key + '"' + list + ' value="' + escapeHtml(value || '') + '" /></label>';
       }).join("");
       editForm.insertAdjacentHTML("beforeend", '<datalist id="zonasList">' + zonasDetectadas().map(z => '<option value="' + escapeHtml(z) + '"></option>').join("") + '</datalist>');
+      editForm.insertAdjacentHTML("beforeend", '<datalist id="fuentesList">' + fuentesDetectadas().map(f => '<option value="' + escapeHtml(f) + '"></option>').join("") + '</datalist>');
+      editForm.insertAdjacentHTML("beforeend", '<datalist id="estadosContactoList">' + estadosContacto.map(e => '<option value="' + escapeHtml(e) + '"></option>').join("") + '</datalist><datalist id="productosList">' + productosInteres.map(e => '<option value="' + escapeHtml(e) + '"></option>').join("") + '</datalist><datalist id="estadosPagoList">' + estadosPago.map(e => '<option value="' + escapeHtml(e) + '"></option>').join("") + '</datalist>');
     }
 
     function openEdit() {
@@ -699,6 +895,8 @@ module.exports = async (req, res) => {
         const key = input.dataset.field;
         if (key === "caliente" || key === "bot_enabled") {
           updates[key] = input.value === "true";
+        } else if (["fecha_siguiente_seguimiento","ultimo_contacto","ultima_respuesta","fecha_venta"].includes(key)) {
+          updates[key] = fromLocalInput(input.value);
         } else {
           updates[key] = input.value;
         }
@@ -709,7 +907,7 @@ module.exports = async (req, res) => {
     async function saveEdit() {
       if (!selected) return;
       const updates = collectEditUpdates();
-      const telefono = String(updates.telefono || "").replace(/[+\\s\\-()]/g, "").trim();
+      const telefono = String(updates.telefono || "").replace(/\\D/g, "").trim();
       if (!telefono) {
         editStatus.textContent = "Telefono requerido.";
         return;
@@ -831,7 +1029,8 @@ module.exports = async (req, res) => {
       clearFilterValues();
       applyFilters();
     });
-    ["filterEstado","filterPrioridad","filterCategoria","filterZona","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
+    ["filterEstado","filterPrioridad","filterCategoria","filterZona","filterFuente","filterEstadoContacto","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
+    document.getElementById("filterTexto").addEventListener("input", applyFilters);
 
     document.getElementById("manualForm").addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -845,7 +1044,7 @@ module.exports = async (req, res) => {
     });
 
     const initialView = (location.hash || "#chat").replace("#", "");
-    if (["chat","seguimiento","leads","dashboard"].includes(initialView)) setView(initialView);
+    if (["chat","seguimiento","leads","dashboard","reportes"].includes(initialView)) setView(initialView);
     loadConversaciones();
   </script>
 </body>

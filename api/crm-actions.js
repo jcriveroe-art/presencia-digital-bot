@@ -12,9 +12,10 @@ const SALES_PLAYBOOK_PATH = path.join(__dirname, "..", "playbooks", "sales_playb
 const COLUMNAS_OLD = ["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url"];
 const COLUMNAS_NEW = ["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url"];
 const COLUMNAS_BASE = ["telefono", "nombre", "estado", "bot_enabled", "fecha_ultimo_mensaje"];
+const CAMPOS_COMERCIALES = ["zona", "fuente_busqueda", "estado_contacto", "siguiente_accion", "fecha_siguiente_seguimiento", "ultimo_contacto", "ultima_respuesta", "intentos_contacto", "producto_interesado", "monto_cotizado", "monto_pagado", "estado_pago", "fecha_venta", "notas_internas"];
 const ESTADOS_VALIDOS = new Set(["prospectado", "contactado", "interesado", "cliente_caliente", "diagnostico_pagado", "diagnostico_entregado", "seguimiento", "perdido", "requiere_intervencion"]);
 const ESTADOS_SEGUIMIENTO = ["interesado", "seguimiento", "cliente_caliente", "contactado"];
-const CAMPOS_EDITABLES = new Set(["nombre", "categoria", "zona", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url", "estado", "caliente", "bot_enabled", "notas"]);
+const CAMPOS_EDITABLES = new Set(["nombre", "categoria", "zona", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url", "estado", "caliente", "bot_enabled", "notas", ...CAMPOS_COMERCIALES]);
 const CAMPOS_FOLLOWUP = new Set(["proxima_accion", "fecha_seguimiento", "motivo_seguimiento", "seguimiento_activo", "objecion_principal", "resultado_conversacion"]);
 
 const CAMPOS_DEFAULT = {
@@ -27,6 +28,8 @@ const CAMPOS_DEFAULT = {
   bot_enabled: true,
   categoria: null,
   zona: null,
+  fuente_busqueda: null,
+  estado_contacto: null,
   prioridad: null,
   score: null,
   total_fugas: null,
@@ -46,6 +49,17 @@ const CAMPOS_DEFAULT = {
   direccion: null,
   maps_url: null,
   ultimo_mensaje: null,
+  ultima_respuesta: null,
+  ultimo_contacto: null,
+  siguiente_accion: null,
+  fecha_siguiente_seguimiento: null,
+  intentos_contacto: null,
+  producto_interesado: null,
+  monto_cotizado: null,
+  monto_pagado: null,
+  estado_pago: null,
+  fecha_venta: null,
+  notas_internas: null,
   mensaje_inicial_enviado: false,
   mensaje_inicial_enviado_at: null,
   notas: null,
@@ -252,6 +266,7 @@ function normalizarFilaImportacion(row) {
   const clean = { ...(row || {}) };
   clean.telefono = normalizarTelefono(clean.telefono);
   clean.zona = clean.zona ? String(clean.zona).trim() : null;
+  clean.fuente_busqueda = clean.fuente_busqueda ? String(clean.fuente_busqueda).trim() : null;
   if (clean.fotos && !clean.fotos_estimadas) clean.fotos_estimadas = clean.fotos;
   delete clean.fotos;
   if (!clean.diagnostico_fotos && clean.fotos_estimadas) clean.diagnostico_fotos = "posible baja actividad visual en la ficha";
