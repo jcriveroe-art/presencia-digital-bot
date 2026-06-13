@@ -403,31 +403,22 @@ function promptLead(lead, mensajes) {
 }
 
 async function conversaciones() {
-  let { data, error } = await supabase
-    .from("conversaciones_resumen")
-    .select("*")
-    .order("fecha_ultimo_mensaje_real", { ascending: false });
-  if (error) {
-    console.error("conversaciones_resumen no disponible, usando conversaciones:", error.message);
-    const fallback = await supabase.from("conversaciones").select("*").order("fecha_ultimo_mensaje", { ascending: false });
-    data = fallback.data;
-    error = fallback.error;
-    if (!error && data?.length) {
-      const telefonos = data.map((row) => row.telefono).filter(Boolean);
-      const mensajesResult = await supabase
-        .from("mensajes")
-        .select("id, telefono, direccion, mensaje, created_at")
-        .in("telefono", telefonos)
-        .order("created_at", { ascending: true })
-        .order("id", { ascending: true });
-      if (mensajesResult.error) {
-        console.error("No se pudieron calcular metricas de mensajes:", mensajesResult.error.message);
-      } else {
-        return { ok: true, conversaciones: aplicarMetricasMensajes(data, mensajesResult.data || []) };
-      }
+  let { data, error } = await supabase.from("conversaciones").select("*").order("fecha_ultimo_mensaje", { ascending: false });
+  if (error) throw error;
+  if (data?.length) {
+    const telefonos = data.map((row) => row.telefono).filter(Boolean);
+    const mensajesResult = await supabase
+      .from("mensajes")
+      .select("id, telefono, direccion, mensaje, created_at")
+      .in("telefono", telefonos)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+    if (mensajesResult.error) {
+      console.error("No se pudieron calcular metricas de mensajes:", mensajesResult.error.message);
+    } else {
+      return { ok: true, conversaciones: aplicarMetricasMensajes(data, mensajesResult.data || []) };
     }
   }
-  if (error) throw error;
   return { ok: true, conversaciones: (data || []).map(normalizarResumenConversacion) };
 }
 
@@ -562,6 +553,11 @@ async function leadUpdate(body) {
   const telefonoOriginal = normalizarTelefono(body.telefono_original);
   if (!telefonoOriginal) return { status: 400, payload: { ok: false, error: "telefono_original requerido" } };
   if (!body.updates || typeof body.updates !== "object") return { status: 400, payload: { ok: false, error: "updates debe ser un objeto" } };
+  console.log("lead_update body recibido", {
+    telefono_original: body.telefono_original,
+    update_keys: Object.keys(body.updates || {}),
+    updates: body.updates,
+  });
   const payload = {};
   for (const [campo, valor] of Object.entries(body.updates)) {
     if (!CAMPOS_EDITABLES.has(campo)) continue;
@@ -572,7 +568,9 @@ async function leadUpdate(body) {
   if ("telefono" in payload && !payload.telefono) return { status: 400, payload: { ok: false, error: "telefono no puede quedar vacio" } };
   if (!("telefono" in payload)) payload.telefono = telefonoOriginal;
   payload.fecha_ultimo_mensaje = new Date().toISOString();
+  console.log("lead_update payload supabase", { telefono_original: telefonoOriginal, payload });
   const { data, error } = await supabase.from("conversaciones").update(payload).eq("telefono", telefonoOriginal).select("*").single();
+  console.log("lead_update supabase resultado", { error: error?.message || null, data });
   if (error) throw error;
   await logEventoCRM(payload.telefono, "nota_actualizada", "Prospecto editado desde CRM", { telefono_original: telefonoOriginal, campos: Object.keys(payload).filter((campo) => campo !== "fecha_ultimo_mensaje") });
   return { ok: true, conversacion: data };

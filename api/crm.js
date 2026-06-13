@@ -913,6 +913,7 @@ module.exports = async (req, res) => {
         return;
       }
       updates.telefono = telefono;
+      console.log("CRM lead_update payload", { telefono_original: selected.telefono, updates });
       editStatus.textContent = "Guardando";
       document.getElementById("saveEdit").disabled = true;
       const res = await actionFetch("lead_update", { telefono_original: selected.telefono, updates });
