@@ -152,6 +152,10 @@ module.exports = async (req, res) => {
       header > #refresh::after { content: "↻"; color: var(--ink); position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; }
       .page { height: calc(100vh - 52px); overflow: hidden; }
       .chat-dashboard { grid-template-columns: 1fr !important; }
+      .page.view-chat .chat-dashboard { grid-template-columns: repeat(3, minmax(86px, 1fr)) !important; gap: 6px; padding: 6px 8px; }
+      .page.view-chat .chat-dashboard .metric { min-height: 42px; padding: 6px 7px; border-radius: 7px; }
+      .page.view-chat .chat-dashboard .metric strong { font-size: 16px; }
+      .page.view-chat .chat-dashboard .metric span { font-size: 10px; line-height: 1.15; margin-top: 3px; }
       .dashboard { grid-template-columns: 1fr; overflow: auto; }
       .followup-board { grid-template-columns: 1fr; }
       .dashboard-panel { overflow: auto; padding: 12px; }
@@ -195,7 +199,7 @@ module.exports = async (req, res) => {
       .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; overflow: hidden; }
       .page.view-chat.mobile-chat-open .detail-head { grid-row: 1; grid-column: 1; }
       .page.view-chat.mobile-chat-open .messages { grid-row: 2; grid-column: 1; }
-      .page.view-chat.mobile-chat-open form { grid-row: 3; grid-column: 1; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
+      .page.view-chat.mobile-chat-open form { grid-row: 3; grid-column: 1; position: sticky; bottom: 0; grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; padding: 8px 10px 10px; align-items: end; }
       .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 132px; overflow-y: auto; overflow-x: hidden; }
       .page.view-chat.mobile-chat-open .actions button, .page.view-leads.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; min-height: 34px; padding: 0 8px; white-space: normal; font-size: 13px; }
       .page.view-leads.mobile-chat-open #initialBtn, .page.view-leads.mobile-chat-open #contactedBtn, .page.view-leads.mobile-chat-open #interestedBtn, .page.view-leads.mobile-chat-open #lostBtn { flex-basis: calc(50% - 8px); }
@@ -210,6 +214,8 @@ module.exports = async (req, res) => {
       .detail-head { padding: 10px; min-width: 0; flex-wrap: wrap; }
       .detail-head .identity { min-width: 0; flex: 1 1 150px; }
       .actions { padding: 8px 10px; justify-content: flex-start; }
+      .page.view-chat.mobile-chat-open form textarea { min-height: 56px; max-height: 116px; }
+      .page.view-chat.mobile-chat-open form button { min-height: 56px; padding: 0 10px; }
       form textarea { min-height: 48px; max-height: 96px; }
       .context-grid, .ops { grid-template-columns: 1fr; }
       .ops label.wide { grid-column: span 1; }
