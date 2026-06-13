@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
     :root { color-scheme: light; --line:#d8dee8; --ink:#17202a; --muted:#657386; --bg:#f6f8fb; --panel:#fff; --on:#137a4d; --off:#9b2c2c; --accent:#1358a8; --hot:#8a4b00; }
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--ink); }
-    header { height: 56px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    header { position: sticky; top: 0; z-index: 40; height: 56px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--panel); box-shadow: 0 1px 8px rgba(17, 24, 39, .06); }
     h1 { font-size: 18px; margin: 0; }
     h2 { font-size: 14px; margin: 0; }
     button, textarea, input, select { font: inherit; }
@@ -90,7 +90,7 @@ module.exports = async (req, res) => {
     form { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--panel); }
     form textarea { width: 100%; min-height: 54px; max-height: 140px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
     .empty { padding: 18px; color: var(--muted); }
-    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(17, 24, 39, .42); z-index: 20; padding: 18px; }
+    .modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(17, 24, 39, .42); z-index: 100; padding: 18px; }
     .modal.open { display: flex; }
     .modal-panel { width: min(920px, 100%); max-height: min(86vh, 820px); display: grid; grid-template-rows: auto 1fr auto; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 42px rgba(17, 24, 39, .22); }
     .modal-head, .modal-actions { padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); }
