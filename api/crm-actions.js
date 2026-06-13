@@ -14,7 +14,7 @@ const COLUMNAS_NEW = ["nombre", "categoria", "prioridad", "score", "total_fugas"
 const COLUMNAS_BASE = ["telefono", "nombre", "estado", "bot_enabled", "fecha_ultimo_mensaje"];
 const ESTADOS_VALIDOS = new Set(["prospectado", "contactado", "interesado", "cliente_caliente", "diagnostico_pagado", "diagnostico_entregado", "seguimiento", "perdido", "requiere_intervencion"]);
 const ESTADOS_SEGUIMIENTO = ["interesado", "seguimiento", "cliente_caliente", "contactado"];
-const CAMPOS_EDITABLES = new Set(["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url", "estado", "caliente", "bot_enabled", "notas"]);
+const CAMPOS_EDITABLES = new Set(["nombre", "categoria", "zona", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url", "estado", "caliente", "bot_enabled", "notas"]);
 const CAMPOS_FOLLOWUP = new Set(["proxima_accion", "fecha_seguimiento", "motivo_seguimiento", "seguimiento_activo", "objecion_principal", "resultado_conversacion"]);
 
 const CAMPOS_DEFAULT = {
@@ -26,6 +26,7 @@ const CAMPOS_DEFAULT = {
   caliente: false,
   bot_enabled: true,
   categoria: null,
+  zona: null,
   prioridad: null,
   score: null,
   total_fugas: null,
@@ -250,6 +251,7 @@ function parseContenido(contenido) {
 function normalizarFilaImportacion(row) {
   const clean = { ...(row || {}) };
   clean.telefono = normalizarTelefono(clean.telefono);
+  clean.zona = clean.zona ? String(clean.zona).trim() : null;
   if (clean.fotos && !clean.fotos_estimadas) clean.fotos_estimadas = clean.fotos;
   delete clean.fotos;
   if (!clean.diagnostico_fotos && clean.fotos_estimadas) clean.diagnostico_fotos = "posible baja actividad visual en la ficha";

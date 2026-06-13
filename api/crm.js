@@ -196,11 +196,12 @@ module.exports = async (req, res) => {
           <label>Estado<select id="filterEstado"><option value="">Todos</option></select></label>
           <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
           <label>Categoria<select id="filterCategoria"><option value="">Todas</option></select></label>
+          <label>Zona<select id="filterZona"><option value="">Todas las zonas</option><option value="__sin_zona__">Sin zona</option></select></label>
           <label>Caliente<select id="filterCaliente"><option value="">Todos</option><option value="true">Si</option><option value="false">No</option></select></label>
           <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Respondieron campaña</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option></select></label>
           <button id="clearFilters">Limpiar</button>
         </div>
-        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Estado</th><th>Mensajes</th><th>Ultimo mensaje</th><th>IA</th><th>Prioridad</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Estado</th><th>Mensajes</th><th>Ultimo mensaje</th><th>IA</th><th>Prioridad</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <section class="detail">
         <div class="detail-head">
@@ -271,6 +272,7 @@ module.exports = async (req, res) => {
       ["nombre", "Nombre", "input"],
       ["telefono", "Telefono", "input"],
       ["categoria", "Categoria", "input"],
+      ["zona", "Zona", "input"],
       ["estado", "Estado", "input"],
       ["prioridad", "Prioridad", "input"],
       ["score", "Score", "input"],
@@ -311,6 +313,16 @@ module.exports = async (req, res) => {
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch])); }
     function fmtDate(value) { return value ? new Date(value).toLocaleString() : "sin datos"; }
     function uniqueValues(key) { return [...new Set(conversaciones.map(c => c[key]).filter(Boolean))].sort(); }
+    function normalizeZona(value) {
+      const zona = String(value ?? "").trim();
+      return zona || "__sin_zona__";
+    }
+    function zonaLabel(value) {
+      return normalizeZona(value) === "__sin_zona__" ? "Sin zona" : String(value).trim();
+    }
+    function zonasDetectadas() {
+      return [...new Set(conversaciones.map(c => String(c.zona ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    }
 
     function setView(view) {
       currentView = view;
@@ -330,6 +342,7 @@ module.exports = async (req, res) => {
       document.getElementById("filterEstado").value = "";
       document.getElementById("filterPrioridad").value = "";
       document.getElementById("filterCategoria").value = "";
+      document.getElementById("filterZona").value = "";
       document.getElementById("filterCaliente").value = "";
       document.getElementById("filterOperativo").value = "";
     }
@@ -468,22 +481,34 @@ module.exports = async (req, res) => {
       select.value = current;
     }
 
+    function fillZonaSelect() {
+      const zonas = zonasDetectadas();
+      console.log("CRM zonas detectadas", zonas);
+      const select = document.getElementById("filterZona");
+      const current = select.value;
+      select.innerHTML = '<option value="">Todas las zonas</option><option value="__sin_zona__">Sin zona</option>' + zonas.map(z => '<option value="' + escapeHtml(z) + '">' + escapeHtml(z) + '</option>').join("");
+      select.value = current && [...zonas, "__sin_zona__"].includes(current) ? current : "";
+    }
+
     function fillFilters() {
       fillSelect("filterEstado", [...new Set([...estadosBase, ...uniqueValues("estado")])].filter(Boolean), "Todos");
       fillSelect("filterPrioridad", uniqueValues("prioridad"), "Todas");
       fillSelect("filterCategoria", uniqueValues("categoria"), "Todas");
+      fillZonaSelect();
     }
 
     function applyFilters() {
       const estado = document.getElementById("filterEstado").value;
       const prioridad = document.getElementById("filterPrioridad").value;
       const categoria = document.getElementById("filterCategoria").value;
+      const zona = document.getElementById("filterZona").value;
       const caliente = document.getElementById("filterCaliente").value;
       const operativo = document.getElementById("filterOperativo").value;
       filtered = conversaciones.filter(c => {
         if (estado && (c.estado || "") !== estado) return false;
         if (prioridad && (c.prioridad || "") !== prioridad) return false;
         if (categoria && (c.categoria || "") !== categoria) return false;
+        if (zona && normalizeZona(c.zona) !== zona) return false;
         if (caliente && String(c.caliente === true) !== caliente) return false;
         if (operativo === "nuevo" && !hasNewMessage(c)) return false;
         if (operativo === "requiere_intervencion" && c.estado !== "requiere_intervencion") return false;
@@ -492,6 +517,7 @@ module.exports = async (req, res) => {
         if (operativo === "diagnostico_pagado" && c.estado !== "diagnostico_pagado") return false;
         return true;
       }).sort(compareLeads);
+      console.log("CRM filtro zona", { zona_seleccionada: zona || "Todas las zonas", leads_filtrados: filtered.length });
       renderLeads();
     }
 
@@ -550,16 +576,16 @@ module.exports = async (req, res) => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
           const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
           const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="7"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + '</small><br><small>Mensajes: ' + escapeHtml(c.total_mensajes || 0) + ' total · ' + escapeHtml(c.mensajes_entrantes || 0) + ' in · ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small></td></tr>';
-        }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="9"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(c.estado || 'nuevo') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + '</small><br><small>Mensajes: ' + escapeHtml(c.total_mensajes || 0) + ' total · ' + escapeHtml(c.mensajes_entrantes || 0) + ' in · ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small></td></tr>';
+        }).join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
         leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { setView("chat"); selectLead(row.dataset.tel); }));
         return;
       }
       if (isMobile()) {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="7"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(pending) + ')</span> <span class="badge new">Respondió</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + '</small><br><small>Estado: ' + escapeHtml(c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Ultimo mensaje: ' + escapeHtml(lastMessageLabel(c)) + '</small><br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
-        }).join("") || '<tr><td colspan="7">Sin leads con esos filtros.</td></tr>';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="9"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(pending) + ')</span> <span class="badge new">Respondió</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + ' | Zona: ' + escapeHtml(zonaLabel(c.zona)) + '</small><br><small>Estado: ' + escapeHtml(c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Ultimo mensaje: ' + escapeHtml(lastMessageLabel(c)) + '</small><br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
+        }).join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
         leads.querySelectorAll("tr[data-tel] td").forEach(td => {
           const tel = td.parentElement.dataset.tel;
           td.insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
@@ -574,8 +600,8 @@ module.exports = async (req, res) => {
         const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
         const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
         const counts = escapeHtml(c.total_mensajes || 0) + ' total<br><small>' + escapeHtml(c.mensajes_entrantes || 0) + ' in / ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small>';
-        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + name + newBadge + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + counts + '</td><td><strong>Ultimo mensaje:</strong><br>' + escapeHtml(lastMessageLabel(c)) + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td><td>' + leadActions(c.telefono) + '</td></tr>';
-      }).join("") || '<tr><td colspan="8">Sin leads con esos filtros.</td></tr>';
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td>' + name + newBadge + '</td><td>' + escapeHtml(c.telefono) + '</td><td>' + escapeHtml(zonaLabel(c.zona)) + '</td><td>' + escapeHtml(c.estado || 'nuevo') + '</td><td>' + counts + '</td><td><strong>Ultimo mensaje:</strong><br>' + escapeHtml(lastMessageLabel(c)) + '</td><td>' + (botOn(c) ? '<span class="badge on">ON</span>' : '<span class="badge off">OFF</span>') + '</td><td>' + escapeHtml(c.prioridad || '') + '</td><td>' + leadActions(c.telefono) + '</td></tr>';
+      }).join("") || '<tr><td colspan="9">Sin leads con esos filtros.</td></tr>';
       bindLeadRowActions();
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
     }
@@ -583,7 +609,7 @@ module.exports = async (req, res) => {
     function renderContext(c) {
       if (!c) { context.innerHTML = '<div class="empty">Sin lead seleccionado.</div>'; return; }
       const negocio = [
-        ["Nombre", label(c)], ["Categoria", c.categoria], ["Prioridad", c.prioridad], ["Score", c.score],
+        ["Nombre", label(c)], ["Categoria", c.categoria], ["Zona", zonaLabel(c.zona)], ["Prioridad", c.prioridad], ["Score", c.score],
         ["Total fugas", c.total_fugas], ["Telefono", c.telefono], ["Estado", c.estado], ["Ultimo mensaje", c.ultimo_mensaje],
         ["Rating", c.rating], ["Resenas", c.resenas], ["Fotos estimadas", c.fotos_estimadas || c.fotos], ["Diagnostico fotos", c.diagnostico_fotos], ["Ultima resena", c.ultima_resena],
         ["Responde resenas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
@@ -648,8 +674,10 @@ module.exports = async (req, res) => {
         if (type === "selectBoolean") {
           return '<label>' + labelText + '<select data-field="' + key + '"><option value="true"' + (value === true || (key === "bot_enabled" && value !== false) ? ' selected' : '') + '>Si</option><option value="false"' + (value === false ? ' selected' : '') + '>No</option></select></label>';
         }
-        return '<label>' + labelText + '<input data-field="' + key + '" value="' + escapeHtml(value || '') + '" /></label>';
+        const list = key === "zona" ? ' list="zonasList"' : "";
+        return '<label>' + labelText + '<input data-field="' + key + '"' + list + ' value="' + escapeHtml(value || '') + '" /></label>';
       }).join("");
+      editForm.insertAdjacentHTML("beforeend", '<datalist id="zonasList">' + zonasDetectadas().map(z => '<option value="' + escapeHtml(z) + '"></option>').join("") + '</datalist>');
     }
 
     function openEdit() {
@@ -803,7 +831,7 @@ module.exports = async (req, res) => {
       clearFilterValues();
       applyFilters();
     });
-    ["filterEstado","filterPrioridad","filterCategoria","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
+    ["filterEstado","filterPrioridad","filterCategoria","filterZona","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
 
     document.getElementById("manualForm").addEventListener("submit", async (event) => {
       event.preventDefault();
