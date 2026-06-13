@@ -172,6 +172,70 @@ function normalizarTelefono(value) {
   return String(value || "").replace(/[+\s\-()]/g, "").replace(/\D/g, "").trim();
 }
 
+function quitarAcentos(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+function numeroLimpio(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const text = String(value).trim().replace(/[$,\s]/g, "");
+  const num = Number(text);
+  return Number.isFinite(num) ? num : null;
+}
+
+function extraerTelefono(row) {
+  const original = String(row?.telefono || "");
+  const normalizado = normalizarTelefono(original);
+  const telefonoRaro = /e\+?/i.test(original) || normalizado.length < 10 || normalizado.length > 13;
+  const waMatch = String(row?.whatsapp_link || "").match(/wa\.me\/(\d{10,13})/i);
+  let telefono = telefonoRaro && waMatch ? waMatch[1] : normalizado;
+  if (!telefono && waMatch) telefono = waMatch[1];
+  telefono = normalizarTelefono(telefono);
+  if (telefono.length === 10) telefono = "52" + telefono;
+  return telefono;
+}
+
+function textoZona(row) {
+  return quitarAcentos([row?.nombre, row?.direccion, row?.maps_url, row?.fuente, row?.fuente_busqueda].filter(Boolean).join(" ")).toLowerCase();
+}
+
+function contieneCp(texto, inicio, fin) {
+  const matches = texto.match(/\b\d{5}\b/g) || [];
+  return matches.some((cp) => Number(cp) >= inicio && Number(cp) <= fin);
+}
+
+function inferirZona(row) {
+  const texto = textoZona(row);
+  if (/\batizapan\b|\batizapan de zaragoza\b|ciudad lopez mateos|cdad\.? lopez mateos/.test(texto) || contieneCp(texto, 52900, 52999)) return "Atizapan";
+  if (/\bnaucalpan\b|\bsatelite\b|echegaray|lomas verdes/.test(texto) || contieneCp(texto, 53100, 53599)) return "Naucalpan / Satelite";
+  if (/\btlalnepantla\b/.test(texto) || contieneCp(texto, 54000, 54199)) return "Tlalnepantla";
+  if (/\bazcapotzalco\b|\bcdmx\b|ciudad de mexico/.test(texto)) return "CDMX";
+  return null;
+}
+
+function inferirFuente(row, zona) {
+  const categoria = quitarAcentos(row?.categoria || row?.nombre || "").toLowerCase();
+  const base = /dentista|clinica dental|odontologia/.test(categoria) ? "dentistas" : cleanText(row?.categoria);
+  if (base && zona) return `${base} ${zona}`;
+  if (base) return base;
+  return "Prospector ON";
+}
+
+function limpiarPrioridad(row) {
+  const prioridad = String(row?.prioridad || "").trim();
+  const normalizada = quitarAcentos(prioridad).toUpperCase();
+  if (normalizada.includes("ALTA PRIORITARIA") || normalizada.startsWith("1.")) return "Alta prioritaria";
+  if (normalizada.includes("ALTA") || normalizada.startsWith("2.")) return "Alta";
+  if (normalizada.includes("MEDIA") || normalizada.startsWith("3.")) return "Media";
+  if (normalizada.includes("BAJA") || normalizada.startsWith("4.")) return "Baja";
+  const score = numeroLimpio(row?.score);
+  if (score >= 12) return "Alta prioritaria";
+  if (score >= 8) return "Alta";
+  if (score >= 4) return "Media";
+  if (score >= 0) return "Baja";
+  return null;
+}
+
 function cleanText(value) {
   if (value === null || value === undefined) return null;
   const text = String(value).trim();
@@ -253,7 +317,7 @@ function parseContenido(contenido) {
   if (headers) filas = filas.slice(1);
   return filas.map((valores) => {
     const row = headers ? rowDesdeHeader(headers, valores) : rowDesdeOrden(valores);
-    row.telefono = normalizarTelefono(row.telefono);
+    row.telefono = extraerTelefono(row);
     if (!row.diagnostico_fotos && row.fotos_estimadas) row.diagnostico_fotos = "posible baja actividad visual en la ficha";
     row.estado = "prospectado";
     row.bot_enabled = true;
@@ -265,13 +329,20 @@ function parseContenido(contenido) {
 
 function normalizarFilaImportacion(row) {
   const clean = { ...(row || {}) };
-  clean.telefono = normalizarTelefono(clean.telefono);
-  clean.zona = clean.zona ? String(clean.zona).trim() : null;
-  clean.fuente_busqueda = clean.fuente_busqueda ? String(clean.fuente_busqueda).trim() : null;
+  clean.telefono = extraerTelefono(clean);
+  clean.zona = clean.zona ? String(clean.zona).trim() : inferirZona(clean);
+  clean.fuente_busqueda = clean.fuente_busqueda ? String(clean.fuente_busqueda).trim() : inferirFuente(clean, clean.zona);
+  clean.prioridad = limpiarPrioridad(clean);
+  clean.score = numeroLimpio(clean.score);
+  clean.total_fugas = numeroLimpio(clean.total_fugas);
+  clean.rating = numeroLimpio(clean.rating);
+  clean.resenas = numeroLimpio(clean.resenas);
   if (clean.fotos && !clean.fotos_estimadas) clean.fotos_estimadas = clean.fotos;
   delete clean.fotos;
   if (!clean.diagnostico_fotos && clean.fotos_estimadas) clean.diagnostico_fotos = "posible baja actividad visual en la ficha";
   clean.estado = clean.estado || "prospectado";
+  clean.estado_contacto = clean.estado_contacto || "Nuevo";
+  clean.siguiente_accion = clean.siguiente_accion || "Enviar inicial";
   clean.bot_enabled = clean.bot_enabled === undefined ? true : clean.bot_enabled;
   if (!("ultimo_mensaje" in clean)) clean.ultimo_mensaje = null;
   clean.fecha_ultimo_mensaje = clean.fecha_ultimo_mensaje || new Date().toISOString();
