@@ -74,12 +74,14 @@ module.exports = async (req, res) => {
     .identity strong { display: block; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .identity span { color: var(--muted); font-size: 12px; }
     .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
-    .context { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 10px; max-height: 250px; overflow: auto; }
-    .context-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; font-size: 12px; }
+    .context { background: var(--panel); border-bottom: 1px solid var(--line); padding: 12px 16px; display: grid; gap: 10px; max-height: 250px; overflow: auto; align-content: start; }
+    .context-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 12px; font-size: 12px; align-items: start; }
+    .context-grid > div { min-width: 0; }
     .context-grid strong { display: block; color: var(--muted); font-size: 11px; }
+    .context-grid span { display: block; overflow-wrap: anywhere; line-height: 1.25; }
     .fugas { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.38; }
     .notes { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.38; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; }
-    .ops { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .ops { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; align-items: start; }
     .ops label.wide { grid-column: span 2; }
     .ops textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
     .timeline { display: grid; gap: 8px; }
@@ -119,6 +121,7 @@ module.exports = async (req, res) => {
     .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
     .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(360px, 1fr); }
     .page.view-leads .detail { display: grid; }
+    .page.view-leads .context { max-height: none; align-content: start; }
     .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
     .page.view-dashboard .attention { display: none; }
     .page.view-reportes main, .page.view-reportes .dashboard, .page.view-reportes .attention, .page.view-reportes .chat-dashboard { display: none; }
