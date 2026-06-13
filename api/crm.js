@@ -109,26 +109,30 @@ module.exports = async (req, res) => {
     .page.view-chat { grid-template-rows: auto 1fr; }
     .page.view-chat .dashboard, .page.view-chat .attention { display: none; }
     .page.view-chat .chat-dashboard { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); }
-    .page.view-chat main { grid-template-columns: minmax(280px, var(--lead-pane-width, 340px)) 7px minmax(0, 1fr); }
+    .page.view-chat main { grid-template-columns: minmax(280px, var(--lead-pane-width, 340px)) 7px minmax(420px, 1fr); }
     .page.view-chat .left { grid-template-rows: auto 1fr; }
     .page.view-chat .left .import { display: none; }
     .page.view-chat .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .page.view-chat .filters button { grid-column: span 2; }
-    .page.view-chat .detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); grid-template-rows: auto auto 1fr auto; min-width: 0; min-height: 0; }
+    .page.view-chat .detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 390px); grid-template-rows: auto auto 1fr auto; min-width: 0; min-height: 0; }
     .page.view-chat .detail-head { grid-column: 2; grid-row: 1; }
     .page.view-chat .actions { grid-column: 2; grid-row: 2; justify-content: flex-start; }
     .page.view-chat .context { grid-column: 2; grid-row: 3 / 5; max-height: none; border-bottom: 0; border-left: 1px solid var(--line); }
     .page.view-chat .messages { grid-column: 1; grid-row: 1 / 4; }
     .page.view-chat form { grid-column: 1; grid-row: 4; position: sticky; bottom: 0; z-index: 2; }
     .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
-    .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(360px, 1fr); }
+    .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(420px, 1fr); }
     .page.view-leads .detail { display: grid; }
     .page.view-leads .context { max-height: none; align-content: start; }
     @media (min-width: 1051px) {
       .page.view-chat .detail-toggle, .page.view-leads .detail-toggle { display: inline-flex; align-items: center; position: absolute; top: 10px; right: 12px; z-index: 6; min-height: 30px; font-size: 12px; background: #fff; box-shadow: 0 1px 5px rgba(17, 24, 39, .08); }
-      .page.view-chat.detail-collapsed main, .page.view-leads.detail-collapsed main { grid-template-columns: minmax(0, 1fr); }
-      .page.view-chat.detail-collapsed .pane-resizer, .page.view-chat.detail-collapsed .detail, .page.view-leads.detail-collapsed .pane-resizer, .page.view-leads.detail-collapsed .detail { display: none; }
-      .page.view-chat.detail-collapsed .left, .page.view-leads.detail-collapsed .left { border-right: 0; }
+      .page.view-chat.detail-collapsed .detail { grid-template-columns: minmax(0, 1fr); }
+      .page.view-chat.detail-collapsed .detail-head, .page.view-chat.detail-collapsed .actions, .page.view-chat.detail-collapsed .context { display: none; }
+      .page.view-chat.detail-collapsed .messages { grid-column: 1; grid-row: 1 / 4; }
+      .page.view-chat.detail-collapsed form { grid-column: 1; grid-row: 4; }
+      .page.view-leads.detail-collapsed main { grid-template-columns: minmax(0, 1fr); }
+      .page.view-leads.detail-collapsed .pane-resizer, .page.view-leads.detail-collapsed .detail { display: none; }
+      .page.view-leads.detail-collapsed .left { border-right: 0; }
     }
     .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
     .page.view-dashboard .attention { display: none; }
