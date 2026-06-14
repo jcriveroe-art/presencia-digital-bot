@@ -14,6 +14,7 @@ const COLUMNAS_OLD = ["nombre", "categoria", "prioridad", "score", "total_fugas"
 const COLUMNAS_NEW = ["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url"];
 const COLUMNAS_BASE = ["telefono", "nombre", "estado", "bot_enabled", "fecha_ultimo_mensaje"];
 const CAMPOS_COMERCIALES = ["zona", "fuente_busqueda", "estado_contacto", "siguiente_accion", "fecha_siguiente_seguimiento", "ultimo_contacto", "ultima_respuesta", "intentos_contacto", "producto_interesado", "monto_cotizado", "monto_pagado", "estado_pago", "fecha_venta", "notas_internas"];
+const CAMPOS_IMPORTABLES = new Set(["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url", "estado", "bot_enabled", "ultimo_mensaje", "fecha_ultimo_mensaje", ...CAMPOS_COMERCIALES]);
 const ESTADOS_VALIDOS = new Set(["prospectado", "contactado", "interesado", "cliente_caliente", "diagnostico_pagado", "diagnostico_entregado", "seguimiento", "perdido", "requiere_intervencion"]);
 const ESTADOS_SEGUIMIENTO = ["interesado", "seguimiento", "cliente_caliente", "contactado"];
 const CAMPOS_EDITABLES = new Set(["nombre", "categoria", "zona", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos_estimadas", "diagnostico_fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url", "estado", "caliente", "bot_enabled", "notas", ...CAMPOS_COMERCIALES]);
@@ -183,6 +184,10 @@ function numeroLimpio(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+function valorVacio(value) {
+  return value === null || value === undefined || String(value).trim() === "";
+}
+
 function extraerTelefono(row) {
   const original = String(row?.telefono || "");
   const normalizado = normalizarTelefono(original);
@@ -247,6 +252,10 @@ function cleanBoolean(value) {
   if (value === "true" || value === "1" || value === 1) return true;
   if (value === "false" || value === "0" || value === 0) return false;
   return null;
+}
+
+function esSi(value) {
+  return ["si", "sí", "true", "1", "yes"].includes(quitarAcentos(value).trim().toLowerCase());
 }
 
 function detectarSeparador(linea) {
@@ -317,21 +326,19 @@ function parseContenido(contenido) {
   if (headers) filas = filas.slice(1);
   return filas.map((valores) => {
     const row = headers ? rowDesdeHeader(headers, valores) : rowDesdeOrden(valores);
-    row.telefono = extraerTelefono(row);
-    if (!row.diagnostico_fotos && row.fotos_estimadas) row.diagnostico_fotos = "posible baja actividad visual en la ficha";
-    row.estado = "prospectado";
-    row.bot_enabled = true;
-    row.ultimo_mensaje = null;
-    row.fecha_ultimo_mensaje = new Date().toISOString();
     return row;
   });
 }
 
 function normalizarFilaImportacion(row) {
   const clean = { ...(row || {}) };
+  const estadoCsv = clean.estado_contacto;
+  const contactoWhatsapp = clean.contactado_whatsapp;
+  const motivoEstado = clean.motivo_estado;
+  const archivoOrigen = clean.archivo_origen;
   clean.telefono = extraerTelefono(clean);
-  clean.zona = clean.zona ? String(clean.zona).trim() : inferirZona(clean);
-  clean.fuente_busqueda = clean.fuente_busqueda ? String(clean.fuente_busqueda).trim() : inferirFuente(clean, clean.zona);
+  clean.zona = valorVacio(clean.zona) ? (inferirZona(clean) || "Sin zona") : String(clean.zona).trim();
+  clean.fuente_busqueda = valorVacio(clean.fuente_busqueda) ? "Prospector ON" : String(clean.fuente_busqueda).trim();
   clean.prioridad = limpiarPrioridad(clean);
   clean.score = numeroLimpio(clean.score);
   clean.total_fugas = numeroLimpio(clean.total_fugas);
@@ -340,13 +347,19 @@ function normalizarFilaImportacion(row) {
   if (clean.fotos && !clean.fotos_estimadas) clean.fotos_estimadas = clean.fotos;
   delete clean.fotos;
   if (!clean.diagnostico_fotos && clean.fotos_estimadas) clean.diagnostico_fotos = "posible baja actividad visual en la ficha";
-  clean.estado = clean.estado || "prospectado";
-  clean.estado_contacto = clean.estado_contacto || "Nuevo";
-  clean.siguiente_accion = clean.siguiente_accion || "Enviar inicial";
+  clean.estado_contacto = valorVacio(estadoCsv) ? (esSi(contactoWhatsapp) ? "ya_contactado" : "nuevo") : String(estadoCsv).trim();
+  clean.estado = valorVacio(clean.estado) ? "prospectado" : String(clean.estado).trim();
+  if (valorVacio(clean.siguiente_accion)) {
+    clean.siguiente_accion = clean.estado_contacto.toLowerCase() === "ya_contactado" ? "Revisar historial" : "Enviar inicial";
+  }
+  if (valorVacio(clean.notas_internas)) {
+    const notas = [motivoEstado, archivoOrigen ? `archivo_origen: ${archivoOrigen}` : null].filter((value) => !valorVacio(value)).map((value) => String(value).trim()).join(" | ");
+    if (notas) clean.notas_internas = notas;
+  }
   clean.bot_enabled = clean.bot_enabled === undefined ? true : clean.bot_enabled;
   if (!("ultimo_mensaje" in clean)) clean.ultimo_mensaje = null;
   clean.fecha_ultimo_mensaje = clean.fecha_ultimo_mensaje || new Date().toISOString();
-  return clean;
+  return Object.fromEntries(Object.entries(clean).filter(([campo]) => CAMPOS_IMPORTABLES.has(campo)));
 }
 
 function filasImportacion(body) {
@@ -370,7 +383,16 @@ function dedupeImportacionPorTelefono(rows) {
       return;
     }
     if (porTelefono.has(clean.telefono)) duplicadas.add(clean.telefono);
-    porTelefono.set(clean.telefono, { ...porTelefono.get(clean.telefono), ...clean });
+    const previous = porTelefono.get(clean.telefono) || {};
+    const merged = { ...previous, ...clean };
+    for (const [campo, valor] of Object.entries(clean)) {
+      if (valorVacio(previous[campo]) && !valorVacio(valor)) merged[campo] = valor;
+    }
+    if (String(previous.estado_contacto || "").toLowerCase() === "ya_contactado") {
+      merged.estado_contacto = previous.estado_contacto;
+      if (valorVacio(merged.siguiente_accion) || merged.siguiente_accion === "Enviar inicial") merged.siguiente_accion = "Revisar historial";
+    }
+    porTelefono.set(clean.telefono, merged);
   });
 
   return {
@@ -379,6 +401,44 @@ function dedupeImportacionPorTelefono(rows) {
     duplicadas: Array.from(duplicadas),
     invalidas,
   };
+}
+
+function resumenImportacion(dedupe) {
+  const rows = dedupe.rows || [];
+  return {
+    total_recibidos: dedupe.recibidas,
+    insertados: rows.length,
+    duplicados_por_telefono: dedupe.duplicadas.length,
+    con_estado_contacto_nuevo: rows.filter((row) => String(row.estado_contacto || "").toLowerCase() === "nuevo").length,
+    con_estado_contacto_ya_contactado: rows.filter((row) => String(row.estado_contacto || "").toLowerCase() === "ya_contactado").length,
+    sin_zona: rows.filter((row) => valorVacio(row.zona) || row.zona === "Sin zona").length,
+    sin_fuente_busqueda: rows.filter((row) => valorVacio(row.fuente_busqueda) || row.fuente_busqueda === "Prospector ON").length,
+    con_maps_url: rows.filter((row) => !valorVacio(row.maps_url)).length,
+    sin_maps_url: rows.filter((row) => valorVacio(row.maps_url)).length,
+    con_rating: rows.filter((row) => row.rating !== null && row.rating !== undefined).length,
+    sin_rating: rows.filter((row) => row.rating === null || row.rating === undefined).length,
+  };
+}
+
+function mergeLeadImportado(existing, incoming) {
+  const merged = { ...(existing || {}), ...(incoming || {}) };
+  for (const [campo, valor] of Object.entries(incoming || {})) {
+    if (valorVacio(valor) && !valorVacio(existing?.[campo])) merged[campo] = existing[campo];
+  }
+  if (String(existing?.estado_contacto || "").toLowerCase() === "ya_contactado" && String(incoming?.estado_contacto || "").toLowerCase() !== "ya_contactado") {
+    merged.estado_contacto = existing.estado_contacto;
+    if (valorVacio(incoming?.siguiente_accion) || incoming?.siguiente_accion === "Enviar inicial") merged.siguiente_accion = existing.siguiente_accion || "Revisar historial";
+  }
+  return Object.fromEntries(Object.entries(merged).filter(([campo]) => CAMPOS_IMPORTABLES.has(campo)));
+}
+
+async function mezclarConExistentes(rows) {
+  const telefonos = rows.map((row) => row.telefono).filter(Boolean);
+  if (!telefonos.length) return rows;
+  const { data, error } = await supabase.from("conversaciones").select("*").in("telefono", telefonos);
+  if (error) throw error;
+  const existentes = new Map((data || []).map((row) => [row.telefono, row]));
+  return rows.map((row) => mergeLeadImportado(existentes.get(row.telefono), row));
 }
 
 function logUpsert(action, tabla, onConflict, cantidadRecibida, cantidadDedupe, duplicadas) {
@@ -553,10 +613,13 @@ async function dashboardData() {
 
 async function importarProspector(body) {
   const dedupe = dedupeImportacionPorTelefono(filasImportacion(body));
-  const rows = dedupe.rows;
+  let rows = dedupe.rows;
+  if (!rows.length) return { status: 400, payload: { ok: false, error: "No se encontraron filas validas con telefono" } };
+  rows = await mezclarConExistentes(rows);
+  const resumen = resumenImportacion({ ...dedupe, rows });
+  console.log("importar_prospector resumen", resumen);
   logUpsert("importar_prospector", "conversaciones", "telefono", dedupe.recibidas, rows.length, dedupe.duplicadas);
   if (DEBUG_CRM_ACTIONS && dedupe.invalidas) console.log("importar_prospector filas invalidas filtradas", { cantidad_invalidas: dedupe.invalidas });
-  if (!rows.length) return { status: 400, payload: { ok: false, error: "No se encontraron filas validas con telefono" } };
   let { data, error } = await supabase.from("conversaciones").upsert(rows, { onConflict: "telefono" }).select("telefono, nombre, estado");
   if (error && esErrorColumnas(error)) {
     const baseRows = dedupeImportacionPorTelefono(rows.map(soloBase)).rows;
@@ -567,7 +630,7 @@ async function importarProspector(body) {
   }
   if (error) throw error;
   await Promise.all((data || rows).map((row) => logEventoCRM(row.telefono, "lead_importado", "Lead importado desde Prospector ON", { nombre: row.nombre })));
-  return { ok: true, importados: data?.length || rows.length, conversaciones: data || [] };
+  return { ok: true, importados: data?.length || rows.length, resumen, conversaciones: data || [] };
 }
 
 async function enviarInicial(body) {
