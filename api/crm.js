@@ -66,6 +66,12 @@ module.exports = async (req, res) => {
     tr.active { background: #edf4ff; }
     .lead-actions { display: flex; flex-wrap: wrap; gap: 6px; }
     .lead-actions button { min-height: 30px; padding: 0 8px; }
+    .lead-line { display: grid; gap: 6px; min-width: 0; }
+    .lead-main { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .lead-name { color: var(--ink); font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+    .lead-meta { color: var(--muted); font-size: 11px; line-height: 1.3; overflow-wrap: anywhere; }
+    .lead-next { display: inline-flex; width: fit-content; max-width: 100%; padding: 4px 7px; border: 1px solid #bfdbfe; border-radius: 7px; background: #eff6ff; color: #1e3a8a; font-size: 11px; font-weight: 700; overflow-wrap: anywhere; }
+    .lead-last { color: var(--ink); font-size: 12px; line-height: 1.35; }
     .badge { border-radius: 999px; padding: 4px 8px; font-size: 12px; border: 1px solid var(--line); display: inline-flex; align-items: center; min-height: 24px; }
     .badge.on { color: var(--on); }
     .badge.off { color: var(--off); }
@@ -937,9 +943,9 @@ module.exports = async (req, res) => {
       if (currentView === "chat") {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
-          const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
-          const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | ' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + '</small><br><small>Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + ' | ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin seguimiento') + '</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small><br>' + alertBadges(c) + '</td></tr>';
+          const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondio</span>' : '';
+          const pendingBadge = hasNewMessage(c) ? ' <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-last"><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</div></div></td></tr>';
         }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
         leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
         return;
@@ -947,11 +953,11 @@ module.exports = async (req, res) => {
       if (isMobile()) {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(pending) + ')</span> <span class="badge new">Respondió</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + ' | Zona: ' + escapeHtml(zonaLabel(c.zona)) + ' | Fuente: ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</small><br><small>Estado: ' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + ' | ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin seguimiento') + '</small><br>' + alertBadges(c) + '<br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + (hasNewMessage(c) ? ' <span class="badge new">Respondio</span> <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '') + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-actions"><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></div></div></td></tr>';
         }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
         leads.querySelectorAll("tr[data-tel] td").forEach(td => {
           const tel = td.parentElement.dataset.tel;
-          td.insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
+          td.querySelector(".lead-actions").insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
         });
         bindLeadRowActions();
         leads.querySelectorAll("button[data-initial]").forEach(btn => btn.addEventListener("click", async (event) => { event.stopPropagation(); selected = conversaciones.find(c => c.telefono === btn.dataset.initial); if (selected) document.getElementById("initialBtn").click(); }));
@@ -960,10 +966,9 @@ module.exports = async (req, res) => {
       }
       leads.innerHTML = filtered.map(c => {
         const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
-        const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
-        const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
-        const counts = escapeHtml(c.total_mensajes || 0) + ' total<br><small>' + escapeHtml(c.mensajes_entrantes || 0) + ' in / ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small>';
-        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td><strong>' + name + newBadge + '</strong><br><small>' + escapeHtml(c.categoria || 'Sin nicho') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</small><br>' + alertBadges(c) + '</td><td>' + escapeHtml(c.telefono || 'Sin telefono') + '</td><td>' + escapeHtml(zonaLabel(c.zona)) + '</td><td>' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td>' + escapeHtml(safeDato(c.siguiente_accion)) + '</td><td>' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
+        const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondio</span>' : '';
+        const pendingBadge = hasNewMessage(c) ? ' <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '';
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.categoria || 'Sin nicho') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div></div></td><td><span class="lead-meta">' + escapeHtml(c.telefono || 'Sin telefono') + '</span></td><td><span class="lead-meta">' + escapeHtml(zonaLabel(c.zona)) + '</span></td><td><span class="lead-meta">' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</span></td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td><span class="lead-next">' + escapeHtml(safeDato(c.siguiente_accion)) + '</span></td><td><span class="lead-meta">' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</span></td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
       }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
       bindLeadRowActions();
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
