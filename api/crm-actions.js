@@ -735,6 +735,68 @@ async function eliminarLead(body) {
   return { ok: true, telefono };
 }
 
+function esLeadImportacionMala(row) {
+  const fuente = String(row.fuente_busqueda || row.fuente || "").trim();
+  const zona = String(row.zona || "").trim();
+  const estado = String(row.estado || "").trim().toLowerCase();
+  const estadoContacto = String(row.estado_contacto || "").trim().toLowerCase();
+  const siguienteAccion = String(row.siguiente_accion || "").trim().toLowerCase();
+  const estadoPago = String(row.estado_pago || "").trim().toLowerCase();
+  const tienePago = Number(row.monto_pagado || 0) > 0 || ["pagado", "anticipo"].includes(estadoPago);
+  const estadosProtegidos = new Set(["contactado", "interesado", "cliente_caliente", "diagnostico_pagado", "diagnostico_entregado", "seguimiento", "perdido", "requiere_intervencion"]);
+  return (
+    fuente === "Prospector ON" &&
+    (zona === "" || zona === "Sin zona") &&
+    estado === "prospectado" &&
+    siguienteAccion === "enviar inicial" &&
+    estadoContacto !== "ya_contactado" &&
+    !estadosProtegidos.has(estado) &&
+    !tienePago
+  );
+}
+
+async function candidatosImportacionMala() {
+  const { data, error } = await supabase
+    .from("conversaciones")
+    .select("telefono,nombre,zona,fuente_busqueda,estado,estado_contacto,siguiente_accion,estado_pago,monto_pagado")
+    .eq("estado", "prospectado")
+    .eq("siguiente_accion", "Enviar inicial")
+    .limit(500);
+  if (error) throw error;
+  return (data || []).filter(esLeadImportacionMala);
+}
+
+function resumenBorradoImportacionMala(candidatos) {
+  return {
+    total_encontrados: candidatos.length,
+    muestra: candidatos.slice(0, 10).map((lead) => ({
+      nombre: lead.nombre,
+      telefono: lead.telefono,
+      zona: lead.zona,
+      fuente_busqueda: lead.fuente_busqueda,
+      estado: lead.estado,
+      siguiente_accion: lead.siguiente_accion,
+    })),
+  };
+}
+
+async function borrarLoteImportacionMalaDryRun() {
+  return { ok: true, dry_run: true, ...resumenBorradoImportacionMala(await candidatosImportacionMala()) };
+}
+
+async function borrarLoteImportacionMalaConfirmado() {
+  const candidatos = await candidatosImportacionMala();
+  if (candidatos.length > 400) {
+    return { status: 409, payload: { ok: false, error: "Se encontraron mas de 400 leads. Requiere revision manual antes de borrar.", ...resumenBorradoImportacionMala(candidatos) } };
+  }
+  const telefonos = candidatos.map((lead) => lead.telefono).filter(Boolean);
+  if (!telefonos.length) return { ok: true, borrados: 0, total_encontrados: 0 };
+  const { error } = await supabase.from("conversaciones").delete().in("telefono", telefonos);
+  if (error) throw error;
+  console.log("borrar_lote_importacion_mala_confirmado", { total_borrados: telefonos.length });
+  return { ok: true, borrados: telefonos.length, total_encontrados: candidatos.length, telefonos };
+}
+
 async function leadFollowup(body) {
   const telefono = normalizarTelefono(body.telefono);
   if (!telefono) return { status: 400, payload: { ok: false, error: "telefono requerido" } };
@@ -827,6 +889,8 @@ async function dispatch(action, body, req, res) {
     lead_estado: leadEstado,
     lead_update: leadUpdate,
     eliminar_lead: eliminarLead,
+    borrar_lote_importacion_mala_dry_run: borrarLoteImportacionMalaDryRun,
+    borrar_lote_importacion_mala_confirmado: borrarLoteImportacionMalaConfirmado,
     lead_followup: leadFollowup,
     eventos_crm: eventosCrm,
     dashboard_data: dashboardData,
