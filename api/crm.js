@@ -49,6 +49,8 @@ module.exports = async (req, res) => {
     .import-row { display: grid; gap: 8px; }
     .mobile-collapse summary { display: none; }
     .filters { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
+    .lead-search { padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .lead-search input { width: 100%; }
     .attention { padding: 10px 16px; border-bottom: 1px solid var(--line); background: #fff8eb; display: grid; gap: 8px; }
     .attention-list { display: flex; gap: 8px; overflow: auto; padding-bottom: 2px; }
     .attention button { white-space: nowrap; background: #fff; }
@@ -112,6 +114,7 @@ module.exports = async (req, res) => {
     .page.view-chat main { grid-template-columns: minmax(280px, var(--lead-pane-width, 340px)) 7px minmax(420px, 1fr); }
     .page.view-chat .left { grid-template-rows: auto 1fr; }
     .page.view-chat .left .import { display: none; }
+    .page.view-chat .lead-search { display: none; }
     .page.view-chat .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .page.view-chat .filters button { grid-column: span 2; }
     .page.view-chat .detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 390px); grid-template-rows: auto auto 1fr auto; min-width: 0; min-height: 0; }
@@ -121,6 +124,7 @@ module.exports = async (req, res) => {
     .page.view-chat .messages { grid-column: 1; grid-row: 1 / 4; }
     .page.view-chat form { grid-column: 1; grid-row: 4; position: sticky; bottom: 0; z-index: 2; }
     .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
+    .page.view-leads .left { grid-template-rows: auto auto auto 1fr; }
     .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(420px, 1fr); }
     .page.view-leads .detail { display: grid; }
     .page.view-leads .context { max-height: none; align-content: start; }
@@ -222,7 +226,7 @@ module.exports = async (req, res) => {
       .page.view-chat .filters { display: none; }
       .page.view-chat .table-wrap { min-height: 0; }
       .page.view-leads main { grid-template-rows: minmax(0, 1fr); }
-      .page.view-leads .left { grid-template-rows: auto auto minmax(0, 1fr); }
+      .page.view-leads .left { grid-template-rows: auto auto auto minmax(0, 1fr); }
       .page.view-leads .detail { display: none; }
       .page.view-leads.mobile-chat-open .left { display: none; }
       .page.view-leads.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; }
@@ -303,6 +307,7 @@ module.exports = async (req, res) => {
           <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Respondieron campaña</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option><option value="hoy_vencidos">Hoy / Vencidos</option></select></label>
           <button id="clearFilters">Limpiar</button>
         </details>
+        <label class="lead-search">Buscar lead<input id="leadSearch" placeholder="Telefono, nombre, zona, fuente o estado" /></label>
         <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <button id="toggleDetailPanel" class="detail-toggle" type="button">Ocultar detalle</button>
@@ -375,6 +380,7 @@ module.exports = async (req, res) => {
     const context = document.getElementById("context");
     const importText = document.getElementById("importText");
     const importStatus = document.getElementById("importStatus");
+    const leadSearch = document.getElementById("leadSearch");
     const manualText = document.getElementById("manualText");
     const sendManual = document.getElementById("sendManual");
     const actionIds = ["initialBtn","editBtn","pauseBtn","resumeBtn","contactedBtn","interestedBtn","paidBtn","lostBtn","deleteBtn"];
@@ -455,6 +461,10 @@ module.exports = async (req, res) => {
     function normalizeFuente(value) {
       const fuente = String(value ?? "").trim();
       return fuente || "__sin_fuente__";
+    }
+
+    function soloDigitos(value) {
+      return String(value || "").replace(/\D/g, "");
     }
     function fuenteLabel(value) {
       return normalizeFuente(value) === "__sin_fuente__" ? "Sin fuente" : String(value).trim();
@@ -543,6 +553,7 @@ module.exports = async (req, res) => {
 
     function clearFilterValues() {
       document.getElementById("filterTexto").value = "";
+      leadSearch.value = "";
       document.getElementById("filterEstado").value = "";
       document.getElementById("filterPrioridad").value = "";
       document.getElementById("filterCategoria").value = "";
@@ -810,6 +821,8 @@ module.exports = async (req, res) => {
 
     function applyFilters() {
       const texto = document.getElementById("filterTexto").value.trim().toLowerCase();
+      if (leadSearch.value !== texto) leadSearch.value = texto;
+      const textoDigitos = soloDigitos(texto);
       const estado = document.getElementById("filterEstado").value;
       const prioridad = document.getElementById("filterPrioridad").value;
       const categoria = document.getElementById("filterCategoria").value;
@@ -820,8 +833,10 @@ module.exports = async (req, res) => {
       const operativo = document.getElementById("filterOperativo").value;
       filtered = conversaciones.filter(c => {
         if (texto) {
-          const haystack = [label(c), c.telefono, c.categoria, c.zona, c.fuente_busqueda, c.estado_contacto, c.siguiente_accion].map(v => String(v || "").toLowerCase()).join(" ");
-          if (!haystack.includes(texto)) return false;
+          const haystack = [label(c), c.telefono, c.zona, c.fuente_busqueda, c.estado_contacto].map(v => String(v || "").toLowerCase()).join(" ");
+          const telefonoDigitos = soloDigitos(c.telefono);
+          const matchTelefono = textoDigitos && telefonoDigitos.includes(textoDigitos);
+          if (!haystack.includes(texto) && !matchTelefono) return false;
         }
         if (estado && (c.estado || "") !== estado) return false;
         if (prioridad && (c.prioridad || "") !== prioridad) return false;
@@ -899,7 +914,7 @@ module.exports = async (req, res) => {
           const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
           const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondió</span>' : '';
           return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><strong>' + name + '</strong>' + newBadge + '<br><small>' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | ' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + '</small><br><small>Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + ' | ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin seguimiento') + '</small><br><small><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</small><br>' + alertBadges(c) + '</td></tr>';
-        }).join("") || '<tr><td colspan="11">Sin leads con esos filtros.</td></tr>';
+        }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
         leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
         return;
       }
@@ -907,7 +922,7 @@ module.exports = async (req, res) => {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
           return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><strong>' + escapeHtml(label(c)) + '</strong>' + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + escapeHtml(pending) + ')</span> <span class="badge new">Respondió</span>' : '') + '<br><small>' + escapeHtml(c.telefono) + ' | Zona: ' + escapeHtml(zonaLabel(c.zona)) + ' | Fuente: ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</small><br><small>Estado: ' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + ' | Prioridad: ' + escapeHtml(c.prioridad || 'sin datos') + ' | Score: ' + escapeHtml(c.score || 'sin datos') + '</small><br><small>Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + ' | ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin seguimiento') + '</small><br>' + alertBadges(c) + '<br><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></td></tr>';
-        }).join("") || '<tr><td colspan="11">Sin leads con esos filtros.</td></tr>';
+        }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
         leads.querySelectorAll("tr[data-tel] td").forEach(td => {
           const tel = td.parentElement.dataset.tel;
           td.insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
@@ -923,7 +938,7 @@ module.exports = async (req, res) => {
         const name = escapeHtml(label(c)) + (hasNewMessage(c) ? ' <span class="badge new">🔵 (' + pending + ')</span>' : '');
         const counts = escapeHtml(c.total_mensajes || 0) + ' total<br><small>' + escapeHtml(c.mensajes_entrantes || 0) + ' in / ' + escapeHtml(c.mensajes_salientes || 0) + ' out</small>';
         return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td><strong>' + name + newBadge + '</strong><br><small>' + escapeHtml(c.categoria || 'Sin nicho') + ' | ' + escapeHtml(c.prioridad || 'sin prioridad') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</small><br>' + alertBadges(c) + '</td><td>' + escapeHtml(c.telefono || 'Sin telefono') + '</td><td>' + escapeHtml(zonaLabel(c.zona)) + '</td><td>' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td>' + escapeHtml(safeDato(c.siguiente_accion)) + '</td><td>' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
-      }).join("") || '<tr><td colspan="11">Sin leads con esos filtros.</td></tr>';
+      }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
       bindLeadRowActions();
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
     }
@@ -1196,6 +1211,10 @@ module.exports = async (req, res) => {
     });
     ["filterEstado","filterPrioridad","filterCategoria","filterZona","filterFuente","filterEstadoContacto","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
     document.getElementById("filterTexto").addEventListener("input", applyFilters);
+    leadSearch.addEventListener("input", () => {
+      document.getElementById("filterTexto").value = leadSearch.value;
+      applyFilters();
+    });
 
     document.getElementById("manualForm").addEventListener("submit", async (event) => {
       event.preventDefault();
