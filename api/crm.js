@@ -1132,7 +1132,14 @@ module.exports = async (req, res) => {
 
     async function setEstado(estado) {
       if (!selected) return;
-      await actionFetch("lead_estado", { telefono: selected.telefono, estado });
+      console.log("CRM lead_estado click", { action: "lead_estado", telefono: selected.telefono, estado });
+      const res = await actionFetch("lead_estado", { telefono: selected.telefono, estado });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error("CRM lead_estado error", { telefono: selected.telefono, estado, status: res.status, error: data.error });
+        alert(data.error || "No se pudo actualizar el estado.");
+        return;
+      }
       await loadConversaciones();
     }
 

@@ -684,13 +684,20 @@ async function leadEstado(body) {
   const telefono = normalizarTelefono(body.telefono);
   if (!telefono || !ESTADOS_VALIDOS.has(body.estado)) return { status: 400, payload: { ok: false, error: "telefono y estado valido son requeridos" } };
   const updates = { telefono, estado: body.estado, fecha_ultimo_mensaje: new Date().toISOString(), ultima_accion_at: new Date().toISOString() };
+  const comercialPorEstado = {
+    contactado: { estado_contacto: "Contactado", siguiente_accion: "Seguimiento" },
+    interesado: { estado_contacto: "Interesado", siguiente_accion: "Ofrecer diagnostico" },
+    diagnostico_pagado: { estado_contacto: "Diagnostico vendido", siguiente_accion: "Entregar diagnostico" },
+    perdido: { estado_contacto: "Perdido", siguiente_accion: null },
+  };
+  Object.assign(updates, comercialPorEstado[body.estado] || {});
   if (body.estado === "interesado") updates.caliente = false;
   if (body.estado === "cliente_caliente" || body.estado === "diagnostico_pagado") updates.caliente = true;
   if (body.estado === "perdido") updates.caliente = false;
   logUpsert("lead_estado", "conversaciones", "telefono", 1, 1, []);
-  const { data, error } = await supabase.from("conversaciones").upsert(updates, { onConflict: "telefono" }).select("telefono, estado, caliente").single();
+  const { data, error } = await supabase.from("conversaciones").upsert(updates, { onConflict: "telefono" }).select("*").single();
   if (error) throw error;
-  await logEventoCRM(telefono, "estado_actualizado", `Estado actualizado a ${body.estado}`, { estado: body.estado });
+  await logEventoCRM(telefono, "estado_actualizado", `Estado actualizado a ${body.estado}`, { estado: body.estado, estado_contacto: updates.estado_contacto, siguiente_accion: updates.siguiente_accion });
   return { ok: true, conversacion: data };
 }
 
