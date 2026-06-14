@@ -505,6 +505,23 @@ module.exports = async (req, res) => {
     function commercialState(c) {
       return String(c.estado_contacto || "").trim();
     }
+
+    function estadoLabel(estado) {
+      const labels = {
+        prospectado: "Prospectado",
+        contactado: "Contactado",
+        interesado: "Interesado",
+        cliente_caliente: "Cliente caliente",
+        diagnostico_pagado: "Diagnóstico pagado",
+        diagnostico_entregado: "Diagnóstico entregado",
+        seguimiento: "Seguimiento",
+        perdido: "Perdido",
+        requiere_intervencion: "Requiere intervención",
+        nuevo: "Nuevo",
+        mini_diagnostico: "Mini diagnóstico",
+      };
+      return labels[estado] || String(estado || "nuevo").replace(/_/g, " ");
+    }
     function isSold(c) {
       return ["Diagnóstico vendido","Activación vendida","Cliente recurrente"].includes(commercialState(c));
     }
@@ -916,7 +933,7 @@ module.exports = async (req, res) => {
 
     function renderLeads() {
       const leadActions = (telefono) => '<div class="lead-actions"><button type="button" data-chat="' + escapeHtml(telefono) + '">Ver chat</button><button type="button" data-edit="' + escapeHtml(telefono) + '">Editar</button><button class="danger" type="button" data-delete="' + escapeHtml(telefono) + '">Borrar</button></div>';
-      const alertBadges = (c) => '<span class="badge state-' + escapeHtml(c.estado || 'nuevo') + '">' + escapeHtml(c.estado || 'nuevo') + '</span> ' + alertasLead(c).map(a => '<span class="badge off">' + escapeHtml(a) + '</span>').join(" ");
+      const alertBadges = (c) => '<span class="badge state-' + escapeHtml(c.estado || 'nuevo') + '">' + escapeHtml(estadoLabel(c.estado || 'nuevo')) + '</span> ' + alertasLead(c).map(a => '<span class="badge off">' + escapeHtml(a) + '</span>').join(" ");
       if (currentView === "chat") {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
