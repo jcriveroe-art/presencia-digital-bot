@@ -425,6 +425,9 @@ function mergeLeadImportado(existing, incoming) {
   for (const [campo, valor] of Object.entries(incoming || {})) {
     if (valorVacio(valor) && !valorVacio(existing?.[campo])) merged[campo] = existing[campo];
   }
+  if (existing?.estado && existing.estado !== "prospectado") {
+    merged.estado = existing.estado;
+  }
   if (String(existing?.estado_contacto || "").toLowerCase() === "ya_contactado" && String(incoming?.estado_contacto || "").toLowerCase() !== "ya_contactado") {
     merged.estado_contacto = existing.estado_contacto;
     if (valorVacio(incoming?.siguiente_accion) || incoming?.siguiente_accion === "Enviar inicial") merged.siguiente_accion = existing.siguiente_accion || "Revisar historial";
@@ -650,6 +653,7 @@ async function enviarInicial(body) {
     Boolean(lead.mensaje_inicial_enviado_at) ||
     String(lead.estado || "").trim().toLowerCase() === "contactado" ||
     estadoContacto === "contactado" ||
+    estadoContacto === "ya_contactado" ||
     (Boolean(lead.fecha_ultimo_mensaje) && Boolean(String(lead.ultimo_mensaje || "").trim()));
 
   if (yaContactado) {
@@ -657,6 +661,7 @@ async function enviarInicial(body) {
       lead.mensaje_inicial_enviado_at ? "mensaje_inicial_enviado_at" :
       String(lead.estado || "").trim().toLowerCase() === "contactado" ? "estado_contactado" :
       estadoContacto === "contactado" ? "estado_contacto_contactado" :
+      estadoContacto === "ya_contactado" ? "estado_contacto_ya_contactado" :
       "ultimo_mensaje_existente";
 
     console.log("enviar_inicial bloqueado", { telefono, motivo, estado: lead.estado, estado_contacto: lead.estado_contacto });
