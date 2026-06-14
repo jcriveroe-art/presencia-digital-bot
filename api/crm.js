@@ -71,6 +71,15 @@ module.exports = async (req, res) => {
     .badge.off { color: var(--off); }
     .badge.hot { color: var(--hot); }
     .badge.new { color: #0f4f9f; border-color: #9cc3ff; background: #edf5ff; }
+    .badge.state-prospectado { color: #475569; border-color: #cbd5e1; background: #f8fafc; }
+    .badge.state-contactado { color: #0f4f9f; border-color: #9cc3ff; background: #edf5ff; }
+    .badge.state-seguimiento { color: #92400e; border-color: #facc15; background: #fef9c3; }
+    .badge.state-interesado { color: #166534; border-color: #86efac; background: #f0fdf4; }
+    .badge.state-cliente_caliente { color: #14532d; border-color: #22c55e; background: #dcfce7; }
+    .badge.state-diagnostico_pagado { color: #581c87; border-color: #c084fc; background: #faf5ff; }
+    .badge.state-diagnostico_entregado { color: #6b21a8; border-color: #d8b4fe; background: #faf5ff; }
+    .badge.state-perdido { color: #991b1b; border-color: #fca5a5; background: #fef2f2; }
+    .badge.state-requiere_intervencion { color: #7f1d1d; border-color: #ef4444; background: #fee2e2; }
     .detail { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto auto 1fr auto; background: var(--bg); }
     .detail-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .identity { min-width: 0; }
@@ -907,7 +916,7 @@ module.exports = async (req, res) => {
 
     function renderLeads() {
       const leadActions = (telefono) => '<div class="lead-actions"><button type="button" data-chat="' + escapeHtml(telefono) + '">Ver chat</button><button type="button" data-edit="' + escapeHtml(telefono) + '">Editar</button><button class="danger" type="button" data-delete="' + escapeHtml(telefono) + '">Borrar</button></div>';
-      const alertBadges = (c) => alertasLead(c).map(a => '<span class="badge off">' + escapeHtml(a) + '</span>').join(" ");
+      const alertBadges = (c) => '<span class="badge state-' + escapeHtml(c.estado || 'nuevo') + '">' + escapeHtml(c.estado || 'nuevo') + '</span> ' + alertasLead(c).map(a => '<span class="badge off">' + escapeHtml(a) + '</span>').join(" ");
       if (currentView === "chat") {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
