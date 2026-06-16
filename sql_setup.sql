@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS eventos_crm (
   tipo TEXT NOT NULL,
   descripcion TEXT,
   metadata JSONB,
-  created_at TIMESTAMP DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_eventos_crm_telefono_created_at ON eventos_crm(telefono, created_at);
