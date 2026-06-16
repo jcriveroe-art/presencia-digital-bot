@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS mensajes (
   direccion TEXT NOT NULL,
   mensaje TEXT NOT NULL,
   raw JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_mensajes_telefono_created_at ON mensajes(telefono, created_at);
