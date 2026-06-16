@@ -1281,14 +1281,18 @@ module.exports = async (req, res) => {
 
     async function abrirBitacora() {
       try {
-        const response = await fetch('/api/crm-actions?action=dashboard_data');
-        if (!response.ok) throw new Error('Error en la respuesta del servidor');
+        const response = await fetch('/api/crm-actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'dashboard_data' })
+        });
+        
+        if (!response.ok) throw new Error('Error en el servidor');
         const data = await response.json();
-        console.log('Bitácora cargada:', data);
         alert("Bitácora: " + JSON.stringify(data, null, 2));
       } catch (error) {
-        console.error('Error al cargar la bitácora:', error);
-        alert('No se pudo cargar la bitácora. Revisa la consola.');
+        console.error('Error:', error);
+        alert('No se pudo cargar la bitácora. Verifica la consola.');
       }
     }
 
