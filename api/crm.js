@@ -1280,10 +1280,10 @@ module.exports = async (req, res) => {
     });
 
     function abrirBitacora() {
-      fetch('/api/logs') // o el endpoint que contenga los datos de bitácora
+      apiFetch('/api/crm-actions?action=dashboard_data')
         .then(response => response.json())
         .then(data => {
-          alert("Bitácora: " + JSON.stringify(data));
+          alert("Bitácora: " + JSON.stringify(data.eventos || data));
           // Aquí podemos implementar un modal después si prefieres
         })
         .catch(error => console.error('Error al cargar la bitácora:', error));
