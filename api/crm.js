@@ -1279,14 +1279,17 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     });
 
-    function abrirBitacora() {
-      apiFetch('/api/crm-actions?action=dashboard_data')
-        .then(response => response.json())
-        .then(data => {
-          alert("Bitácora: " + JSON.stringify(data.eventos || data));
-          // Aquí podemos implementar un modal después si prefieres
-        })
-        .catch(error => console.error('Error al cargar la bitácora:', error));
+    async function abrirBitacora() {
+      try {
+        const response = await fetch('/api/crm-actions?action=dashboard_data');
+        if (!response.ok) throw new Error('Error en la respuesta del servidor');
+        const data = await response.json();
+        console.log('Bitácora cargada:', data);
+        alert("Bitácora: " + JSON.stringify(data, null, 2));
+      } catch (error) {
+        console.error('Error al cargar la bitácora:', error);
+        alert('No se pudo cargar la bitácora. Revisa la consola.');
+      }
     }
 
     const initialView = (location.hash || "#chat").replace("#", "");
