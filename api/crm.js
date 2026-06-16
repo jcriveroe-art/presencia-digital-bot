@@ -1279,6 +1279,16 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     });
 
+    function abrirBitacora() {
+      fetch('/api/logs') // o el endpoint que contenga los datos de bitácora
+        .then(response => response.json())
+        .then(data => {
+          alert("Bitácora: " + JSON.stringify(data));
+          // Aquí podemos implementar un modal después si prefieres
+        })
+        .catch(error => console.error('Error al cargar la bitácora:', error));
+    }
+
     const initialView = (location.hash || "#chat").replace("#", "");
     if (isMobile()) document.querySelectorAll(".mobile-collapse").forEach(el => el.removeAttribute("open"));
     if (["chat","seguimiento","leads","dashboard","reportes"].includes(initialView)) setView(initialView);
