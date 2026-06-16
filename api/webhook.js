@@ -755,6 +755,12 @@ module.exports = async (req, res) => {
 
             if (!text) continue;
 
+            if (from !== JUAN_CARLOS_NUMBER) {
+              await alertarJuanCarlos("resumen", from, {
+                texto: `NUEVO MENSAJE EN WHATSAPP\nNúmero: ${from}\nMensaje: ${text}`
+              });
+            }
+
             const inboundGuardado = await logMensaje(from, "entrante", text, msg);
             if (inboundGuardado) {
               await logEventoCRM(from, "mensaje_entrante", text, { raw: msg });
