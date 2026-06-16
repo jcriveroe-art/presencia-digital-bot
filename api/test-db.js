@@ -18,7 +18,7 @@ module.exports = async (req, res) => {
       const parts = key.split(".");
       if (parts.length === 3) {
         try {
-          const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
+          const payload = JSON.parse(atob(parts[1]));
           role = payload.role || "no role in payload";
         } catch (e) {
           role = "error decoding: " + e.message;
@@ -36,12 +36,11 @@ module.exports = async (req, res) => {
       .select("*", { count: "exact", head: true });
 
     // 3. Intento de select * from pg_policies where tablename = 'eventos_crm'
-    // PostgREST no suele exponer pg_policies directamente, pero probemos
+    // Como PostgREST no suele exponer pg_policies, intentamos leerlo sabiendo que puede dar 404
     const { data: policies, error: errPolicies } = await supabase
       .from("pg_policies")
       .select("*")
-      .eq("tablename", "eventos_crm")
-      .catch(() => ({ data: null, error: { message: "Failed request catch" } }));
+      .eq("tablename", "eventos_crm");
 
     res.status(200).json({
       ok: true,
@@ -49,7 +48,7 @@ module.exports = async (req, res) => {
       count: count !== null ? count : null,
       count_error: errCount ? errCount.message : null,
       policies: policies || null,
-      policies_error: errPolicies ? errPolicies.message : "Not supported directly by PostgREST",
+      policies_error: errPolicies ? errPolicies.message : null,
     });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
