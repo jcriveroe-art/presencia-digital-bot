@@ -461,7 +461,7 @@ module.exports = async (req, res) => {
     function botOn(c) { return c && c.bot_enabled !== false; }
     function label(c) { return c.nombre || c.negocio || c.telefono; }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch])); }
-    function fmtDate(value) { return value ? new Date(value).toLocaleString() : "sin datos"; }
+    function fmtDate(value) { return value ? new Date(value).toLocaleString("es-MX", { timeZone: "America/Mexico_City" }) : "sin datos"; }
     function uniqueValues(key) { return [...new Set(conversaciones.map(c => c[key]).filter(Boolean))].sort(); }
     function normalizeZona(value) {
       const zona = String(value ?? "").trim();
