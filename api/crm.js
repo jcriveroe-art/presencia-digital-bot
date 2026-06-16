@@ -1,6 +1,18 @@
 module.exports = async (req, res) => {
   if (req.method !== "GET") return res.status(405).send("Method Not Allowed");
 
+  // Insertar Formulario Manual
+  const formularioManual = `
+<div style="margin: 10px; padding: 10px; border: 1px solid #ccc;">
+  <input type="text" id="nombreLead" placeholder="Nombre">
+  <input type="text" id="telLead" placeholder="Teléfono">
+  <input type="text" id="zonaLead" placeholder="Zona">
+  <button onclick="agregarLead()">Agregar Lead Manual</button>
+</div>`;
+
+  // Insertar Botón Bitácora
+  const botonBitacora = `<button onclick="abrirBitacora()">Bitácora</button>`;
+
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(`<!doctype html>
 <html lang="es">
@@ -291,9 +303,11 @@ module.exports = async (req, res) => {
       <button class="nav-btn" data-view="leads">Leads</button>
       <button class="nav-btn" data-view="dashboard">Dashboard</button>
       <button class="nav-btn" data-view="reportes">Reportes</button>
+      ${botonBitacora}
     </nav>
     <button id="refresh">Actualizar</button>
   </header>
+  ${formularioManual}
   <div id="page" class="page view-chat">
     <div id="dashboard" class="dashboard"></div>
     <div id="attention" class="attention"></div>
