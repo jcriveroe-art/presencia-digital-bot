@@ -184,14 +184,14 @@ async function alertarJuanCarlos(tipo, telefono, datos) {
   }
 
   try {
-    console.log("Enviando alerta a JC", {
-      to: JUAN_CARLOS_NUMBER,
+    console.log("DEBUG alertarJuanCarlos payload", {
       tipo,
-      preview: mensaje.slice(0, 120)
+      to: JUAN_CARLOS_NUMBER,
+      mensaje
     });
     await sendMessage(JUAN_CARLOS_NUMBER, mensaje);
   } catch (e) {
-    console.error("Error alertando a JC:", {
+    console.error("DEBUG error alertando a JC", {
       message: e.message,
       status: e.response?.status,
       data: e.response?.data
@@ -764,7 +764,15 @@ module.exports = async (req, res) => {
 
             if (!text) continue;
 
+            console.log("DEBUG inbound recibido", {
+              from,
+              admin: JUAN_CARLOS_NUMBER,
+              text,
+              esAdmin: from === JUAN_CARLOS_NUMBER
+            });
+
             if (from !== JUAN_CARLOS_NUMBER) {
+              console.log("DEBUG intentando alerta admin");
               await alertarJuanCarlos("resumen", from, {
                 texto: `NUEVO MENSAJE EN WHATSAPP\nNúmero: ${from}\nMensaje: ${text}`
               });
