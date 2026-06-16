@@ -6,10 +6,7 @@ const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("../lib/crm
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const JUAN_CARLOS_NUMBERS = [
-  "5215647943262",
-  "525647943262"
-]; // números de JC para alertas
+const JUAN_CARLOS_NUMBERS = ["525647943262"]; // números de JC para alertas
 
 const BOT_NUMBER = process.env.BOT_NUMBER || process.env.WHATSAPP_NUMBER || process.env.WHATSAPP_BUSINESS_NUMBER || process.env.PHONE_NUMBER || process.env.PHONE_NUMBER_ID || "";
 const MAX_MENSAJES = 30;
@@ -808,11 +805,7 @@ module.exports = async (req, res) => {
               esAdmin: JUAN_CARLOS_NUMBERS.includes(from)
             });
 
-            if (!JUAN_CARLOS_NUMBERS.includes(from)) {
-              await alertarJuanCarlos("resumen", from, {
-                texto: `NUEVO MENSAJE EN WHATSAPP\nNúmero: ${from}\nMensaje: ${text}`
-              });
-            }
+
 
 
 
