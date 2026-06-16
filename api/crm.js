@@ -1281,7 +1281,7 @@ module.exports = async (req, res) => {
 
     async function abrirBitacora() {
       try {
-        const response = await fetch('/api/crm-actions', {
+        const response = await apiFetch('/api/crm-actions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'dashboard_data' })
