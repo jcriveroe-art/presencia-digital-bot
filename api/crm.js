@@ -294,7 +294,6 @@ module.exports = async (req, res) => {
   </style>
 </head>
 <body>
-  <h1>CAMBIO FORZADO DE EMERGENCIA</h1>
   <header>
     <h1>CRM ON</h1>
     <nav class="top-nav" aria-label="Navegacion principal">
