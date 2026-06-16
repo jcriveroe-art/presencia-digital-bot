@@ -790,6 +790,13 @@ module.exports = async (req, res) => {
     if (body.object === "whatsapp_business_account") {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
+          console.log("DEBUG webhook change keys", {
+            keys: Object.keys(change.value || {}),
+            hasMessages: !!change.value?.messages,
+            hasStatuses: !!change.value?.statuses,
+            statuses: change.value?.statuses || null
+          });
+
           const statuses = change.value?.statuses;
           if (statuses && statuses.length > 0) {
             for (const status of statuses) {
