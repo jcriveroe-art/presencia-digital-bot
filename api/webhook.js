@@ -790,6 +790,19 @@ module.exports = async (req, res) => {
     if (body.object === "whatsapp_business_account") {
       for (const entry of body.entry) {
         for (const change of entry.changes) {
+          const statuses = change.value?.statuses;
+          if (statuses && statuses.length > 0) {
+            for (const status of statuses) {
+              const tel = status.recipient_id;
+              if (status.status === "failed" || (status.errors && status.errors.length > 0)) {
+                const msgErr = status.errors?.[0]?.message || status.status || "failed";
+                await logEventoCRM(tel, "whatsapp_failed", msgErr, { whatsapp_status: status });
+              } else if (["sent", "delivered", "read"].includes(status.status)) {
+                await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status });
+              }
+            }
+          }
+
           const messages = change.value?.messages;
           if (messages && messages.length > 0) {
             const msg = messages[0];
