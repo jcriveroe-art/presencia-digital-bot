@@ -291,9 +291,17 @@ module.exports = async (req, res) => {
       <button class="nav-btn" data-view="leads">Leads</button>
       <button class="nav-btn" data-view="dashboard">Dashboard</button>
       <button class="nav-btn" data-view="reportes">Reportes</button>
+      <button class="nav-btn" id="btnBitacora" style="background: #e2e8f0; color: #1e293b;">Bitácora</button>
     </nav>
     <button id="refresh">Actualizar</button>
   </header>
+  <div id="manualLeadForm" style="padding: 10px 18px; background: #f1f5f9; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px;">
+    <strong>Alta Manual:</strong>
+    <input id="manualNombre" placeholder="Nombre" style="height: 30px; font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px;" />
+    <input id="manualTelefono" placeholder="Teléfono" style="height: 30px; font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px;" />
+    <input id="manualZona" placeholder="Zona" style="height: 30px; font-size: 12px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 4px;" />
+    <button id="btnManualLead" class="primary" style="min-height: 30px; font-size: 12px; padding: 0 12px; border-radius: 4px;">Agregar Lead Manual</button>
+  </div>
   <div id="page" class="page view-chat">
     <div id="dashboard" class="dashboard"></div>
     <div id="attention" class="attention"></div>
@@ -366,6 +374,18 @@ module.exports = async (req, res) => {
         <span id="editStatus" class="edit-status"></span>
         <button id="cancelEdit" type="button">Cancelar</button>
         <button id="saveEdit" class="primary" type="button">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+  <div id="bitacoraModal" class="modal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="bitacoraTitle">
+      <div class="modal-head">
+        <h2 id="bitacoraTitle">Historial de Eventos (Bitácora)</h2>
+        <button id="closeBitacoraBtn" type="button">Cerrar</button>
+      </div>
+      <div id="bitacoraContent" style="overflow-y: auto; padding: 14px; display: grid; gap: 8px;"></div>
+      <div class="modal-actions">
+        <button id="closeBitacoraBtn2" type="button">Cerrar</button>
       </div>
     </div>
   </div>
@@ -1253,6 +1273,68 @@ module.exports = async (req, res) => {
     leadSearch.addEventListener("input", () => {
       document.getElementById("filterTexto").value = leadSearch.value;
       applyFilters();
+    });
+
+    // Bitácora logic
+    async function loadBitacora() {
+      const bitacoraContent = document.getElementById("bitacoraContent");
+      bitacoraContent.innerHTML = "Cargando eventos...";
+      try {
+        const res = await actionFetch("dashboard_data");
+        const data = await res.json();
+        const events = data.eventos || [];
+        if (events.length === 0) {
+          bitacoraContent.innerHTML = "No hay eventos recientes.";
+          return;
+        }
+        bitacoraContent.innerHTML = events.map(e => `
+          <div style="padding: 8px; border-bottom: 1px solid var(--line); font-size: 13px;">
+            <strong>${escapeHtml(e.tipo)}</strong> - <small>${fmtDate(e.created_at)}</small>
+            <div style="color: var(--muted); margin-top: 4px;">${escapeHtml(e.descripcion || '')} (${e.telefono})</div>
+          </div>
+        `).join("");
+      } catch (err) {
+        bitacoraContent.innerHTML = "Error al cargar eventos: " + err.message;
+      }
+    }
+
+    document.getElementById("btnBitacora").addEventListener("click", () => {
+      document.getElementById("bitacoraModal").classList.add("open");
+      loadBitacora();
+    });
+
+    const closeBitacora = () => {
+      document.getElementById("bitacoraModal").classList.remove("open");
+    };
+    document.getElementById("closeBitacoraBtn").addEventListener("click", closeBitacora);
+    document.getElementById("closeBitacoraBtn2").addEventListener("click", closeBitacora);
+
+    // Manual Lead Form logic
+    document.getElementById("btnManualLead").addEventListener("click", async () => {
+      const nombre = document.getElementById("manualNombre").value.trim();
+      const telefono = document.getElementById("manualTelefono").value.trim();
+      const zona = document.getElementById("manualZona").value.trim();
+      if (!nombre || !telefono) {
+        alert("Nombre y teléfono son requeridos.");
+        return;
+      }
+      try {
+        const res = await actionFetch("importar_prospector", {
+          rows: [{ nombre, telefono, zona }]
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert("Lead agregado exitosamente.");
+          document.getElementById("manualNombre").value = "";
+          document.getElementById("manualTelefono").value = "";
+          document.getElementById("manualZona").value = "";
+          loadConversaciones();
+        } else {
+          alert("Error: " + (data.error || "No se pudo agregar el lead"));
+        }
+      } catch (e) {
+        alert("Error de red: " + e.message);
+      }
     });
 
     document.getElementById("manualForm").addEventListener("submit", async (event) => {
