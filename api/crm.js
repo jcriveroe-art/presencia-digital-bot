@@ -1296,6 +1296,43 @@ module.exports = async (req, res) => {
       }
     }
 
+    async function agregarLead() {
+      const nombre = document.getElementById('nombreLead').value.trim();
+      const telefono = document.getElementById('telLead').value.trim();
+      const zona = document.getElementById('zonaLead').value.trim();
+      
+      if (!nombre || !telefono) {
+        alert('El nombre y el teléfono son requeridos.');
+        return;
+      }
+      
+      try {
+        const response = await apiFetch('/api/crm-actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'importar_prospector',
+            rows: [{ nombre, telefono, zona }]
+          })
+        });
+        
+        if (!response.ok) throw new Error('Error al registrar lead');
+        const data = await response.json();
+        if (data.ok) {
+          alert('Lead agregado con éxito.');
+          document.getElementById('nombreLead').value = '';
+          document.getElementById('telLead').value = '';
+          document.getElementById('zonaLead').value = '';
+          await loadConversaciones();
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo agregar el lead.'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al agregar el lead. Verifica la consola.');
+      }
+    }
+
     const initialView = (location.hash || "#chat").replace("#", "");
     if (isMobile()) document.querySelectorAll(".mobile-collapse").forEach(el => el.removeAttribute("open"));
     if (["chat","seguimiento","leads","dashboard","reportes"].includes(initialView)) setView(initialView);
