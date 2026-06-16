@@ -169,7 +169,22 @@ const SALES_PLAYBOOK = loadSalesPlaybook();
 // Helpers WhatsApp
 
 async function sendMessage(to, message) {
-  return sendWhatsApp(to, message);
+  const axios = require("axios");
+  return await axios.post(
+    `https://graph.facebook.com/v18.0/${process.env.PHONE_NUMBER_ID}/messages`,
+    {
+      messaging_product: "whatsapp",
+      to,
+      type: "text",
+      text: { body: message },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
 }
 
 async function alertarJuanCarlos(tipo, telefono, datos) {
@@ -189,7 +204,19 @@ async function alertarJuanCarlos(tipo, telefono, datos) {
       to: JUAN_CARLOS_NUMBER,
       mensaje
     });
-    await sendMessage(JUAN_CARLOS_NUMBER, mensaje);
+    try {
+      const resp = await sendMessage(JUAN_CARLOS_NUMBER, mensaje);
+      console.log("DEBUG alerta JC enviada OK", {
+        to: JUAN_CARLOS_NUMBER,
+        response: resp?.data || null
+      });
+    } catch (e) {
+      console.error("DEBUG error alertando a JC", {
+        message: e.message,
+        status: e.response?.status,
+        data: e.response?.data
+      });
+    }
   } catch (e) {
     console.error("DEBUG error alertando a JC", {
       message: e.message,
