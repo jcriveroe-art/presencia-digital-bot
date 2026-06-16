@@ -6,7 +6,10 @@ const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("../lib/crm
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const JUAN_CARLOS_NUMBER = "5215647943262"; // número de JC para alertas
+const JUAN_CARLOS_NUMBERS = [
+  "5215647943262",
+  "525647943262"
+]; // números de JC para alertas
 
 const BOT_NUMBER = process.env.BOT_NUMBER || process.env.WHATSAPP_NUMBER || process.env.WHATSAPP_BUSINESS_NUMBER || process.env.PHONE_NUMBER || process.env.PHONE_NUMBER_ID || "";
 const MAX_MENSAJES = 30;
@@ -201,27 +204,28 @@ async function alertarJuanCarlos(tipo, telefono, datos) {
   try {
     console.log("DEBUG alertarJuanCarlos payload", {
       tipo,
-      to: JUAN_CARLOS_NUMBER,
+      to: JUAN_CARLOS_NUMBERS,
       mensaje
     });
-    try {
-      const resp = await sendMessage(JUAN_CARLOS_NUMBER, mensaje);
-      console.log("DEBUG alerta JC enviada OK", {
-        to: JUAN_CARLOS_NUMBER,
-        response: resp?.data || null
-      });
-    } catch (e) {
-      console.error("DEBUG error alertando a JC", {
-        message: e.message,
-        status: e.response?.status,
-        data: e.response?.data
-      });
+    for (const to of JUAN_CARLOS_NUMBERS) {
+      try {
+        const resp = await sendMessage(to, mensaje);
+        console.log("DEBUG alerta admin enviada OK", {
+          to,
+          response: JSON.stringify(resp?.data || null)
+        });
+      } catch (e) {
+        console.error("DEBUG error alertando a JC", {
+          to,
+          message: e.message,
+          status: e.response?.status,
+          data: e.response?.data
+        });
+      }
     }
   } catch (e) {
-    console.error("DEBUG error alertando a JC", {
-      message: e.message,
-      status: e.response?.status,
-      data: e.response?.data
+    console.error("DEBUG error alertando a JC general", {
+      message: e.message
     });
   }
 }
@@ -294,7 +298,7 @@ async function alertarMensajeConIAPausada(telefono, cliente, ultimoMensaje) {
 
 async function alertarInboundCRM(telefono, cliente, mensaje) {
   try {
-    if (!telefono || telefono === JUAN_CARLOS_NUMBER || telefono === BOT_NUMBER) return;
+    if (!telefono || JUAN_CARLOS_NUMBERS.includes(telefono) || telefono === BOT_NUMBER) return;
 
     const nombreLead = cliente?.nombre || cliente?.negocio || telefono;
     const estado = cliente?.estado || "nuevo";
@@ -316,7 +320,13 @@ async function alertarInboundCRM(telefono, cliente, mensaje) {
       "https://presencia-digital-bot.vercel.app/crm",
     ].join("\n");
 
-    await sendMessage(JUAN_CARLOS_NUMBER, alerta);
+    for (const to of JUAN_CARLOS_NUMBERS) {
+      try {
+        await sendMessage(to, alerta);
+      } catch (err) {
+        console.error("Error alertando inbound a JC:", to, err.message);
+      }
+    }
     await saveCliente(telefono, { ultima_alerta_inbound_at: new Date().toISOString() });
   } catch (e) {
     console.error("Error enviando alerta inbound CRM:", e.message);
@@ -793,12 +803,12 @@ module.exports = async (req, res) => {
 
             console.log("DEBUG inbound recibido", {
               from,
-              admin: JUAN_CARLOS_NUMBER,
+              admin: JUAN_CARLOS_NUMBERS,
               text,
-              esAdmin: from === JUAN_CARLOS_NUMBER
+              esAdmin: JUAN_CARLOS_NUMBERS.includes(from)
             });
 
-            if (from !== JUAN_CARLOS_NUMBER) {
+            if (!JUAN_CARLOS_NUMBERS.includes(from)) {
               console.log("DEBUG intentando alerta admin");
               await alertarJuanCarlos("resumen", from, {
                 texto: `NUEVO MENSAJE EN WHATSAPP\nNúmero: ${from}\nMensaje: ${text}`
@@ -813,7 +823,7 @@ module.exports = async (req, res) => {
             }
             await saveCliente(from, { ultimo_mensaje: text });
 
-            const esAdmin = from === JUAN_CARLOS_NUMBER;
+            const esAdmin = JUAN_CARLOS_NUMBERS.includes(from);
             const cliente = await getCliente(from);
             if (inboundGuardado && !esAdmin) {
               await alertarInboundCRM(from, cliente, text);
