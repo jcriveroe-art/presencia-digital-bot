@@ -184,9 +184,18 @@ async function alertarJuanCarlos(tipo, telefono, datos) {
   }
 
   try {
+    console.log("Enviando alerta a JC", {
+      to: JUAN_CARLOS_NUMBER,
+      tipo,
+      preview: mensaje.slice(0, 120)
+    });
     await sendMessage(JUAN_CARLOS_NUMBER, mensaje);
   } catch (e) {
-    console.error("Error alertando a JC:", e.message);
+    console.error("Error alertando a JC:", {
+      message: e.message,
+      status: e.response?.status,
+      data: e.response?.data
+    });
   }
 }
 
