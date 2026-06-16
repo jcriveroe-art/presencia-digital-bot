@@ -794,7 +794,7 @@ module.exports = async (req, res) => {
             keys: Object.keys(change.value || {}),
             hasMessages: !!change.value?.messages,
             hasStatuses: !!change.value?.statuses,
-            statuses: change.value?.statuses || null
+            statuses: JSON.stringify(change.value?.statuses || null, null, 2)
           });
 
           const statuses = change.value?.statuses;
