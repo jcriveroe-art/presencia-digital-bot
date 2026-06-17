@@ -1303,6 +1303,13 @@ module.exports = async (req, res) => {
     document.getElementById("closeBitacoraBtn").addEventListener("click", cerrarBitacora);
 
     async function abrirBitacora() {
+      const bitacoraTitle = document.getElementById("bitacoraTitle");
+      if (selected) {
+        bitacoraTitle.textContent = "Bitácora de " + (selected.nombre || selected.negocio || selected.telefono);
+      } else {
+        bitacoraTitle.textContent = "Bitácora global";
+      }
+
       bitacoraContent.innerHTML = '<span class="badge">Cargando bitácora...</span>';
       bitacoraModal.setAttribute("aria-hidden", "false");
       bitacoraModal.classList.add("open");
@@ -1316,7 +1323,12 @@ module.exports = async (req, res) => {
         
         if (!response.ok) throw new Error('Error en el servidor');
         const data = await response.json();
-        const eventos = data.eventos || [];
+        let eventos = data.eventos || [];
+        
+        // Filter events for the selected lead if a lead is selected
+        if (selected) {
+          eventos = eventos.filter(e => String(e.telefono).replace(/\D/g, "") === String(selected.telefono).replace(/\D/g, ""));
+        }
         
         if (eventos.length === 0) {
           bitacoraContent.innerHTML = '<span class="badge">Sin eventos registrados</span>';
@@ -1324,42 +1336,68 @@ module.exports = async (req, res) => {
         }
         
         bitacoraContent.innerHTML = eventos.map(e => {
-          let metadataHtml = '';
-          if (e.metadata) {
-            const meta = e.metadata;
-            const details = [];
-            
-            // Check for WhatsApp metadata fields
-            if (meta.whatsapp_status) {
-              const statusData = meta.whatsapp_status;
-              if (statusData.id) details.push('<strong>wamid:</strong> ' + escapeHtml(statusData.id));
-              if (statusData.status) details.push('<strong>status:</strong> ' + escapeHtml(statusData.status));
-              if (statusData.errors && statusData.errors.length > 0) {
-                const err = statusData.errors[0];
-                details.push('<strong style="color:var(--off);">error:</strong> ' + escapeHtml(err.message || 'unknown error') + ' (code: ' + escapeHtml(err.code || '') + ')');
-              }
-            } else if (meta.errors && meta.errors.length > 0) {
-              const err = meta.errors[0];
-              details.push('<strong style="color:var(--off);">error:</strong> ' + escapeHtml(err.message || 'error') + ' (code: ' + escapeHtml(err.code || '') + ')');
+          let tipoOperativo = e.tipo;
+          let descOperativa = e.descripcion || '';
+          const meta = e.metadata || {};
+          const statusVal = meta.whatsapp_status?.status || meta.status;
+          const wamid = meta.whatsapp_status?.id || meta.wamid;
+
+          // 1. WhatsApp status translation rules
+          if (e.tipo === "whatsapp_status") {
+            if (statusVal === "delivered") {
+              tipoOperativo = "Entregado";
+              descOperativa = "Cliente recibió el mensaje";
+            } else if (statusVal === "read") {
+              tipoOperativo = "Leído";
+              descOperativa = "Cliente leyó el mensaje";
+            } else if (statusVal === "sent") {
+              tipoOperativo = "Enviado";
+              descOperativa = "Meta aceptó el envío";
             }
-            
-            // Render remaining metadata in a compact way if not handled above
-            if (details.length === 0 && Object.keys(meta).length > 0) {
-              details.push('<code>' + escapeHtml(JSON.stringify(meta)) + '</code>');
+          }
+          // 2. WhatsApp failed translation rule
+          else if (e.tipo === "whatsapp_failed") {
+            tipoOperativo = "No entregado";
+            const errors = meta.whatsapp_status?.errors || meta.errors || [];
+            const errorCode = errors[0]?.code;
+            if (errorCode === 131026) {
+              descOperativa = "Número no disponible / no entregable";
+            } else if (errorCode === 131047) {
+              descOperativa = "Fuera de ventana 24h";
+            } else {
+              descOperativa = "Error de WhatsApp (" + (errors[0]?.message || statusVal || "failed") + ")";
             }
-            
-            if (details.length > 0) {
-              metadataHtml = '<div style="margin-top: 6px; padding: 6px; background: #f8fafc; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; font-family: monospace;">' + details.join('<br>') + '</div>';
-            }
+          }
+          // 3. Message incoming translation rule
+          else if (e.tipo === "mensaje_entrante" || e.tipo === "lead_respondio") {
+            tipoOperativo = "Respuesta Recibida";
+            descOperativa = "Cliente respondió";
+          }
+          // 4. Default wamid state check
+          else if (wamid && !statusVal) {
+            tipoOperativo = "Pendiente de confirmación";
+            descOperativa = "Meta aceptó el envío, pero no hay prueba de entrega.";
+          }
+
+          // Generate technical logs in a collapsed details component
+          let technicalDetails = '';
+          if (e.metadata && Object.keys(e.metadata).length > 0) {
+            technicalDetails = 
+              '<details style="margin-top: 6px; font-size: 11px;">' +
+                '<summary style="cursor: pointer; color: var(--accent); font-weight: bold;">Ver detalle técnico</summary>' +
+                '<pre style="margin-top: 4px; padding: 6px; background: #f8fafc; border: 1px solid var(--line); border-radius: 4px; overflow: auto; max-height: 120px; font-family: monospace;">' + 
+                  escapeHtml(JSON.stringify(e.metadata, null, 2)) + 
+                '</pre>' +
+              '</details>';
           }
           
           return '<div class="event" style="padding: 10px; border-bottom: 1px solid var(--line);">' +
                    '<div style="display: flex; justify-content: space-between; gap: 10px; font-weight: bold; font-size: 13px;">' +
-                     '<span>' + escapeHtml(e.tipo) + '</span>' +
+                     '<span>' + escapeHtml(tipoOperativo) + '</span>' +
                      '<small style="color: var(--muted); font-weight: normal;">' + fmtDate(e.created_at) + '</small>' +
                    '</div>' +
-                   '<div style="margin-top: 4px; font-size: 12px; color: var(--ink);">' + escapeHtml(e.descripcion || e.telefono || '') + '</div>' +
-                   metadataHtml +
+                   '<div style="margin-top: 4px; font-size: 12px; color: var(--ink);">' + escapeHtml(descOperativa || e.telefono || '') + '</div>' +
+                   technicalDetails +
                  '</div>';
         }).join("");
         
