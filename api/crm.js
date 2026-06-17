@@ -1363,9 +1363,15 @@ module.exports = async (req, res) => {
           return;
         }
         
+        function normTel(t) {
+          let d = String(t || "").replace(/\D/g, "");
+          if (d.length === 10) d = "52" + d;
+          if (d.length === 12 && d.startsWith("52") && !d.startsWith("521")) d = "521" + d.slice(2);
+          return d;
+        }
         const grupos = {};
         eventos.forEach(e => {
-          const tel = String(e.telefono || "").trim();
+          const tel = normTel(e.telefono);
           if (!tel) return;
           if (!grupos[tel]) grupos[tel] = { telefono: tel, nombre: e.nombre || null, eventos: [] };
           grupos[tel].eventos.push(e);
