@@ -312,6 +312,7 @@ module.exports = async (req, res) => {
     <div id="attention" class="attention"></div>
     <div id="chatDashboard" class="chat-dashboard"></div>
     <div id="reports" class="dashboard"></div>
+    <div id="bitacoraView" style="display: none; padding: 16px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-y: auto; height: calc(100vh - 56px);"></div>
     <main>
       <section class="left">
         <details class="import mobile-collapse" open>
@@ -382,18 +383,7 @@ module.exports = async (req, res) => {
       </div>
     </div>
   </div>
-  <div id="bitacoraModal" class="modal" aria-hidden="true">
-    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="bitacoraTitle" style="width: min(840px, 100%);">
-      <div class="modal-head">
-        <h2 id="bitacoraTitle">Bitácora Global de Actividad</h2>
-        <button id="closeBitacora" type="button">Cerrar</button>
-      </div>
-      <div id="bitacoraContent" style="overflow: auto; padding: 16px; display: grid; gap: 12px; align-content: start;"></div>
-      <div class="modal-actions">
-        <button id="closeBitacoraBtn" type="button">Cerrar</button>
-      </div>
-    </div>
-  </div>
+
   <script>
     let conversaciones = [];
     let filtered = [];
@@ -589,6 +579,14 @@ module.exports = async (req, res) => {
       currentView = view;
       page.classList.remove("mobile-chat-open", "show-mobile-context");
       page.className = "page view-" + view;
+      
+      const bitacoraView = document.getElementById("bitacoraView");
+      if (view === "bitacora") {
+        bitacoraView.style.display = "grid";
+      } else {
+        bitacoraView.style.display = "none";
+      }
+      
       if (detailCollapsed && !isMobile() && (view === "chat" || view === "leads")) page.classList.add("detail-collapsed");
       updateDetailToggle();
       document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
@@ -1291,28 +1289,27 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     });
 
-    const bitacoraModal = document.getElementById("bitacoraModal");
-    const bitacoraContent = document.getElementById("bitacoraContent");
+    const bitacoraView = document.getElementById("bitacoraView");
     
-    function cerrarBitacora() {
-      bitacoraModal.classList.remove("open");
-      bitacoraModal.setAttribute("aria-hidden", "true");
+    function volverBitacora() {
+      setView("chat");
     }
-    
-    document.getElementById("closeBitacora").addEventListener("click", cerrarBitacora);
-    document.getElementById("closeBitacoraBtn").addEventListener("click", cerrarBitacora);
 
     async function abrirBitacora() {
-      const bitacoraTitle = document.getElementById("bitacoraTitle");
+      let titleText = "Bitácora global";
       if (selected) {
-        bitacoraTitle.textContent = "Bitácora de " + (selected.nombre || selected.negocio || selected.telefono);
-      } else {
-        bitacoraTitle.textContent = "Bitácora global";
+        titleText = "Bitácora de " + (selected.nombre || selected.negocio || selected.telefono);
       }
 
-      bitacoraContent.innerHTML = '<span class="badge">Cargando bitácora...</span>';
-      bitacoraModal.setAttribute("aria-hidden", "false");
-      bitacoraModal.classList.add("open");
+      setView("bitacora");
+      bitacoraView.style.display = "grid";
+      bitacoraView.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">' +
+                                 '<h2 style="margin:0;">' + escapeHtml(titleText) + '</h2>' +
+                                 '<button type="button" onclick="volverBitacora()">Volver</button>' +
+                               '</div>' +
+                               '<div id="bitacoraContent" style="display:grid; gap:12px; align-content:start;"><span class="badge">Cargando bitácora...</span></div>';
+
+      const bitacoraContent = document.getElementById("bitacoraContent");
       
       try {
         const response = await apiFetch('/api/crm-actions', {
@@ -1377,6 +1374,16 @@ module.exports = async (req, res) => {
           else if (wamid && !statusVal) {
             tipoOperativo = "Pendiente de confirmación";
             descOperativa = "Meta aceptó el envío, pero no hay prueba de entrega.";
+          }
+          // 5. Additional Operational Labels
+          else if (e.tipo === "mensaje_inicial_enviado") {
+            tipoOperativo = "Intento inicial registrado";
+          } else if (e.tipo === "lead_importado") {
+            tipoOperativo = "Lead importado";
+          } else if (e.tipo === "nota_actualizada" || e.tipo === "lead_editado" || e.tipo === "lead_update") {
+            tipoOperativo = "Lead editado";
+          } else if (e.tipo === "lead_eliminado" || e.tipo === "eliminar_lead") {
+            tipoOperativo = "Lead eliminado";
           }
 
           // Generate technical logs in a collapsed details component
