@@ -574,6 +574,17 @@ async function eventosCrm(body) {
   return { ok: true, eventos: data || [] };
 }
 
+async function bitacoraGlobal() {
+  const { data, error } = await supabase
+    .from("eventos_crm")
+    .select("id, telefono, tipo, descripcion, metadata, created_at")
+    .in("tipo", ["mensaje_inicial_enviado", "mensaje_saliente", "whatsapp_status", "whatsapp_failed", "mensaje_entrante"])
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (error) throw error;
+  return { ok: true, eventos: data || [] };
+}
+
 async function dashboardData() {
   const eventosPermitidos = [
     "mensaje_entrante",
@@ -909,6 +920,7 @@ async function dispatch(action, body, req, res) {
     lead_followup: leadFollowup,
     eventos_crm: eventosCrm,
     dashboard_data: dashboardData,
+    bitacora_global: bitacoraGlobal,
     bot_enabled: botEnabled,
   };
 
