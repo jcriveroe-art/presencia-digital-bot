@@ -1334,9 +1334,6 @@ module.exports = async (req, res) => {
 
     async function abrirBitacora() {
       let titleText = "Bitácora global";
-      if (selected) {
-        titleText = "Bitácora de " + (selected.nombre || selected.negocio || selected.telefono);
-      }
 
       setView("bitacora");
       bitacoraView.style.display = "grid";
@@ -1359,91 +1356,52 @@ module.exports = async (req, res) => {
         const data = await response.json();
         let eventos = data.eventos || [];
         
-        // Filter events for the selected lead if a lead is selected
-        if (selected) {
-          eventos = eventos.filter(e => String(e.telefono).replace(/\D/g, "") === String(selected.telefono).replace(/\D/g, ""));
-        }
+
         
         if (eventos.length === 0) {
           bitacoraContent.innerHTML = '<span class="badge">Sin eventos registrados</span>';
           return;
         }
         
-        bitacoraContent.innerHTML = eventos.map(e => {
-          let tipoOperativo = e.tipo;
-          let descOperativa = e.descripcion || '';
+        const grupos = {};
+        eventos.forEach(e => {
+          const tel = String(e.telefono || "").trim();
+          if (!tel) return;
+          if (!grupos[tel]) grupos[tel] = { telefono: tel, nombre: e.nombre || null, eventos: [] };
+          grupos[tel].eventos.push(e);
+        });
+        function clasificar(e) {
           const meta = e.metadata || {};
           const statusVal = meta.whatsapp_status?.status || meta.status;
-          const wamid = meta.whatsapp_status?.id || meta.wamid;
+          if (e.tipo === "whatsapp_status" && statusVal === "delivered") return { etapa: "entregado", label: "Entregado", clase: "on" };
+          if (e.tipo === "whatsapp_status" && statusVal === "read") return { etapa: "leido", label: "Leído", clase: "on" };
+          if (e.tipo === "whatsapp_status" && statusVal === "sent") return { etapa: "enviado", label: "Enviado", clase: "new" };
+          if (e.tipo === "whatsapp_failed") return { etapa: "fallido", label: "No entregado", clase: "off" };
+          if (e.tipo === "mensaje_entrante" || e.tipo === "lead_respondio") return { etapa: "respondio", label: "Respondió", clase: "hot" };
+          if (e.tipo === "mensaje_inicial_enviado") return { etapa: "inicial", label: "Mensaje enviado", clase: "new" };
+          return null;
+        }
+        const ordenEtapas = ["inicial", "enviado", "entregado", "fallido", "leido", "respondio"];
 
-          // 1. WhatsApp status translation rules
-          if (e.tipo === "whatsapp_status") {
-            if (statusVal === "delivered") {
-              tipoOperativo = "Entregado";
-              descOperativa = "Cliente recibió el mensaje";
-            } else if (statusVal === "read") {
-              tipoOperativo = "Leído";
-              descOperativa = "Cliente leyó el mensaje";
-            } else if (statusVal === "sent") {
-              tipoOperativo = "Enviado";
-              descOperativa = "Meta aceptó el envío";
-            }
-          }
-          // 2. WhatsApp failed translation rule
-          else if (e.tipo === "whatsapp_failed") {
-            tipoOperativo = "No entregado";
-            const errors = meta.whatsapp_status?.errors || meta.errors || [];
-            const errorCode = errors[0]?.code;
-            if (errorCode === 131026) {
-              descOperativa = "Número no disponible / no entregable";
-            } else if (errorCode === 131047) {
-              descOperativa = "Fuera de ventana 24h";
-            } else {
-              descOperativa = "Error de WhatsApp (" + (errors[0]?.message || statusVal || "failed") + ")";
-            }
-          }
-          // 3. Message incoming translation rule
-          else if (e.tipo === "mensaje_entrante" || e.tipo === "lead_respondio") {
-            tipoOperativo = "Respuesta Recibida";
-            descOperativa = "Cliente respondió";
-          }
-          // 4. Default wamid state check
-          else if (wamid && !statusVal) {
-            tipoOperativo = "Pendiente de confirmación";
-            descOperativa = "Meta aceptó el envío, pero no hay prueba de entrega.";
-          }
-          // 5. Additional Operational Labels
-          else if (e.tipo === "mensaje_inicial_enviado") {
-            tipoOperativo = "Intento inicial registrado";
-          } else if (e.tipo === "lead_importado") {
-            tipoOperativo = "Lead importado";
-          } else if (e.tipo === "nota_actualizada" || e.tipo === "lead_editado" || e.tipo === "lead_update") {
-            tipoOperativo = "Lead editado";
-          } else if (e.tipo === "lead_eliminado" || e.tipo === "eliminar_lead") {
-            tipoOperativo = "Lead eliminado";
-          }
+        const tarjetas = Object.values(grupos).map(function(g) {
+          g.eventos.sort(function(a, b) { return new Date(a.created_at) - new Date(b.created_at); });
+          const etapasPresentes = {};
+          g.eventos.forEach(function(e) {
+            const c = clasificar(e);
+            if (c) etapasPresentes[c.etapa] = Object.assign({}, c, { fecha: e.created_at });
+          });
+          if (Object.keys(etapasPresentes).length === 0) return "";
+          const badges = ordenEtapas.filter(function(et) { return etapasPresentes[et]; }).map(function(et) {
+            const info = etapasPresentes[et];
+            return '<span class="badge ' + info.clase + '">' + escapeHtml(info.label) + ' · ' + fmtDate(info.fecha) + '</span>';
+          }).join(" ");
+          const nombreLead = g.nombre || g.telefono;
+          return '<div class="followup-card"><strong>' + escapeHtml(nombreLead) + '</strong><div class="followup-meta">' + escapeHtml(g.telefono) + '</div><div class="followup-badges">' + badges + '</div></div>';
+        }).filter(function(t) { return t; });
 
-          // Generate technical logs in a collapsed details component
-          let technicalDetails = '';
-          if (e.metadata && Object.keys(e.metadata).length > 0) {
-            technicalDetails = 
-              '<details style="margin-top: 6px; font-size: 11px;">' +
-                '<summary style="cursor: pointer; color: var(--accent); font-weight: bold;">Ver detalle técnico</summary>' +
-                '<pre style="margin-top: 4px; padding: 6px; background: #f8fafc; border: 1px solid var(--line); border-radius: 4px; overflow: auto; max-height: 120px; font-family: monospace;">' + 
-                  escapeHtml(JSON.stringify(e.metadata, null, 2)) + 
-                '</pre>' +
-              '</details>';
-          }
-          
-          return '<div class="event" style="padding: 10px; border-bottom: 1px solid var(--line);">' +
-                   '<div style="display: flex; justify-content: space-between; gap: 10px; font-weight: bold; font-size: 13px;">' +
-                     '<span>' + escapeHtml(tipoOperativo) + '</span>' +
-                     '<small style="color: var(--muted); font-weight: normal;">' + fmtDate(e.created_at) + '</small>' +
-                   '</div>' +
-                   '<div style="margin-top: 4px; font-size: 12px; color: var(--ink);">' + escapeHtml(descOperativa || e.telefono || '') + '</div>' +
-                   technicalDetails +
-                 '</div>';
-        }).join("");
+        bitacoraContent.innerHTML = tarjetas.length
+          ? '<div class="followup-board" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">' + tarjetas.join("") + '</div>'
+          : '<span class="badge">Sin eventos registrados</span>';
         
       } catch (error) {
         console.error('Error:', error);
