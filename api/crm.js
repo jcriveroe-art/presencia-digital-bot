@@ -382,6 +382,18 @@ module.exports = async (req, res) => {
       </div>
     </div>
   </div>
+  <div id="bitacoraModal" class="modal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="bitacoraTitle" style="width: min(840px, 100%);">
+      <div class="modal-head">
+        <h2 id="bitacoraTitle">Bitácora Global de Actividad</h2>
+        <button id="closeBitacora" type="button">Cerrar</button>
+      </div>
+      <div id="bitacoraContent" style="overflow: auto; padding: 16px; display: grid; gap: 12px; align-content: start;"></div>
+      <div class="modal-actions">
+        <button id="closeBitacoraBtn" type="button">Cerrar</button>
+      </div>
+    </div>
+  </div>
   <script>
     let conversaciones = [];
     let filtered = [];
@@ -1279,7 +1291,22 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     });
 
+    const bitacoraModal = document.getElementById("bitacoraModal");
+    const bitacoraContent = document.getElementById("bitacoraContent");
+    
+    function cerrarBitacora() {
+      bitacoraModal.classList.remove("open");
+      bitacoraModal.setAttribute("aria-hidden", "true");
+    }
+    
+    document.getElementById("closeBitacora").addEventListener("click", cerrarBitacora);
+    document.getElementById("closeBitacoraBtn").addEventListener("click", cerrarBitacora);
+
     async function abrirBitacora() {
+      bitacoraContent.innerHTML = '<span class="badge">Cargando bitácora...</span>';
+      bitacoraModal.setAttribute("aria-hidden", "false");
+      bitacoraModal.classList.add("open");
+      
       try {
         const response = await apiFetch('/api/crm-actions', {
           method: 'POST',
@@ -1289,10 +1316,56 @@ module.exports = async (req, res) => {
         
         if (!response.ok) throw new Error('Error en el servidor');
         const data = await response.json();
-        alert("Bitácora: " + JSON.stringify(data, null, 2));
+        const eventos = data.eventos || [];
+        
+        if (eventos.length === 0) {
+          bitacoraContent.innerHTML = '<span class="badge">Sin eventos registrados</span>';
+          return;
+        }
+        
+        bitacoraContent.innerHTML = eventos.map(e => {
+          let metadataHtml = '';
+          if (e.metadata) {
+            const meta = e.metadata;
+            const details = [];
+            
+            // Check for WhatsApp metadata fields
+            if (meta.whatsapp_status) {
+              const statusData = meta.whatsapp_status;
+              if (statusData.id) details.push('<strong>wamid:</strong> ' + escapeHtml(statusData.id));
+              if (statusData.status) details.push('<strong>status:</strong> ' + escapeHtml(statusData.status));
+              if (statusData.errors && statusData.errors.length > 0) {
+                const err = statusData.errors[0];
+                details.push('<strong style="color:var(--off);">error:</strong> ' + escapeHtml(err.message || 'unknown error') + ' (code: ' + escapeHtml(err.code || '') + ')');
+              }
+            } else if (meta.errors && meta.errors.length > 0) {
+              const err = meta.errors[0];
+              details.push('<strong style="color:var(--off);">error:</strong> ' + escapeHtml(err.message || 'error') + ' (code: ' + escapeHtml(err.code || '') + ')');
+            }
+            
+            // Render remaining metadata in a compact way if not handled above
+            if (details.length === 0 && Object.keys(meta).length > 0) {
+              details.push('<code>' + escapeHtml(JSON.stringify(meta)) + '</code>');
+            }
+            
+            if (details.length > 0) {
+              metadataHtml = '<div style="margin-top: 6px; padding: 6px; background: #f8fafc; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; font-family: monospace;">' + details.join('<br>') + '</div>';
+            }
+          }
+          
+          return '<div class="event" style="padding: 10px; border-bottom: 1px solid var(--line);">' +
+                   '<div style="display: flex; justify-content: space-between; gap: 10px; font-weight: bold; font-size: 13px;">' +
+                     '<span>' + escapeHtml(e.tipo) + '</span>' +
+                     '<small style="color: var(--muted); font-weight: normal;">' + fmtDate(e.created_at) + '</small>' +
+                   '</div>' +
+                   '<div style="margin-top: 4px; font-size: 12px; color: var(--ink);">' + escapeHtml(e.descripcion || e.telefono || '') + '</div>' +
+                   metadataHtml +
+                 '</div>';
+        }).join("");
+        
       } catch (error) {
         console.error('Error:', error);
-        alert('No se pudo cargar la bitácora. Verifica la consola.');
+        bitacoraContent.innerHTML = '<span class="badge off">No se pudo cargar la bitácora. Verifica la consola.</span>';
       }
     }
 

@@ -804,7 +804,11 @@ module.exports = async (req, res) => {
               if (status.status === "failed" || (status.errors && status.errors.length > 0)) {
                 const msgErr = status.errors?.[0]?.message || status.status || "failed";
                 await logEventoCRM(tel, "whatsapp_failed", msgErr, { whatsapp_status: status });
-              } else if (["sent", "delivered", "read"].includes(status.status)) {
+                await supabase.from("conversaciones").update({ estado: "envio_fallido" }).eq("telefono", tel).eq("estado", "envio_pendiente");
+              } else if (status.status === "delivered") {
+                await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status });
+                await supabase.from("conversaciones").update({ estado: "contactado" }).eq("telefono", tel).eq("estado", "envio_pendiente");
+              } else if (["sent", "read"].includes(status.status)) {
                 await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status });
               }
             }
