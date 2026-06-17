@@ -347,10 +347,10 @@ function normalizarFilaImportacion(row) {
   if (clean.fotos && !clean.fotos_estimadas) clean.fotos_estimadas = clean.fotos;
   delete clean.fotos;
   if (!clean.diagnostico_fotos && clean.fotos_estimadas) clean.diagnostico_fotos = "posible baja actividad visual en la ficha";
-  clean.estado_contacto = valorVacio(estadoCsv) ? (esSi(contactoWhatsapp) ? "ya_contactado" : "nuevo") : String(estadoCsv).trim();
+  clean.estado_contacto = valorVacio(estadoCsv) ? "nuevo" : String(estadoCsv).trim();
   clean.estado = valorVacio(clean.estado) ? "prospectado" : String(clean.estado).trim();
   if (valorVacio(clean.siguiente_accion)) {
-    clean.siguiente_accion = clean.estado_contacto.toLowerCase() === "ya_contactado" ? "Revisar historial" : "Enviar inicial";
+    clean.siguiente_accion = "Enviar inicial";
   }
   if (valorVacio(clean.notas_internas)) {
     const notas = [motivoEstado, archivoOrigen ? `archivo_origen: ${archivoOrigen}` : null].filter((value) => !valorVacio(value)).map((value) => String(value).trim()).join(" | ");
