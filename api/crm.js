@@ -1349,7 +1349,7 @@ module.exports = async (req, res) => {
         const response = await apiFetch('/api/crm-actions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'dashboard_data' })
+          body: JSON.stringify({ action: 'bitacora_global' })
         });
         
         if (!response.ok) throw new Error('Error en el servidor');
