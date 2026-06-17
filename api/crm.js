@@ -122,8 +122,18 @@ module.exports = async (req, res) => {
     .badge.state-cliente_caliente { color: var(--lime-ink); border-color: #b4dd1f; background: var(--lime); }
     .badge.state-diagnostico_pagado { color: #581c87; border-color: #c084fc; background: #faf5ff; }
     .badge.state-diagnostico_entregado { color: #6b21a8; border-color: #d8b4fe; background: #faf5ff; }
+    .badge.state-envio_pendiente { color: #854d0e; border-color: #fef08a; background: #fef9c3; }
+    .badge.state-envio_fallido { color: #991b1b; border-color: #fca5a5; background: #fef2f2; }
     .badge.state-perdido { color: #991b1b; border-color: #fca5a5; background: #fef2f2; }
     .badge.state-requiere_intervencion { color: #fff; border-color: var(--off); background: var(--off); }
+    
+    /* Vista Bitácora */
+    .page.view-bitacora main, .page.view-bitacora .dashboard, .page.view-bitacora .attention, .page.view-bitacora .chat-dashboard { display: none; }
+    .page.view-bitacora #bitacoraView { display: grid; grid-template-rows: auto 1fr; overflow-y: auto; padding: 18px 20px; height: calc(100vh - 56px); }
+    @media (max-width: 768px) {
+      .page.view-bitacora #bitacoraView { height: calc(100vh - 52px); }
+    }
+
     .detail { min-width: 0; min-height: 0; display: grid; grid-template-rows: auto auto auto 1fr auto; background: var(--bg); }
     .detail-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .identity { min-width: 0; }
