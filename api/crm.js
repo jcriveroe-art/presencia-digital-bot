@@ -760,7 +760,8 @@ module.exports = async (req, res) => {
 
     function isContactedCommercial(c) {
       const state = commercialState(c);
-      return state && state !== "Pendiente de contactar";
+      const noContactados = ["Pendiente de contactar", "nuevo", "Enviado", "Fallido", ""];
+      return state && !noContactados.includes(state);
     }
     function isRespondedCommercial(c) {
       return ["Respondió","Pidió información","Interesado","Diagnóstico ofrecido","Diagnóstico vendido","Activación ofrecida","Activación vendida","Control ON ofrecido","Cliente recurrente"].includes(commercialState(c));
