@@ -1237,7 +1237,14 @@ module.exports = async (req, res) => {
 
     async function setBot(value) {
       if (!selected) return;
-      await actionFetch("bot_enabled", { telefono: selected.telefono, bot_enabled: value });
+      const res = await actionFetch("bot_enabled", { telefono: selected.telefono, bot_enabled: value });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error("CRM bot_enabled error", { telefono: selected.telefono, value, status: res.status, error: data.error });
+        showToast(data.error || "No se pudo actualizar el estado del bot.", "error");
+        return;
+      }
+      showToast(value ? "Bot reanudado." : "Bot pausado.", "success");
       await loadConversaciones();
     }
 
@@ -1248,9 +1255,10 @@ module.exports = async (req, res) => {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         console.error("CRM lead_estado error", { telefono: selected.telefono, estado, status: res.status, error: data.error });
-        alert(data.error || "No se pudo actualizar el estado.");
+        showToast(data.error || "No se pudo actualizar el estado.", "error");
         return;
       }
+      showToast("Estado actualizado a \"" + estado + "\".", "success");
       await loadConversaciones();
     }
 
@@ -1264,22 +1272,31 @@ module.exports = async (req, res) => {
       if (!contenido) return;
       importStatus.textContent = "Importando";
       const res = await actionFetch("importar_prospector", { contenido });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       importStatus.textContent = res.ok ? "Importados: " + data.importados : "Error";
-      if (res.ok) { importText.value = ""; await loadConversaciones(); }
+      if (res.ok) {
+        showToast("Se importaron " + data.importados + " leads.", "success");
+        importText.value = "";
+        await loadConversaciones();
+      } else {
+        showToast(data.error || "No se pudo importar el archivo.", "error");
+      }
     });
 
     document.getElementById("initialBtn").addEventListener("click", async () => {
       if (!selected) return;
       if (!selected.nombre || !String(selected.nombre).trim()) {
-        alert("Agrega nombre antes de enviar mensaje inicial.");
+        showToast("Agrega nombre antes de enviar mensaje inicial.", "error");
         return;
       }
       const res = await actionFetch("enviar_inicial", { telefono: selected.telefono });
       if (!res.ok) {
-        const data = await res.json();
-        alert(data.error || "No se pudo enviar el mensaje inicial.");
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "No se pudo enviar el mensaje inicial.", "error");
+        await loadConversaciones();
+        return;
       }
+      showToast("Mensaje inicial enviado.", "success");
       await loadConversaciones();
     });
     document.getElementById("editBtn").addEventListener("click", openEdit);
