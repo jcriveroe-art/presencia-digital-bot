@@ -320,8 +320,9 @@ async function alertarInboundCRM(telefono, cliente, mensaje) {
     for (const to of JUAN_CARLOS_NUMBERS) {
       try {
         await sendMessage(to, alerta);
+        console.log("ALERTA_INBOUND_ENVIADA", { to, telefono });
       } catch (err) {
-        console.error("Error alertando inbound a JC:", to, err.message);
+        console.error("ALERTA_INBOUND_ERROR", { to, error: err.message });
       }
     }
     await saveCliente(telefono, { ultima_alerta_inbound_at: new Date().toISOString() });
@@ -834,26 +835,29 @@ module.exports = async (req, res) => {
 
             if (!text) continue;
 
-            console.log("DEBUG inbound recibido", {
-              from,
-              fromOriginal,
-              admin: JUAN_CARLOS_NUMBERS,
-              text,
-              esAdmin: JUAN_CARLOS_NUMBERS.includes(from)
-            });
+            console.log("INBOUND_NORMALIZADO", { fromOriginal, from, text });
 
-
-
-
+            const esAdmin = JUAN_CARLOS_NUMBERS.includes(from);
             const inboundGuardado = await logMensaje(from, "entrante", text, msg);
             if (inboundGuardado) {
               await logEventoCRM(from, "mensaje_entrante", text, { raw: msg, from_original: fromOriginal });
             } else {
               console.error("No se registro evento mensaje_entrante porque fallo el insert en mensajes", { from });
             }
-            await saveCliente(from, { ultimo_mensaje: text });
 
-            const esAdmin = JUAN_CARLOS_NUMBERS.includes(from);
+            if (!esAdmin) {
+              const nowIso = new Date().toISOString();
+              await saveCliente(from, { 
+                ultimo_mensaje: text,
+                ultima_respuesta: text,
+                estado_contacto: "Respondió",
+                siguiente_accion: "Responder / Calificar",
+                fecha_ultimo_mensaje: nowIso
+              });
+            } else {
+              await saveCliente(from, { ultimo_mensaje: text });
+            }
+
             const cliente = await getCliente(from);
             if (inboundGuardado && !esAdmin) {
               await alertarInboundCRM(from, cliente, text);
@@ -894,16 +898,26 @@ module.exports = async (req, res) => {
               continue;
             }
 
-            const reply = await getClaudeResponse(from, text);
-            if (reply) {
-              const { cleanText, bloqueada } = prepararRespuestaCliente(reply);
-              if (bloqueada) {
-                console.error("Respuesta de Claude bloqueada por contener estado interno", { from });
-                await alertarJsonBloqueado(from, cliente);
-                await saveCliente(from, { estado: "requiere_intervencion", bot_enabled: false });
-                continue;
+            console.log("CLAUDE_CALL_START", { from });
+            try {
+              const reply = await getClaudeResponse(from, text);
+              if (reply) {
+                console.log("CLAUDE_REPLY_OK", { from });
+                const { cleanText, bloqueada } = prepararRespuestaCliente(reply);
+                if (bloqueada) {
+                  console.error("Respuesta de Claude bloqueada por contener estado interno", { from });
+                  await alertarJsonBloqueado(from, cliente);
+                  await saveCliente(from, { estado: "requiere_intervencion", bot_enabled: false });
+                  continue;
+                }
+                const response = await sendMessage(from, cleanText);
+                await logMensaje(from, "saliente", cleanText, response.data);
+                await logEventoCRM(from, "respuesta_ia", cleanText, { whatsapp: response.data });
+              } else {
+                console.log("CLAUDE_REPLY_NULL", { from });
               }
-              await sendMessage(from, cleanText);
+            } catch (err) {
+              console.error("CLAUDE_ERROR", { from, error: err.message });
             }
           }
         }
