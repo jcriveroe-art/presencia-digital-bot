@@ -1,18 +1,6 @@
 module.exports = async (req, res) => {
   if (req.method !== "GET") return res.status(405).send("Method Not Allowed");
 
-  // Insertar Formulario Manual
-  const formularioManual = `
-<div style="margin: 10px 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-sunken); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-  <input type="text" id="nombreLead" placeholder="Nombre" style="flex: 1; min-width: 140px;">
-  <input type="text" id="telLead" placeholder="Teléfono" style="flex: 1; min-width: 140px;">
-  <input type="text" id="zonaLead" placeholder="Zona" style="flex: 1; min-width: 120px;">
-  <button class="primary" onclick="agregarLead()">Agregar Lead Manual</button>
-</div>`;
-
-  // Insertar Botón Bitácora
-  const botonBitacora = `<button onclick="abrirBitacora()">Bitácora</button>`;
-
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(`<!doctype html>
 <html lang="es">
@@ -339,11 +327,16 @@ module.exports = async (req, res) => {
       <button class="nav-btn" data-view="leads">Leads</button>
       <button class="nav-btn" data-view="dashboard">Dashboard</button>
       <button class="nav-btn" data-view="reportes">Reportes</button>
-      ${botonBitacora}
+      <button onclick="abrirBitacora()">Bitácora</button>
     </nav>
     <button id="refresh">Actualizar</button>
   </header>
-  ${formularioManual}
+  <div style="margin: 10px 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-sunken); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+    <input type="text" id="nombreLead" placeholder="Nombre" style="flex: 1; min-width: 140px;">
+    <input type="text" id="telLead" placeholder="Teléfono" style="flex: 1; min-width: 140px;">
+    <input type="text" id="zonaLead" placeholder="Zona" style="flex: 1; min-width: 120px;">
+    <button class="primary" onclick="agregarLead()">Agregar Lead Manual</button>
+  </div>
   <div id="page" class="page view-chat">
     <div id="dashboard" class="dashboard"></div>
     <div id="attention" class="attention"></div>
