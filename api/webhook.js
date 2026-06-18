@@ -772,6 +772,16 @@ async function superaLimite(telefono) {
   }
 }
 
+function normalizarTelefonoMeta(t) {
+  let d = String(t || "").replace(/\D/g, "");
+  if (d.startsWith("521") && d.length === 13) {
+    d = "52" + d.slice(3);
+  } else if (d.length === 10) {
+    d = "52" + d;
+  }
+  return d;
+}
+
 // ─── Handler principal ───────────────────────────────────────────────────────
 
 module.exports = async (req, res) => {
@@ -800,16 +810,17 @@ module.exports = async (req, res) => {
           const statuses = change.value?.statuses;
           if (statuses && statuses.length > 0) {
             for (const status of statuses) {
-              const tel = status.recipient_id;
+              const telOriginal = status.recipient_id;
+              const tel = normalizarTelefonoMeta(telOriginal);
               if (status.status === "failed" || (status.errors && status.errors.length > 0)) {
                 const msgErr = status.errors?.[0]?.message || status.status || "failed";
-                await logEventoCRM(tel, "whatsapp_no_entregado", msgErr, { whatsapp_status: status });
+                await logEventoCRM(tel, "whatsapp_no_entregado", msgErr, { whatsapp_status: status, recipient_id_original: telOriginal });
                 await supabase.from("conversaciones").update({ estado_contacto: "No entregado", siguiente_accion: "Revisar WhatsApp" }).eq("telefono", tel);
               } else if (status.status === "delivered") {
-                await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status });
+                await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status, recipient_id_original: telOriginal });
                 await supabase.from("conversaciones").update({ estado: "envio_pendiente", estado_contacto: "Entregado", siguiente_accion: "Esperar respuesta" }).eq("telefono", tel);
               } else if (["sent", "read"].includes(status.status)) {
-                await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status });
+                await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status, recipient_id_original: telOriginal });
               }
             }
           }
