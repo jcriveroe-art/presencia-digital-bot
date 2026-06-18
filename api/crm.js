@@ -10,9 +10,6 @@ module.exports = async (req, res) => {
   <button class="primary" onclick="agregarLead()">Agregar Lead Manual</button>
 </div>`;
 
-  // Insertar Botón Bitácora
-  const botonBitacora = `<button onclick="abrirBitacora()">Bitácora</button>`;
-
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.status(200).send(`<!doctype html>
 <html lang="es">
@@ -344,7 +341,7 @@ module.exports = async (req, res) => {
       <button class="nav-btn" data-view="leads">Leads</button>
       <button class="nav-btn" data-view="dashboard">Dashboard</button>
       <button class="nav-btn" data-view="reportes">Reportes</button>
-      ${botonBitacora}
+      <button class="nav-btn" data-view="bitacora">Bitácora</button>
     </nav>
     <button id="refresh">Actualizar</button>
   </header>
@@ -707,6 +704,7 @@ module.exports = async (req, res) => {
       if (view === "seguimiento") renderAttention();
       if (view === "dashboard") renderDashboard();
       if (view === "reportes") renderReports();
+      if (view === "bitacora") abrirBitacora();
     }
 
     function isMobile() {
@@ -1498,7 +1496,6 @@ module.exports = async (req, res) => {
     async function abrirBitacora() {
       let titleText = "Bitácora global";
 
-      setView("bitacora");
       bitacoraView.style.display = "grid";
       bitacoraView.innerHTML = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">' +
                                  '<h2 style="margin:0;">' + escapeHtml(titleText) + '</h2>' +
