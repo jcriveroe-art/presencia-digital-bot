@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
-const { json, logEventoCRM, requireCrmToken, sendWhatsApp, sendWhatsAppTemplate, supabase } = require("../lib/crm");
+const { json, logEventoCRM, requireCrmToken, sendWhatsApp, sendWhatsAppTemplate, sanitizarVariablePlantilla, supabase } = require("../lib/crm");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const JUAN_CARLOS_NUMBER = "5215647943262";
@@ -679,8 +679,12 @@ async function enviarInicial(body) {
 
     return { status: 409, payload: { ok: false, blocked: true, mensaje: "Este lead ya fue contactado. No se envio mensaje inicial." } };
   }
-  const mensaje = mensajeInicial(lead.nombre);
-  const whatsapp = await sendWhatsAppTemplate(telefono, "diagnostico_on_inicial", "es_MX", [lead.nombre]);
+  const nombreSanitizado = sanitizarVariablePlantilla(lead.nombre);
+  if (!nombreSanitizado) {
+    return { status: 400, payload: { ok: false, error: "nombre del lead invalido tras sanitizar" } };
+  }
+  const mensaje = mensajeInicial(nombreSanitizado);
+  const whatsapp = await sendWhatsAppTemplate(telefono, "diagnostico_on_inicial", "es_MX", [nombreSanitizado]);
   const now = new Date().toISOString();
   logUpsert("enviar_inicial", "conversaciones", "telefono", 1, 1, []);
   await supabase.from("conversaciones").upsert({ telefono, estado: "envio_pendiente", estado_contacto: "Enviado", bot_enabled: true, ultimo_mensaje: mensaje, fecha_ultimo_mensaje: now, mensaje_inicial_enviado: true, mensaje_inicial_enviado_at: now }, { onConflict: "telefono" });
