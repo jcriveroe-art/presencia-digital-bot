@@ -1394,8 +1394,10 @@ module.exports = async (req, res) => {
             const info = etapasPresentes[et];
             return '<span class="badge ' + info.clase + '">' + escapeHtml(info.label) + ' · ' + fmtDate(info.fecha) + '</span>';
           }).join(" ");
-          const nombreLead = g.nombre || g.telefono;
-          return '<div class="followup-card"><strong>' + escapeHtml(nombreLead) + '</strong><div class="followup-meta">' + escapeHtml(g.telefono) + '</div><div class="followup-badges">' + badges + '</div></div>';
+          const lead = conversaciones.find(c => normTel(c.telefono) === normTel(g.telefono));
+          const nombreClean = (lead && lead.nombre && String(lead.nombre).trim() && String(lead.nombre).toLowerCase() !== "sin_dato") ? String(lead.nombre).trim() : null;
+          const displayHeader = nombreClean ? (nombreClean.toUpperCase() + ' · ' + g.telefono) : g.telefono;
+          return '<div class="followup-card"><strong>' + escapeHtml(displayHeader) + '</strong><div class="followup-meta">' + escapeHtml(g.telefono) + '</div><div class="followup-badges">' + badges + '</div></div>';
         }).filter(function(t) { return t; });
 
         bitacoraContent.innerHTML = tarjetas.length

@@ -687,7 +687,17 @@ async function enviarInicial(body) {
   const whatsapp = await sendWhatsAppTemplate(telefono, "diagnostico_on_inicial", "es_MX", [nombreSanitizado]);
   const now = new Date().toISOString();
   logUpsert("enviar_inicial", "conversaciones", "telefono", 1, 1, []);
-  await supabase.from("conversaciones").upsert({ telefono, estado: "envio_pendiente", estado_contacto: "Enviado", bot_enabled: true, ultimo_mensaje: mensaje, fecha_ultimo_mensaje: now, mensaje_inicial_enviado: true, mensaje_inicial_enviado_at: now }, { onConflict: "telefono" });
+  await supabase.from("conversaciones").upsert({ 
+    telefono, 
+    estado: "envio_pendiente", 
+    estado_contacto: "Enviado", 
+    siguiente_accion: "Esperar respuesta",
+    bot_enabled: true, 
+    ultimo_mensaje: mensaje, 
+    fecha_ultimo_mensaje: now, 
+    mensaje_inicial_enviado: true, 
+    mensaje_inicial_enviado_at: now 
+  }, { onConflict: "telefono" });
   await logEventoCRM(telefono, "mensaje_inicial_enviado", "Mensaje inicial enviado desde CRM", { mensaje });
   return { ok: true, mensaje, whatsapp };
 }
