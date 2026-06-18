@@ -732,21 +732,25 @@ module.exports = async (req, res) => {
     }
 
     async function loadConversaciones() {
-      const res = await actionFetch("conversaciones");
-      const data = await res.json();
-      conversaciones = data.conversaciones || [];
-      await loadDashboardData();
-      fillFilters();
-      applyFilters();
-      renderDashboard();
-      renderChatDashboard();
-      renderAttention();
-      if (currentView === "reportes") renderReports();
-      if (selected) {
-        selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
-        if (selected) await selectLead(selected.telefono);
-      } else if (conversaciones.length > 0 && !isMobile()) {
-        await selectLead(conversaciones.slice().sort(compareLeads)[0].telefono);
+      try {
+        const res = await actionFetch("conversaciones");
+        const data = await res.json().catch(() => ({}));
+        conversaciones = data.conversaciones || [];
+        await loadDashboardData();
+        fillFilters();
+        applyFilters();
+        renderDashboard();
+        renderChatDashboard();
+        renderAttention();
+        if (currentView === "reportes") renderReports();
+        if (selected) {
+          selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
+          if (selected) await selectLead(selected.telefono);
+        } else if (conversaciones.length > 0 && !isMobile()) {
+          await selectLead(conversaciones.slice().sort(compareLeads)[0].telefono);
+        }
+      } catch (e) {
+        console.error("Error loading conversations", e);
       }
     }
 
@@ -1328,24 +1332,28 @@ module.exports = async (req, res) => {
     }
 
     async function selectLead(telefono) {
-      selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
-      if ((currentView === "chat" || currentView === "leads") && isMobile()) page.classList.add("mobile-chat-open");
-      renderLeads();
-      title.textContent = label(selected);
-      subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo") + " | " + fmtDate(selected.fecha_ultimo_mensaje);
-      botBadge.textContent = botOn(selected) ? "IA ON" : "IA OFF";
-      botBadge.className = "badge " + (botOn(selected) ? "on" : "off");
-      hotBadge.textContent = selected.caliente ? "Caliente" : "Lead";
-      hotBadge.className = "badge " + (selected.caliente ? "hot" : "");
-      actionIds.forEach(id => document.getElementById(id).disabled = false);
-      manualText.disabled = false;
-      sendManual.disabled = false;
-      renderContext(selected);
-      const res = await actionFetch("mensajes", { telefono });
-      const data = await res.json();
-      const items = data.mensajes || [];
-      messages.innerHTML = items.map(m => '<div class="msg ' + m.direccion + '">' + escapeHtml(m.mensaje) + '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small></div>').join("") || '<div class="empty">Sin mensajes guardados.</div>';
-      messages.scrollTop = messages.scrollHeight;
+      try {
+        selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
+        if ((currentView === "chat" || currentView === "leads") && isMobile()) page.classList.add("mobile-chat-open");
+        renderLeads();
+        title.textContent = label(selected);
+        subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo") + " | " + fmtDate(selected.fecha_ultimo_mensaje);
+        botBadge.textContent = botOn(selected) ? "IA ON" : "IA OFF";
+        botBadge.className = "badge " + (botOn(selected) ? "on" : "off");
+        hotBadge.textContent = selected.caliente ? "Caliente" : "Lead";
+        hotBadge.className = "badge " + (selected.caliente ? "hot" : "");
+        actionIds.forEach(id => document.getElementById(id).disabled = false);
+        manualText.disabled = false;
+        sendManual.disabled = false;
+        renderContext(selected);
+        const res = await actionFetch("mensajes", { telefono });
+        const data = await res.json().catch(() => ({}));
+        const items = data.mensajes || [];
+        messages.innerHTML = items.map(m => '<div class="msg ' + m.direccion + '">' + escapeHtml(m.mensaje) + '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small></div>').join("") || '<div class="empty">Sin mensajes guardados.</div>';
+        messages.scrollTop = messages.scrollHeight;
+      } catch (e) {
+        console.error("Error selecting lead", e);
+      }
     }
 
     async function setBot(value) {
