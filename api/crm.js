@@ -1364,11 +1364,6 @@ module.exports = async (req, res) => {
       setView("chat");
     }
 
-    function abrirLeadDesdeBitacora(telefono) {
-      setView("chat");
-      selectLead(telefono);
-    }
-
     async function abrirBitacora() {
       let titleText = "Bitácora global";
 
@@ -1441,8 +1436,7 @@ module.exports = async (req, res) => {
           const lead = conversaciones.find(c => normTel(c.telefono) === normTel(g.telefono));
           const nombreClean = (lead && lead.nombre && String(lead.nombre).trim() && String(lead.nombre).toLowerCase() !== "sin_dato") ? String(lead.nombre).trim() : null;
           const displayHeader = nombreClean ? (nombreClean.toUpperCase() + ' · ' + g.telefono) : g.telefono;
-          const telClick = normTel(g.telefono);
-          return '<div class="followup-card" onclick="abrirLeadDesdeBitacora(\'' + telClick + '\')" title="Abrir lead" style="cursor: pointer;"><strong>' + escapeHtml(displayHeader) + '</strong><div class="followup-meta">' + escapeHtml(g.telefono) + '</div><div class="followup-badges">' + badges + '</div></div>';
+          return '<div class="followup-card"><strong>' + escapeHtml(displayHeader) + '</strong><div class="followup-meta">' + escapeHtml(g.telefono) + '</div><div class="followup-badges">' + badges + '</div></div>';
         }).filter(function(t) { return t; });
 
         bitacoraContent.innerHTML = tarjetas.length
