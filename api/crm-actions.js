@@ -775,6 +775,21 @@ async function eliminarLead(body) {
   return { ok: true, telefono };
 }
 
+async function marcarSinWhatsapp(body) {
+  const telefono = normalizarTelefono(body.telefono);
+  if (!telefono) return { status: 400, payload: { ok: false, error: "telefono requerido" } };
+  const updates = { 
+    telefono, 
+    estado_contacto: "Sin WhatsApp", 
+    siguiente_accion: "Descartar / Buscar otro teléfono",
+    fecha_ultimo_mensaje: new Date().toISOString()
+  };
+  const { data, error } = await supabase.from("conversaciones").upsert(updates, { onConflict: "telefono" }).select("*").single();
+  if (error) throw error;
+  await logEventoCRM(telefono, "lead_sin_whatsapp", "Prospecto marcado sin WhatsApp", {});
+  return { ok: true, conversacion: data };
+}
+
 function esLeadImportacionMala(row) {
   const fuente = String(row.fuente_busqueda || row.fuente || "").trim();
   const zona = String(row.zona || "").trim();
@@ -936,6 +951,7 @@ async function dispatch(action, body, req, res) {
     dashboard_data: dashboardData,
     bitacora_global: bitacoraGlobal,
     bot_enabled: botEnabled,
+    marcar_sin_whatsapp: marcarSinWhatsapp,
   };
 
   const handler = handlers[action];

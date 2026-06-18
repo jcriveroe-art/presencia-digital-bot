@@ -803,11 +803,11 @@ module.exports = async (req, res) => {
               const tel = status.recipient_id;
               if (status.status === "failed" || (status.errors && status.errors.length > 0)) {
                 const msgErr = status.errors?.[0]?.message || status.status || "failed";
-                await logEventoCRM(tel, "whatsapp_failed", msgErr, { whatsapp_status: status });
-                await supabase.from("conversaciones").update({ estado: "envio_fallido", estado_contacto: "Fallido" }).eq("telefono", tel).eq("estado", "envio_pendiente");
+                await logEventoCRM(tel, "whatsapp_no_entregado", msgErr, { whatsapp_status: status });
+                await supabase.from("conversaciones").update({ estado_contacto: "No entregado", siguiente_accion: "Revisar WhatsApp" }).eq("telefono", tel);
               } else if (status.status === "delivered") {
                 await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status });
-                await supabase.from("conversaciones").update({ estado: "contactado", estado_contacto: "Contactado" }).eq("telefono", tel).eq("estado", "envio_pendiente");
+                await supabase.from("conversaciones").update({ estado: "envio_pendiente", estado_contacto: "Entregado", siguiente_accion: "Esperar respuesta" }).eq("telefono", tel);
               } else if (["sent", "read"].includes(status.status)) {
                 await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status });
               }

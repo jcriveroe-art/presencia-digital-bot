@@ -387,6 +387,8 @@ module.exports = async (req, res) => {
           <button id="contactedBtn" disabled>Marcar contactado</button>
           <button id="interestedBtn" disabled>Marcar interesado</button>
           <button id="paidBtn" disabled>Marcar diagnostico pagado</button>
+          <button id="revisarWaBtn" style="display: none;">Revisar WhatsApp</button>
+          <button id="sinWaBtn" style="display: none;">Sin WhatsApp</button>
           <button class="danger" id="lostBtn" disabled>Marcar perdido</button>
           <button class="danger" id="deleteBtn" disabled>Borrar lead</button>
         </div>
@@ -1199,6 +1201,24 @@ module.exports = async (req, res) => {
       hotBadge.textContent = selected.caliente ? "Caliente" : "Lead";
       hotBadge.className = "badge " + (selected.caliente ? "hot" : "");
       actionIds.forEach(id => document.getElementById(id).disabled = false);
+      
+      const revisarWaBtn = document.getElementById("revisarWaBtn");
+      const sinWaBtn = document.getElementById("sinWaBtn");
+      if (selected) {
+        const estadoContacto = String(selected.estado_contacto || "").trim();
+        const sigAccion = String(selected.siguiente_accion || "").trim();
+        if (estadoContacto === "No entregado" || sigAccion === "Revisar WhatsApp") {
+          revisarWaBtn.style.display = "inline-block";
+          sinWaBtn.style.display = "inline-block";
+        } else {
+          revisarWaBtn.style.display = "none";
+          sinWaBtn.style.display = "none";
+        }
+      } else {
+        revisarWaBtn.style.display = "none";
+        sinWaBtn.style.display = "none";
+      }
+
       manualText.disabled = false;
       sendManual.disabled = false;
       renderContext(selected);
@@ -1267,6 +1287,25 @@ module.exports = async (req, res) => {
     document.getElementById("lostBtn").addEventListener("click", () => setEstado("perdido"));
     document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
     document.getElementById("deleteBtn").addEventListener("click", () => deleteLead());
+    document.getElementById("revisarWaBtn").addEventListener("click", () => {
+      if (selected) {
+        let d = String(selected.telefono || "").replace(/\D/g, "");
+        if (d.length === 10) d = "52" + d;
+        window.open("https://wa.me/" + d, "_blank");
+      }
+    });
+    document.getElementById("sinWaBtn").addEventListener("click", async () => {
+      if (!selected) return;
+      if (!confirm("¿Marcar prospecto sin WhatsApp?")) return;
+      const res = await actionFetch("marcar_sin_whatsapp", { telefono: selected.telefono });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        await loadConversaciones();
+        await selectLead(selected.telefono);
+      } else {
+        alert(data.error || "No se pudo marcar sin WhatsApp");
+      }
+    });
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
     toggleDetailPanel.addEventListener("click", () => {
