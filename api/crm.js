@@ -426,6 +426,42 @@ module.exports = async (req, res) => {
       </div>
     </div>
   </div>
+  <div id="nextActionModal" class="modal" aria-hidden="true">
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="nextActionTitle" style="width: min(500px, 100%);">
+      <div class="modal-head">
+        <h2 id="nextActionTitle">Definir siguiente paso</h2>
+        <button id="closeNextAction" type="button">Cerrar</button>
+      </div>
+      <div class="edit-grid" style="grid-template-columns: 1fr; gap: 14px;">
+        <p style="font-size: 13.5px; color: var(--muted); margin: 0;">Para evitar perder el seguimiento de este lead, define la siguiente acción obligatoria.</p>
+        <label>
+          Próxima acción / Tarea
+          <input id="naAccion" type="text" placeholder="Ej: Enviar propuesta, Llamar para confirmar">
+        </label>
+        <label>
+          Fecha y hora de seguimiento
+          <input id="naFecha" type="datetime-local">
+        </label>
+        <label>
+          Motivo / Notas del seguimiento
+          <textarea id="naMotivo" style="min-height: 60px;" placeholder="Detalles de lo que se hablará o hará"></textarea>
+        </label>
+        <label>
+          Objeción principal (Opcional, si está frío o perdido)
+          <input id="naObjecion" type="text" placeholder="Ej: Precio alto, No contestó">
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+          <input id="naActivo" type="checkbox" checked style="width: auto;">
+          Seguimiento activo (IA y recordatorios ON)
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="naCerrarSinSeguimiento" type="button" class="danger" style="margin-right: auto;">Cerrar sin seguimiento</button>
+        <button id="naCancel" type="button">Omitir</button>
+        <button id="naSave" class="primary" type="button">Guardar Acción</button>
+      </div>
+    </div>
+  </div>
   <script>
     let conversaciones = [];
     let filtered = [];
@@ -604,6 +640,28 @@ module.exports = async (req, res) => {
       if (!c.fecha_siguiente_seguimiento || isSold(c) || isDiscarded(c)) return false;
       const date = new Date(c.fecha_siguiente_seguimiento);
       return !Number.isNaN(date.getTime()) && date < todayStart();
+    }
+    function isOverdueTask(c) {
+      if (isSold(c) || isDiscarded(c)) return false;
+      const dateVal = c.fecha_siguiente_seguimiento || c.fecha_seguimiento;
+      if (!dateVal) return false;
+      const date = new Date(dateVal);
+      return !Number.isNaN(date.getTime()) && date < todayStart();
+    }
+    function isDueTodayTask(c) {
+      if (isSold(c) || isDiscarded(c)) return false;
+      const dateVal = c.fecha_siguiente_seguimiento || c.fecha_seguimiento;
+      if (!dateVal) return false;
+      const date = new Date(dateVal);
+      return !Number.isNaN(date.getTime()) && date >= todayStart() && date < tomorrowStart();
+    }
+    function isDueNext48hTask(c) {
+      if (isSold(c) || isDiscarded(c)) return false;
+      const dateVal = c.fecha_siguiente_seguimiento || c.fecha_seguimiento;
+      if (!dateVal) return false;
+      const date = new Date(dateVal);
+      const limit = new Date(tomorrowStart().getTime() + 48 * 60 * 60 * 1000);
+      return !Number.isNaN(date.getTime()) && date >= tomorrowStart() && date < limit;
     }
     function alertasLead(c) {
       const out = [];
@@ -881,16 +939,16 @@ module.exports = async (req, res) => {
     }
 
     function renderAttention() {
-      const atencion = conversaciones.filter(needsAttention).slice(0, 30);
-      const interesados = conversaciones.filter(c => c.estado === "interesado" || c.estado === "cliente_caliente" || c.caliente === true || ["Interesado","Diagnóstico ofrecido","Activación ofrecida"].includes(commercialState(c))).slice(0, 30);
-      const proximos = conversaciones.filter(c => c.fecha_siguiente_seguimiento || c.fecha_seguimiento).filter(c => !isOverdue(c)).sort((a, b) => new Date(a.fecha_siguiente_seguimiento || a.fecha_seguimiento || 0) - new Date(b.fecha_siguiente_seguimiento || b.fecha_seguimiento || 0)).slice(0, 30);
+      const atencion = conversaciones.filter(isOverdueTask).sort((a, b) => new Date(a.fecha_siguiente_seguimiento || a.fecha_seguimiento || 0) - new Date(b.fecha_siguiente_seguimiento || b.fecha_seguimiento || 0)).slice(0, 30);
+      const hoy = conversaciones.filter(isDueTodayTask).sort((a, b) => new Date(a.fecha_siguiente_seguimiento || a.fecha_seguimiento || 0) - new Date(b.fecha_siguiente_seguimiento || b.fecha_seguimiento || 0)).slice(0, 30);
+      const proximos = conversaciones.filter(isDueNext48hTask).sort((a, b) => new Date(a.fecha_siguiente_seguimiento || a.fecha_seguimiento || 0) - new Date(b.fecha_siguiente_seguimiento || b.fecha_seguimiento || 0)).slice(0, 30);
       const wrap = document.getElementById("attention");
       const card = (c) => '<article class="followup-card"><strong>' + escapeHtml(label(c)) + '</strong><div class="followup-meta">' + escapeHtml(c.telefono || 'sin telefono') + '<br>' + escapeHtml(commercialState(c) || c.estado || 'nuevo') + '<br>Ultimo: ' + escapeHtml(c.ultimo_mensaje || c.texto_ultimo_mensaje || 'sin mensaje') + '<br>Accion: ' + escapeHtml(c.siguiente_accion || c.proxima_accion || 'sin accion') + '<br>Seguimiento: ' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : (c.fecha_seguimiento ? fmtDate(c.fecha_seguimiento) : 'sin fecha')) + '</div><div class="followup-badges">' + (botOn(c) ? '<span class="badge on">IA ON</span>' : '<span class="badge off">IA OFF</span>') + (c.caliente ? '<span class="badge hot">Caliente</span>' : '') + (hasNewMessage(c) ? '<span class="badge new">Respondio</span>' : '') + (c.prioridad ? '<span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="followup-actions"><button data-follow-chat="' + escapeHtml(c.telefono) + '">Ver chat</button><button data-follow-status="contactado" data-tel="' + escapeHtml(c.telefono) + '">Contactado</button><button data-follow-status="interesado" data-tel="' + escapeHtml(c.telefono) + '">Interesado</button><button class="danger" data-follow-status="perdido" data-tel="' + escapeHtml(c.telefono) + '">Perdido</button><button data-follow-bot="' + escapeHtml(c.telefono) + '" data-value="' + (!botOn(c)) + '">' + (botOn(c) ? 'Pausar IA' : 'Reanudar IA') + '</button></div></article>';
       const block = (title, items, empty) => '<section class="followup-block"><h2>' + title + '</h2>' + (items.length ? items.map(card).join("") : '<span class="badge">' + empty + '</span>') + '</section>';
       wrap.innerHTML = '<div class="followup-board">' + [
-        block("Requiere atencion", atencion, "Sin pendientes"),
-        block("Interesados / calientes", interesados, "Sin interesados"),
-        block("Proximos seguimientos", proximos, "Sin proximos seguimientos"),
+        block("Urgentes (Vencidos)", atencion, "Sin pendientes vencidos"),
+        block("Para Hoy", hoy, "Sin seguimientos para hoy"),
+        block("Próximas 48h", proximos, "Sin seguimientos en las próximas 48h"),
       ].join("") + '</div>';
       wrap.querySelectorAll("[data-follow-chat]").forEach(btn => btn.addEventListener("click", () => { setView("chat"); selectLead(btn.dataset.followChat); }));
       wrap.querySelectorAll("[data-follow-status]").forEach(btn => btn.addEventListener("click", async () => { selected = conversaciones.find(c => c.telefono === btn.dataset.tel) || { telefono: btn.dataset.tel }; await setEstado(btn.dataset.followStatus); }));
@@ -1217,6 +1275,60 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     }
 
+    const nextActionModal = document.getElementById("nextActionModal");
+
+    function openNextActionModal() {
+      if (!selected) return;
+      document.getElementById("naAccion").value = selected.proxima_accion || "";
+      document.getElementById("naFecha").value = toLocalInput(selected.fecha_seguimiento);
+      document.getElementById("naMotivo").value = selected.motivo_seguimiento || "";
+      document.getElementById("naObjecion").value = selected.objecion_principal || "";
+      document.getElementById("naActivo").checked = selected.seguimiento_activo !== false;
+      nextActionModal.setAttribute("aria-hidden", "false");
+      nextActionModal.classList.add("open");
+    }
+
+    function closeNextActionModal() {
+      nextActionModal.classList.remove("open");
+      nextActionModal.setAttribute("aria-hidden", "true");
+    }
+
+    async function saveNextAction() {
+      if (!selected) return;
+      const updates = {
+        proxima_accion: document.getElementById("naAccion").value.trim(),
+        fecha_seguimiento: fromLocalInput(document.getElementById("naFecha").value),
+        motivo_seguimiento: document.getElementById("naMotivo").value.trim(),
+        objecion_principal: document.getElementById("naObjecion").value.trim(),
+        seguimiento_activo: document.getElementById("naActivo").checked
+      };
+      const res = await actionFetch("lead_followup", { telefono: selected.telefono, updates });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || "No se pudo programar la siguiente acción.", "error");
+        return;
+      }
+      showToast("Siguiente acción programada con éxito.", "success");
+      selected = data.conversacion;
+      closeNextActionModal();
+      await loadConversaciones();
+    }
+
+    async function closeWithoutFollowup() {
+      if (!selected) return;
+      if (!confirm("¿Seguro que deseas desactivar el seguimiento para este lead? IA y recordatorios quedarán desactivados.")) return;
+      const res = await actionFetch("lead_followup", { telefono: selected.telefono, updates: { seguimiento_activo: false } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(data.error || "No se pudo guardar.", "error");
+        return;
+      }
+      showToast("Seguimiento desactivado para el lead.", "success");
+      selected = data.conversacion;
+      closeNextActionModal();
+      await loadConversaciones();
+    }
+
     async function selectLead(telefono) {
       selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
       if ((currentView === "chat" || currentView === "leads") && isMobile()) page.classList.add("mobile-chat-open");
@@ -1263,6 +1375,7 @@ module.exports = async (req, res) => {
       }
       showToast("Estado actualizado a \"" + estado + "\".", "success");
       await loadConversaciones();
+      openNextActionModal();
     }
 
     document.getElementById("fileInput").addEventListener("change", async (event) => {
@@ -1313,6 +1426,10 @@ module.exports = async (req, res) => {
     document.getElementById("lostBtn").addEventListener("click", () => setEstado("perdido"));
     document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
     document.getElementById("deleteBtn").addEventListener("click", () => deleteLead());
+    document.getElementById("closeNextAction").addEventListener("click", closeNextActionModal);
+    document.getElementById("naCancel").addEventListener("click", closeNextActionModal);
+    document.getElementById("naSave").addEventListener("click", saveNextAction);
+    document.getElementById("naCerrarSinSeguimiento").addEventListener("click", closeWithoutFollowup);
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
     toggleDetailPanel.addEventListener("click", () => {
