@@ -1436,12 +1436,22 @@ module.exports = async (req, res) => {
           const lead = conversaciones.find(c => normTel(c.telefono) === normTel(g.telefono));
           const nombreClean = (lead && lead.nombre && String(lead.nombre).trim() && String(lead.nombre).toLowerCase() !== "sin_dato") ? String(lead.nombre).trim() : null;
           const displayHeader = nombreClean ? (nombreClean.toUpperCase() + ' · ' + g.telefono) : g.telefono;
-          return '<div class="followup-card"><strong>' + escapeHtml(displayHeader) + '</strong><div class="followup-meta">' + escapeHtml(g.telefono) + '</div><div class="followup-badges">' + badges + '</div></div>';
+          const telAbrir = lead && lead.telefono ? lead.telefono : g.telefono;
+          return '<div class="followup-card" data-bitacora-chat="' + escapeHtml(telAbrir) + '" title="Abrir lead" style="cursor:pointer;"><strong>' + escapeHtml(displayHeader) + '</strong><div class="followup-meta">' + escapeHtml(g.telefono) + '</div><div class="followup-badges">' + badges + '</div></div>';
         }).filter(function(t) { return t; });
 
         bitacoraContent.innerHTML = tarjetas.length
           ? '<div class="followup-board" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">' + tarjetas.join("") + '</div>'
           : '<span class="badge">Sin eventos registrados</span>';
+
+        bitacoraContent.querySelectorAll("[data-bitacora-chat]").forEach(card => {
+          card.addEventListener("click", () => {
+            const tel = card.dataset.bitacoraChat;
+            if (!tel) return;
+            setView("chat");
+            selectLead(tel);
+          });
+        });
         
       } catch (error) {
         console.error('Error:', error);
@@ -1494,3 +1504,4 @@ module.exports = async (req, res) => {
 </body>
 </html>`);
 };
+
