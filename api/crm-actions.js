@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
-const { json, logEventoCRM, requireCrmToken, sendWhatsApp, sendWhatsAppTemplate, sanitizarVariablePlantilla, supabase } = require("../lib/crm");
+const { json, logMensaje, logEventoCRM, requireCrmToken, sendWhatsApp, sendWhatsAppTemplate, sanitizarVariablePlantilla, supabase } = require("../lib/crm");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const JUAN_CARLOS_NUMBER = "5215647943262";
@@ -685,6 +685,7 @@ async function enviarInicial(body) {
   }
   const mensaje = mensajeInicial(nombreSanitizado);
   const whatsapp = await sendWhatsAppTemplate(telefono, "diagnostico_on_inicial", "es_MX", [nombreSanitizado]);
+  await logMensaje(telefono, "saliente", mensaje, whatsapp);
   const now = new Date().toISOString();
   logUpsert("enviar_inicial", "conversaciones", "telefono", 1, 1, []);
   await supabase.from("conversaciones").upsert({ 
