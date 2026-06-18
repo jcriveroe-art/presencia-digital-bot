@@ -328,6 +328,11 @@ module.exports = async (req, res) => {
       .edit-grid { grid-template-columns: 1fr; }
       .edit-grid label.wide { grid-column: span 1; }
     }
+    .toast-container { position: fixed; bottom: 20px; right: 20px; display: grid; gap: 8px; z-index: 3000; }
+    .toast { background: var(--ink); color: #fff; padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; box-shadow: var(--shadow-md); opacity: 0; transform: translateY(8px); transition: opacity .2s ease, transform .2s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--ink); border-left: 3px solid var(--lime); }
+    .toast.error { background: var(--off); }
   </style>
 </head>
 <body>
@@ -350,6 +355,7 @@ module.exports = async (req, res) => {
     <div id="chatDashboard" class="chat-dashboard"></div>
     <div id="reports" class="dashboard"></div>
     <div id="bitacoraView" style="display: none; padding: 16px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-y: auto; height: calc(100vh - 56px);"></div>
+    <div class="toast-container" id="toastContainer"></div>
     <main>
       <section class="left">
         <details class="import mobile-collapse" open>
@@ -609,6 +615,19 @@ module.exports = async (req, res) => {
       if (commercialState(c) === "Contactado" && !c.ultima_respuesta) out.push("Contactado sin respuesta");
       if (commercialState(c) === "Interesado" && !c.fecha_siguiente_seguimiento) out.push("Interesado sin seguimiento");
       return out;
+    }
+
+    function showToast(message, type) {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = "toast " + (type || "success");
+      toast.textContent = message;
+      container.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add("show"));
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 200);
+      }, 2500);
     }
 
     function setView(view) {
