@@ -828,13 +828,15 @@ module.exports = async (req, res) => {
           const messages = change.value?.messages;
           if (messages && messages.length > 0) {
             const msg = messages[0];
-            const from = msg.from;
+            const fromOriginal = msg.from;
+            const from = normalizarTelefonoMeta(fromOriginal);
             const text = msg.text?.body;
 
             if (!text) continue;
 
             console.log("DEBUG inbound recibido", {
               from,
+              fromOriginal,
               admin: JUAN_CARLOS_NUMBERS,
               text,
               esAdmin: JUAN_CARLOS_NUMBERS.includes(from)
@@ -843,10 +845,9 @@ module.exports = async (req, res) => {
 
 
 
-
             const inboundGuardado = await logMensaje(from, "entrante", text, msg);
             if (inboundGuardado) {
-              await logEventoCRM(from, "mensaje_entrante", text, { raw: msg });
+              await logEventoCRM(from, "mensaje_entrante", text, { raw: msg, from_original: fromOriginal });
             } else {
               console.error("No se registro evento mensaje_entrante porque fallo el insert en mensajes", { from });
             }
