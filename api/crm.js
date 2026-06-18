@@ -1172,7 +1172,7 @@ module.exports = async (req, res) => {
       const updates = collectEditUpdates();
       const telefono = String(updates.telefono || "").replace(/\\D/g, "").trim();
       if (!telefono) {
-        editStatus.textContent = "Telefono requerido.";
+        showToast("Teléfono requerido.", "error");
         return;
       }
       updates.telefono = telefono;
@@ -1180,12 +1180,14 @@ module.exports = async (req, res) => {
       editStatus.textContent = "Guardando";
       document.getElementById("saveEdit").disabled = true;
       const res = await actionFetch("lead_update", { telefono_original: selected.telefono, updates });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       document.getElementById("saveEdit").disabled = false;
       if (!res.ok || !data.ok) {
         editStatus.textContent = data.error || "No se pudo guardar.";
+        showToast(data.error || "No se pudo guardar la edición del lead.", "error");
         return;
       }
+      showToast("Lead actualizado con éxito.", "success");
       selected = data.conversacion;
       closeEdit();
       await loadConversaciones();
@@ -1198,11 +1200,12 @@ module.exports = async (req, res) => {
       const lead = conversaciones.find(c => c.telefono === target) || selected || { telefono: target };
       if (!confirm("¿Seguro que quieres borrar este lead? No se borrará el historial de mensajes.")) return;
       const res = await actionFetch("eliminar_lead", { telefono: target });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        alert(data.error || "No se pudo borrar el lead.");
+        showToast(data.error || "No se pudo borrar el lead.", "error");
         return;
       }
+      showToast("Lead eliminado.", "success");
       if (selected?.telefono === target) {
         selected = null;
         title.textContent = "Selecciona un lead";
@@ -1356,7 +1359,14 @@ module.exports = async (req, res) => {
       const mensaje = manualText.value.trim();
       if (!selected || !mensaje) return;
       sendManual.disabled = true;
-      await actionFetch("enviar_manual", { telefono: selected.telefono, mensaje });
+      const res = await actionFetch("enviar_manual", { telefono: selected.telefono, mensaje });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "No se pudo enviar el mensaje.", "error");
+        sendManual.disabled = false;
+        return;
+      }
+      showToast("Mensaje enviado con éxito.", "success");
       manualText.value = "";
       sendManual.disabled = false;
       await loadConversaciones();
