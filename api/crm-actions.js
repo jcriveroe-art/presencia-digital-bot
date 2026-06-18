@@ -470,7 +470,7 @@ function soloBase(row) {
 }
 
 function mensajeInicial(nombre) {
-  return `Hola, soy Juan Carlos de Presencia Digital.\n\nEstaba revisando perfiles de Google Maps en la zona y me encontré con el de ${nombre}.\n\nMe llamaron la atención un par de oportunidades que podrían ayudarles a conseguir más consultas.\n\n¿Te las puedo compartir?`;
+  return `Hola, soy Juan Carlos de Presencia Digital. Estaba revisando perfiles de Google Maps en la zona y me encontré con el de ${nombre}. Me llamaron la atención un par de oportunidades que podrían ayudarles a conseguir más clientes. ¿Te las puedo compartir?`;
 }
 
 function loadSalesPlaybook() {
