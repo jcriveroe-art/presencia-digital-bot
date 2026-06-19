@@ -647,9 +647,21 @@ async function importarProspector(body) {
   return { ok: true, importados: data?.length || rows.length, resumen, conversaciones: data || [] };
 }
 
-async function enviarInicial(body) {
+const MAX_INTENTOS_COLA = 3;
+const BACKOFF_THROTTLING_MIN = 15; // minutos de espera tras un 131049
+const CODE_THROTTLING = 131049;
+const CODE_SIN_WHATSAPP = 131026;
+
+/**
+ * Reemplaza al endpoint enviar_inicial original.
+ * En vez de mandar directo, inserta (o reactiva) el lead en la cola.
+ * El boton del CRM debe seguir llamando a action: "enviar_inicial" sin cambios.
+ */
+async function encolarEnvioInicial(body) {
   const telefono = normalizarTelefono(body.telefono);
   if (!telefono) return { status: 400, payload: { ok: false, error: "telefono requerido" } };
+
+  // Validaciones que ya existian en enviarInicial: lead debe existir y tener nombre valido.
   const { data: lead, error } = await supabase.from("conversaciones").select("*").eq("telefono", telefono).single();
   if (error || !lead) return { status: 404, payload: { ok: false, error: "Lead no encontrado" } };
 
@@ -658,7 +670,6 @@ async function enviarInicial(body) {
   }
 
   const estadoContacto = String(lead.estado_contacto || "").trim().toLowerCase();
-
   const yaContactado =
     lead.mensaje_inicial_enviado === true ||
     Boolean(lead.mensaje_inicial_enviado_at) ||
@@ -668,39 +679,302 @@ async function enviarInicial(body) {
     (Boolean(lead.fecha_ultimo_mensaje) && Boolean(String(lead.ultimo_mensaje || "").trim()));
 
   if (yaContactado) {
-    const motivo = lead.mensaje_inicial_enviado === true ? "mensaje_inicial_enviado" :
-      lead.mensaje_inicial_enviado_at ? "mensaje_inicial_enviado_at" :
-      String(lead.estado || "").trim().toLowerCase() === "contactado" ? "estado_contactado" :
-      estadoContacto === "contactado" ? "estado_contacto_contactado" :
-      estadoContacto === "ya_contactado" ? "estado_contacto_ya_contactado" :
-      "ultimo_mensaje_existente";
-
-    console.log("enviar_inicial bloqueado", { telefono, motivo, estado: lead.estado, estado_contacto: lead.estado_contacto });
-
-    return { status: 409, payload: { ok: false, blocked: true, mensaje: "Este lead ya fue contactado. No se envio mensaje inicial." } };
+    return { status: 409, payload: { ok: false, blocked: true, mensaje: "Este lead ya fue contactado. No se encolo mensaje inicial." } };
   }
+
+  // Si ya esta pendiente o procesando, no duplicar (el unique index tambien lo protege).
+  const { data: existente } = await supabase
+    .from("cola_envios")
+    .select("id, estado, prioridad")
+    .eq("telefono", telefono)
+    .in("estado", ["pendiente", "procesando"])
+    .maybeSingle();
+
+  if (existente) {
+    // Si ya esta en cola con prioridad baja y ahora se pide manual, lo subimos de prioridad.
+    if (existente.estado === "pendiente" && existente.prioridad < 10) {
+      await supabase.from("cola_envios").update({ prioridad: 10, origen: "manual_crm", programado_para: new Date().toISOString() }).eq("id", existente.id);
+      await logEventoCRM(telefono, "cola_envio_priorizado", "Envio encolado priorizado manualmente desde CRM", { cola_id: existente.id });
+      return { ok: true, encolado: true, ya_existia: true, priorizado: true };
+    }
+    return { ok: true, encolado: true, ya_existia: true, mensaje: "El lead ya esta en la cola de envio." };
+  }
+
+  const { data: nuevo, error: insertError } = await supabase
+    .from("cola_envios")
+    .insert({ telefono, estado: "pendiente", prioridad: 10, origen: "manual_crm" })
+    .select("id")
+    .single();
+  if (insertError) throw insertError;
+
+  await logEventoCRM(telefono, "cola_envio_encolado", "Mensaje inicial encolado desde CRM (manual, prioridad alta)", { cola_id: nuevo.id });
+  return { ok: true, encolado: true, cola_id: nuevo.id };
+}
+
+/**
+ * Encola en lote leads "prospectado" listos para contactar, con prioridad normal.
+ * Pensado para alimentar la cola automatica sin que Juanito tenga que clickear uno por uno.
+ * body: { limite?: number }  (default 50)
+ */
+async function encolarLoteAutomatico(body) {
+  const limite = Math.min(Number(body?.limite) || 50, 200);
+
+  const { data: candidatos, error } = await supabase
+    .from("conversaciones")
+    .select("telefono, nombre, estado, siguiente_accion, mensaje_inicial_enviado")
+    .eq("estado", "prospectado")
+    .eq("siguiente_accion", "Enviar inicial")
+    .eq("mensaje_inicial_enviado", false)
+    .not("nombre", "is", null)
+    .limit(limite);
+  if (error) throw error;
+
+  if (!candidatos?.length) return { ok: true, encolados: 0 };
+
+  const telefonos = candidatos.map((c) => c.telefono);
+  const { data: yaEnCola } = await supabase
+    .from("cola_envios")
+    .select("telefono")
+    .in("telefono", telefonos)
+    .in("estado", ["pendiente", "procesando"]);
+  const enColaSet = new Set((yaEnCola || []).map((r) => r.telefono));
+
+  const aInsertar = candidatos
+    .filter((c) => !enColaSet.has(c.telefono))
+    .map((c) => ({ telefono: c.telefono, estado: "pendiente", prioridad: 0, origen: "cron" }));
+
+  if (!aInsertar.length) return { ok: true, encolados: 0, ya_en_cola: enColaSet.size };
+
+  const { data: insertados, error: insertError } = await supabase.from("cola_envios").insert(aInsertar).select("id");
+  if (insertError) throw insertError;
+
+  return { ok: true, encolados: insertados?.length || 0, ya_en_cola: enColaSet.size };
+}
+
+/**
+ * Logica de envio real, identica a la enviarInicial original.
+ * La invoca unicamente el procesador de cola.
+ */
+async function _enviarInicialDirecto(lead) {
   const nombreSanitizado = sanitizarVariablePlantilla(lead.nombre);
   if (!nombreSanitizado) {
-    return { status: 400, payload: { ok: false, error: "nombre del lead invalido tras sanitizar" } };
+    const err = new Error("nombre del lead invalido tras sanitizar");
+    err.tipo = "validacion";
+    throw err;
   }
   const mensaje = mensajeInicial(nombreSanitizado);
-  const whatsapp = await sendWhatsAppTemplate(telefono, "diagnostico_on_inicial", "es_MX", [nombreSanitizado]);
-  await logMensaje(telefono, "saliente", mensaje, whatsapp);
+  const whatsapp = await sendWhatsAppTemplate(lead.telefono, "diagnostico_on_inicial", "es_MX", [nombreSanitizado]);
+  await logMensaje(lead.telefono, "saliente", mensaje, whatsapp);
   const now = new Date().toISOString();
-  logUpsert("enviar_inicial", "conversaciones", "telefono", 1, 1, []);
-  await supabase.from("conversaciones").upsert({ 
-    telefono, 
-    estado: "envio_pendiente", 
-    estado_contacto: "Enviado", 
+  await supabase.from("conversaciones").upsert({
+    telefono: lead.telefono,
+    estado: "envio_pendiente",
+    estado_contacto: "Enviado",
     siguiente_accion: "Esperar respuesta",
-    bot_enabled: true, 
-    ultimo_mensaje: mensaje, 
-    fecha_ultimo_mensaje: now, 
-    mensaje_inicial_enviado: true, 
-    mensaje_inicial_enviado_at: now 
+    bot_enabled: true,
+    ultimo_mensaje: mensaje,
+    fecha_ultimo_mensaje: now,
+    mensaje_inicial_enviado: true,
+    mensaje_inicial_enviado_at: now,
   }, { onConflict: "telefono" });
-  await logEventoCRM(telefono, "mensaje_inicial_enviado", "Mensaje inicial enviado desde CRM", { mensaje });
-  return { ok: true, mensaje, whatsapp };
+  await logEventoCRM(lead.telefono, "mensaje_inicial_enviado", "Mensaje inicial enviado desde cola", { mensaje });
+  return { mensaje, whatsapp };
+}
+
+/**
+ * Extrae el codigo de error de Meta de la excepcion lanzada por sendWhatsAppTemplate.
+ * Soporta los formatos mas comunes: error.code, error.metaError.error.code,
+ * error.response.data.error.code, o el codigo embebido en el mensaje de texto.
+ */
+function extraerCodigoErrorMeta(err) {
+  if (!err) return null;
+  if (typeof err.code === "number") return err.code;
+  if (err.metaError?.error?.code && typeof err.metaError.error.code === "number") {
+    return err.metaError.error.code;
+  }
+  const fromResponse = err?.response?.data?.error?.code;
+  if (typeof fromResponse === "number") return fromResponse;
+  const match = String(err?.message || "").match(/\b(13\d{4})\b/);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Cron: procesa UN solo envio pendiente por ejecucion.
+ * Llamar este cron cada 1 minuto desde Vercel Cron -> ritmo de ~1 envio/min,
+ * muy por debajo de cualquier limite de calidad de Meta.
+ */
+async function cronProcesarColaEnvios() {
+  const now = new Date().toISOString();
+
+  const { data: pendientes, error } = await supabase
+    .from("cola_envios")
+    .select("*")
+    .eq("estado", "pendiente")
+    .lte("programado_para", now)
+    .order("prioridad", { ascending: false })
+    .order("programado_para", { ascending: true })
+    .limit(1);
+  if (error) throw error;
+
+  if (!pendientes?.length) return { ok: true, procesado: false, motivo: "cola_vacia" };
+
+  const item = pendientes[0];
+
+  // Lock optimista: marcar como procesando para que un tick paralelo no lo tome tambien.
+  const { data: locked, error: lockError } = await supabase
+    .from("cola_envios")
+    .update({ estado: "procesando" })
+    .eq("id", item.id)
+    .eq("estado", "pendiente")
+    .select("id")
+    .maybeSingle();
+  if (lockError) throw lockError;
+  if (!locked) return { ok: true, procesado: false, motivo: "tomado_por_otro_proceso" };
+
+  const { data: lead, error: leadError } = await supabase.from("conversaciones").select("*").eq("telefono", item.telefono).single();
+  if (leadError || !lead) {
+    await supabase.from("cola_envios").update({
+      estado: "fallido_descartado",
+      ultimo_error: "Lead no encontrado en conversaciones",
+      procesado_at: new Date().toISOString(),
+    }).eq("id", item.id);
+    return { ok: true, procesado: true, resultado: "fallido_descartado", telefono: item.telefono, motivo: "lead_no_encontrado" };
+  }
+
+  try {
+    await _enviarInicialDirecto(lead);
+    await supabase.from("cola_envios").update({
+      estado: "enviado",
+      procesado_at: new Date().toISOString(),
+    }).eq("id", item.id);
+    return { ok: true, procesado: true, resultado: "enviado", telefono: item.telefono };
+  } catch (err) {
+    const codigo = extraerCodigoErrorMeta(err);
+    const intentos = (item.intentos || 0) + 1;
+
+    if (codigo === CODE_SIN_WHATSAPP) {
+      await supabase.from("cola_envios").update({
+        estado: "fallido_descartado",
+        intentos,
+        ultimo_error: err.message,
+        ultimo_error_code: codigo,
+        procesado_at: new Date().toISOString(),
+      }).eq("id", item.id);
+      await marcarSinWhatsapp({ telefono: item.telefono });
+      await logEventoCRM(item.telefono, "cola_envio_descartado", "Numero sin WhatsApp, descartado de la cola", { error_code: codigo });
+      return { ok: true, procesado: true, resultado: "fallido_descartado", telefono: item.telefono, codigo };
+    }
+
+    if (codigo === CODE_THROTTLING) {
+      const reintentarEn = new Date(Date.now() + BACKOFF_THROTTLING_MIN * 60 * 1000).toISOString();
+      await supabase.from("cola_envios").update({
+        estado: "pendiente",
+        intentos,
+        ultimo_error: err.message,
+        ultimo_error_code: codigo,
+        programado_para: reintentarEn,
+      }).eq("id", item.id);
+      await logEventoCRM(item.telefono, "cola_envio_throttled", "Throttling de Meta detectado, reintento programado", { error_code: codigo, reintentar_en: reintentarEn, intentos });
+      return { ok: true, procesado: true, resultado: "throttled_reintento", telefono: item.telefono, codigo, reintentar_en: reintentarEn };
+    }
+
+    // Error generico (validacion, red, etc.)
+    const estadoFinal = intentos >= MAX_INTENTOS_COLA ? "fallido_descartado" : "pendiente";
+    const programadoPara = estadoFinal === "pendiente" ? new Date(Date.now() + 5 * 60 * 1000).toISOString() : item.programado_para;
+
+    await supabase.from("cola_envios").update({
+      estado: estadoFinal,
+      intentos,
+      ultimo_error: err.message,
+      ultimo_error_code: codigo,
+      programado_para: programadoPara,
+      procesado_at: estadoFinal === "fallido_descartado" ? new Date().toISOString() : null,
+    }).eq("id", item.id);
+
+    await logEventoCRM(item.telefono, "cola_envio_error", `Error al enviar (intento ${intentos}/${MAX_INTENTOS_COLA})`, { error: err.message, error_code: codigo, estado_final: estadoFinal });
+
+    return { ok: true, procesado: true, resultado: estadoFinal, telefono: item.telefono, codigo, intentos };
+  }
+}
+
+/**
+ * Endpoint opcional para ver el estado de la cola desde el CRM (un mini-dashboard).
+ */
+async function colaEnviosStatus() {
+  const { data, error } = await supabase
+    .from("cola_envios")
+    .select("estado")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (error) throw error;
+
+  const conteo = {};
+  for (const row of data || []) {
+    conteo[row.estado] = (conteo[row.estado] || 0) + 1;
+  }
+
+  const { data: proximos } = await supabase
+    .from("cola_envios")
+    .select("telefono, prioridad, programado_para, intentos")
+    .eq("estado", "pendiente")
+    .order("prioridad", { ascending: false })
+    .order("programado_para", { ascending: true })
+    .limit(10);
+
+  return { ok: true, conteo_por_estado: conteo, proximos_10: proximos || [] };
+}
+
+const TIPOS_ERROR_BOT_VALIDOS = new Set([
+  "salida_de_flujo",
+  "informacion_incorrecta",
+  "no_entendio_intencion",
+  "mensaje_repetido",
+  "tono_inadecuado",
+  "no_detecto_dueno_vs_bot",
+  "otro",
+]);
+
+const GRAVEDADES_VALIDAS = new Set(["baja", "media", "alta"]);
+
+/**
+ * body: { telefono, tipo_error, descripcion?, texto_bot?, gravedad?, mensaje_id? }
+ */
+async function marcarErrorBot(body) {
+  const telefono = normalizarTelefono(body.telefono);
+  if (!telefono) return { status: 400, payload: { ok: false, error: "telefono requerido" } };
+
+  const tipoError = String(body.tipo_error || "").trim();
+  if (!TIPOS_ERROR_BOT_VALIDOS.has(tipoError)) {
+    return { status: 400, payload: { ok: false, error: `tipo_error invalido. Usa uno de: ${[...TIPOS_ERROR_BOT_VALIDOS].join(", ")}` } };
+  }
+
+  const gravedad = GRAVEDADES_VALIDAS.has(body.gravedad) ? body.gravedad : "media";
+
+  const { data, error } = await supabase
+    .from("errores_bot")
+    .insert({
+      telefono,
+      tipo_error: tipoError,
+      descripcion: body.descripcion || null,
+      texto_bot: body.texto_bot || null,
+      gravedad,
+      mensaje_id: body.mensaje_id || null,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+
+  await logEventoCRM(telefono, "error_bot_marcado", `Error de bot marcado: ${tipoError}`, { gravedad, error_id: data.id });
+
+  return { ok: true, error_id: data.id };
+}
+
+async function erroresBotResumen() {
+  const { data: porTipo, error: e1 } = await supabase.from("v_errores_bot_resumen").select("*");
+  if (e1) throw e1;
+  const { data: tasa, error: e2 } = await supabase.from("v_tasa_error_bot").select("*").single();
+  if (e2) throw e2;
+  return { ok: true, por_tipo: porTipo || [], tasa_general: tasa || {} };
 }
 
 async function enviarManual(body) {
@@ -929,9 +1203,11 @@ async function cronSeguimientos() {
 }
 
 async function dispatch(action, body, req, res) {
-  if (action === "cron_recordatorios" || action === "cron_seguimientos") {
+  if (action === "cron_recordatorios" || action === "cron_seguimientos" || action === "cron_procesar_cola_envios") {
     if (!cronAutorizado(req)) return { status: 401, payload: { ok: false, error: "Unauthorized" } };
-    return action === "cron_recordatorios" ? cronRecordatorios() : cronSeguimientos();
+    if (action === "cron_recordatorios") return cronRecordatorios();
+    if (action === "cron_seguimientos") return cronSeguimientos();
+    return cronProcesarColaEnvios();
   }
 
   if (!requireCrmToken(req, res)) return null;
@@ -940,7 +1216,9 @@ async function dispatch(action, body, req, res) {
     conversaciones,
     mensajes,
     importar_prospector: importarProspector,
-    enviar_inicial: enviarInicial,
+    enviar_inicial: encolarEnvioInicial,
+    encolar_lote_automatico: encolarLoteAutomatico,
+    cola_envios_status: colaEnviosStatus,
     enviar_manual: enviarManual,
     lead_estado: leadEstado,
     lead_update: leadUpdate,
@@ -953,6 +1231,8 @@ async function dispatch(action, body, req, res) {
     bitacora_global: bitacoraGlobal,
     bot_enabled: botEnabled,
     marcar_sin_whatsapp: marcarSinWhatsapp,
+    marcar_error_bot: marcarErrorBot,
+    errores_bot_resumen: erroresBotResumen,
   };
 
   const handler = handlers[action];
@@ -967,7 +1247,7 @@ module.exports = async (req, res) => {
   try {
     body = req.method === "GET" ? { action: req.query.action } : (req.body || {});
     const action = body.action;
-    if (req.method === "GET" && action !== "cron_recordatorios" && action !== "cron_seguimientos") {
+    if (req.method === "GET" && action !== "cron_recordatorios" && action !== "cron_seguimientos" && action !== "cron_procesar_cola_envios") {
       return json(res, 405, { ok: false, error: "GET solo esta permitido para crons" });
     }
     const result = await dispatch(action, body, req, res);
