@@ -862,7 +862,7 @@ module.exports = async (req, res) => {
                 await supabase.from("conversaciones").update({ estado_contacto: "No entregado", siguiente_accion: "Revisar WhatsApp" }).eq("telefono", tel);
               } else if (status.status === "delivered") {
                 await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status, recipient_id_original: telOriginal });
-                await supabase.from("conversaciones").update({ estado: "contactado", estado_contacto: "Entregado", siguiente_accion: "Esperar respuesta" }).eq("telefono", tel);
+                await supabase.from("conversaciones").update({ estado: "envio_pendiente", estado_contacto: "Entregado", siguiente_accion: "Esperar respuesta" }).eq("telefono", tel);
               } else if (["sent", "read"].includes(status.status)) {
                 await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status, recipient_id_original: telOriginal });
               }
