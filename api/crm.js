@@ -375,7 +375,7 @@ module.exports = async (req, res) => {
           <button id="clearFilters">Limpiar</button>
         </details>
         <label class="lead-search">Buscar lead<input id="leadSearch" placeholder="Telefono, nombre, zona, fuente o estado" /></label>
-        <div class="table-wrap"><table><thead><tr><th class="col-cb"><input type="checkbox" id="selectAllLeads" onchange="toggleSelectAll(this.checked)" /></th><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th class="col-cb"><input type="checkbox" id="selectAllLeads" /></th><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <button id="toggleDetailPanel" class="detail-toggle" type="button">Ocultar detalle</button>
       <div id="paneResizer" class="pane-resizer" role="separator" aria-label="Ajustar ancho de leads" aria-orientation="vertical"></div>
@@ -1196,6 +1196,9 @@ module.exports = async (req, res) => {
         event.stopPropagation();
         await deleteLead(btn.dataset.delete);
       }));
+      leads.querySelectorAll(".lead-select-cb").forEach(cb => cb.addEventListener("change", () => {
+        toggleSelectLead(cb.dataset.tel, cb.checked);
+      }));
     }
 
     function renderLeads() {
@@ -1216,7 +1219,7 @@ module.exports = async (req, res) => {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
           const isChecked = selectedLeads.has(c.telefono) ? "checked" : "";
-          const checkboxHtml = currentView === "leads" ? '<input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onchange="toggleSelectLead(\'' + escapeHtml(c.telefono) + '\', this.checked)" onclick="event.stopPropagation()" style="margin-right: 8px;" />' : '';
+          const checkboxHtml = currentView === "leads" ? '<input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onclick="event.stopPropagation()" style="margin-right: 8px;" />' : '';
           return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="12"><div class="lead-line"><div class="lead-main">' + checkboxHtml + '<span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + (hasNewMessage(c) ? ' <span class="badge new">Respondio</span> <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '') + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-actions"><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></div></div></td></tr>';
         }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
         leads.querySelectorAll("tr[data-tel] td").forEach(td => {
@@ -1234,7 +1237,7 @@ module.exports = async (req, res) => {
         const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondio</span>' : '';
         const pendingBadge = hasNewMessage(c) ? ' <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '';
         const isChecked = selectedLeads.has(c.telefono) ? "checked" : "";
-        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td class="col-cb"><input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onchange="toggleSelectLead(\'' + escapeHtml(c.telefono) + '\', this.checked)" onclick="event.stopPropagation()" /></td><td><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.categoria || 'Sin nicho') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div></div></td><td><span class="lead-meta">' + escapeHtml(c.telefono || 'Sin telefono') + '</span></td><td><span class="lead-meta">' + escapeHtml(zonaLabel(c.zona)) + '</span></td><td><span class="lead-meta">' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</span></td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td><span class="lead-next">' + escapeHtml(safeDato(c.siguiente_accion)) + '</span></td><td><span class="lead-meta">' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</span></td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td class="col-cb"><input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onclick="event.stopPropagation()" /></td><td><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.categoria || 'Sin nicho') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div></div></td><td><span class="lead-meta">' + escapeHtml(c.telefono || 'Sin telefono') + '</span></td><td><span class="lead-meta">' + escapeHtml(zonaLabel(c.zona)) + '</span></td><td><span class="lead-meta">' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</span></td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td><span class="lead-next">' + escapeHtml(safeDato(c.siguiente_accion)) + '</span></td><td><span class="lead-meta">' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</span></td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
       }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
       bindLeadRowActions();
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
@@ -1519,9 +1522,15 @@ module.exports = async (req, res) => {
     });
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
+    const selectAllCbElement = document.getElementById("selectAllLeads");
+    if (selectAllCbElement) {
+      selectAllCbElement.addEventListener("change", (event) => {
+        toggleSelectAll(event.target.checked);
+      });
+    }
     document.getElementById("btnBulkSend").addEventListener("click", () => {
       if (selectedLeads.size === 0) return;
-      if (confirm("¿Enviar mensaje inicial a los " + selectedLeads.size + " leads seleccionados?\n(Nota: Los leads ya contactados o sin nombre se omitirán automáticamente)")) {
+      if (confirm("¿Enviar mensaje inicial a los " + selectedLeads.size + " leads seleccionados?\\n(Nota: Los leads ya contactados o sin nombre se omitirán automáticamente)")) {
         startBulkSend(Array.from(selectedLeads));
       }
     });
@@ -1791,9 +1800,9 @@ module.exports = async (req, res) => {
         const yaContactadosCount = data.ya_contactados ? data.ya_contactados.length : 0;
         const sinNombreCount = data.sin_nombre ? data.sin_nombre.length : 0;
         
-        alert("Lote procesado en backend:\n" +
-              "- Encolados para envío: " + totalEnqueued + "\n" +
-              "- Omitidos por ya estar contactados: " + yaContactadosCount + "\n" +
+        alert("Lote procesado en backend:\\n" +
+              "- Encolados para envío: " + totalEnqueued + "\\n" +
+              "- Omitidos por ya estar contactados: " + yaContactadosCount + "\\n" +
               "- Omitidos por falta de nombre: " + sinNombreCount);
               
         selectedLeads.clear();
