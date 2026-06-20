@@ -316,8 +316,6 @@ module.exports = async (req, res) => {
       .edit-grid { grid-template-columns: 1fr; }
       .edit-grid label.wide { grid-column: span 1; }
     }
-    .col-cb { display: none; width: 36px; padding: 10px; text-align: center; }
-    .view-leads .col-cb { display: table-cell; }
   </style>
 </head>
 <body>
@@ -338,11 +336,6 @@ module.exports = async (req, res) => {
     <input type="text" id="telLead" placeholder="Teléfono" style="flex: 1; min-width: 140px;">
     <input type="text" id="zonaLead" placeholder="Zona" style="flex: 1; min-width: 120px;">
     <button class="primary" onclick="agregarLead()">Agregar Lead Manual</button>
-    <div id="bulkSendContainer" style="display: none; align-items: center; gap: 10px; margin-left: auto;">
-      <span id="bulkSelectedCount" style="font-size: 13px; font-weight: 600; color: var(--ink-soft);">0 leads seleccionados</span>
-      <button class="primary" id="btnBulkSend" style="background: var(--lime); color: var(--lime-ink); font-weight: 700;">Enviar a seleccionados</button>
-      <span id="bulkProgress" style="font-size: 12px; color: var(--muted); font-weight: 500; display: none;"></span>
-    </div>
   </div>
   <div id="page" class="page view-chat">
     <div id="dashboard" class="dashboard"></div>
@@ -375,202 +368,7 @@ module.exports = async (req, res) => {
           <button id="clearFilters">Limpiar</button>
         </details>
         <label class="lead-search">Buscar lead<input id="leadSearch" placeholder="Telefono, nombre, zona, fuente o estado" /></label>
-        <div class="table-wrap"><table><thead><tr><th class="col-cb"><input type="checkbox" id="selectAllLeads" onchange="toggleSelectAll(this.checked)" /></th><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
-      </section>
-      <button id="toggleDetailPanel" class="detail-toggle" type="button">Ocultar detalle</button>
-      <div id="paneResizer" class="pane-resizer" role="separator" aria-label="Ajustar ancho de leads" aria-orientation="vertical"></div>
-      <section class="detail">
-        <div class="detail-head">
-          <div class="identity"><strong id="title">Selecciona un lead</strong><span id="subtitle"></span></div>
-          <button class="mobile-only" id="backToLeads" type="button">Lista</button>
-          <button class="mobile-only" id="toggleLeadData" type="button">Datos</button>
-          <div><span id="botBadge" class="badge">IA</span> <span id="hotBadge" class="badge">Lead</span></div>
-        </div>
-        <div class="actions">
-          <button id="initialBtn" disabled>Enviar mensaje inicial</button>
-          <button id="editBtn" disabled>Editar prospecto</button>
-          <button id="pauseBtn" disabled>Pausar IA</button>
-          <button id="resumeBtn" disabled>Reanudar IA</button>
-          <button id="contactedBtn" disabled>Marcar contactado</button>
-          <button id="interestedBtn" disabled>Marcar interesado</button>
-          <button id="paidBtn" disabled>Marcar diagnostico pagado</button>
-          <button id="revisarWaBtn" style="display: none;">Revisar WhatsApp</button>
-          <button id="sinWaBtn" style="display: none;">Sin WhatsApp</button>
-          <button class="danger" id="lostBtn" disabled>Marcar perdido</button>
-          <button class="danger" id="deleteBtn" disabled>Borrar lead</button>
-        </div>
-        <div id="context" class="context"><div class="empty">Sin lead seleccionado.</div></div>
-        <div id="messages" class="messages"><div class="empty">Sin conversacion seleccionada.</div></div>
-        <form id="manualForm">
-          <textarea id="manualText" placeholder="Responder por WhatsApp" disabled></textarea>
-          <button class="primary" id="sendManual" disabled>Enviar</button>
-        </form>
-      </section>
-    </main>
-  </div>
-  <div id="editModal" class="modal" aria-hidden="true">
-    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="editTitle">
-      <div class="modal-head">
-        <h2 id="editTitle">Editar prospecto</h2>
-        <button id="closeEdit" type="button">Cerrar</button>
-      </div>
-      <div id="editForm" class="edit-grid"></div>
-      <div class="modal-actions">
-        <span id="editStatus" class="edit-status"></span>
-        <button id="cancelEdit" type="button">Cancelar</button>
-      .dashboard { grid-template-columns: 1fr; overflow: auto; }
-      .page.view-dashboard .dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 8px; align-content: start; }
-      .page.view-dashboard .metric { min-height: 48px; padding: 7px 8px; border-radius: 7px; }
-      .page.view-dashboard .metric strong { font-size: 18px; }
-      .page.view-dashboard .metric span { font-size: 10px; line-height: 1.2; margin-top: 4px; }
-      .followup-board { grid-template-columns: 1fr; }
-      .dashboard-panel { overflow: auto; padding: 12px; }
-      .funnel { grid-template-columns: 1fr; }
-      .page.view-dashboard .dashboard-panel { padding: 8px; gap: 10px; }
-      .page.view-dashboard .dashboard-section { gap: 6px; }
-      .page.view-dashboard .dashboard-section h2 { font-size: 13px; }
-      .page.view-dashboard .funnel { grid-template-columns: 1fr 1fr; gap: 6px; }
-      .page.view-dashboard .funnel-step, .page.view-dashboard .activity-item, .page.view-dashboard .objection-item { padding: 8px; font-size: 11px; border-radius: 7px; }
-      .page.view-dashboard .funnel-step strong { font-size: 16px; }
-      .page.view-dashboard .activity-list, .page.view-dashboard .objection-list { gap: 6px; }
-      .page.view-reportes #reports { padding: 8px; overflow: auto; align-content: start; }
-      .page.view-reportes #reports .dashboard-panel { padding: 0; gap: 10px; border-bottom: 0; background: transparent; }
-      .page.view-reportes #reports .dashboard-section { gap: 6px; }
-      .page.view-reportes #reports .dashboard-section h2 { font-size: 13px; padding: 0 2px; }
-      .page.view-reportes #reports .chat-dashboard { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 6px; padding: 0; border-bottom: 0; background: transparent; }
-      .page.view-reportes #reports .metric { min-height: 46px; padding: 7px 8px; border-radius: 7px; }
-      .page.view-reportes #reports .metric strong { font-size: 17px; }
-      .page.view-reportes #reports .metric span { font-size: 10px; line-height: 1.15; margin-top: 4px; }
-      .page.view-reportes #reports .table-wrap { overflow: visible; }
-      .page.view-reportes #reports table, .page.view-reportes #reports tbody, .page.view-reportes #reports tr, .page.view-reportes #reports td { display: block; width: 100%; }
-      .page.view-reportes #reports tr { padding: 8px; margin-bottom: 7px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
-      .page.view-reportes #reports td { display: inline-grid; grid-template-columns: minmax(72px, auto) 1fr; gap: 5px; width: auto; max-width: 100%; padding: 2px 8px 2px 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
-      .page.view-reportes #reports td::before { content: attr(data-label); color: var(--ink); font-weight: 700; }
-      .page.view-reportes #reports td:first-child { display: block; padding: 0 0 5px; color: var(--ink); font-size: 12px; font-weight: 700; }
-      .page.view-reportes #reports td:first-child::before { display: none; }
-      .page.view-reportes #reports td[data-label="Diag. ofrecidos"], .page.view-reportes #reports td[data-label="Diag. vendidos"], .page.view-reportes #reports td[data-label="Act. ofrecidas"], .page.view-reportes #reports td[data-label="Act. vendidas"], .page.view-reportes #reports td[data-label="Vendidos"], .page.view-reportes #reports td[data-label="Descartados"], .page.view-reportes #reports td[data-label="Interes"] { display: none; }
-      main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
-      .left { border-right: 0; min-height: 0; }
-      .mobile-collapse summary { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
-      .mobile-collapse summary::-webkit-details-marker { display: none; }
-      .mobile-collapse summary::after { content: "+"; color: var(--muted); font-size: 18px; }
-      .mobile-collapse[open] summary::after { content: "−"; }
-      .page.view-leads .mobile-collapse:not([open]) { display: block; border-bottom: 1px solid var(--line); }
-      .page.view-leads .mobile-collapse:not([open]) > :not(summary) { display: none; }
-      .filters { grid-template-columns: 1fr 1fr; padding: 8px 10px; gap: 6px; }
-      .import { grid-template-columns: 1fr; padding: 0; }
-      .import[open] { padding-bottom: 8px; }
-      .import[open] .import-row { padding: 8px 10px 0; }
-      .import textarea { min-height: 90px; }
-      .import button { min-height: 42px; }
-      .table-wrap { overflow: auto; }
-      table, thead, tbody, tr, td { display: block; width: 100%; }
-      thead { display: none; }
-      tr { border-bottom: 1px solid var(--line); padding: 10px; }
-      td { border-bottom: 0; padding: 2px 0; }
-      .page.view-chat main { grid-template-rows: minmax(0, 1fr); }
-      .page.view-chat .left { grid-template-rows: auto minmax(0, 1fr); }
-      .page.view-chat .filters { display: none; }
-      .page.view-chat .table-wrap { min-height: 0; }
-      .page.view-leads main { grid-template-rows: minmax(0, 1fr); }
-      .page.view-leads .left { grid-template-rows: auto auto auto minmax(0, 1fr); }
-      .page.view-leads .detail { display: none; }
-      .page.view-leads.mobile-chat-open .left { display: none; }
-      .page.view-leads.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; }
-      .page.view-leads.mobile-chat-open .detail-head { grid-row: 1; }
-      .page.view-leads.mobile-chat-open .actions { grid-row: 2; max-height: 126px; overflow-y: auto; }
-      .page.view-leads.mobile-chat-open .messages { grid-row: 3; min-height: 0; overflow: auto; }
-      .page.view-leads.mobile-chat-open .context { display: none; grid-row: 3; max-height: none; overflow: auto; }
-      .page.view-leads.mobile-chat-open.show-mobile-context .context { display: grid; }
-      .page.view-leads.mobile-chat-open form { grid-row: 4; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
-      .page.view-chat .detail { display: none; }
-      .page.view-chat.mobile-chat-open .left { display: none; }
-      .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; overflow: hidden; }
-      .page.view-chat.mobile-chat-open .detail-head { grid-row: 1; grid-column: 1; }
-      .page.view-chat.mobile-chat-open .messages { grid-row: 2; grid-column: 1; }
-      .page.view-chat.mobile-chat-open form { grid-row: 3; grid-column: 1; position: sticky; bottom: 0; grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; padding: 8px 10px 10px; align-items: end; }
-      .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 132px; overflow-y: auto; overflow-x: hidden; }
-      .page.view-chat.mobile-chat-open .actions button, .page.view-leads.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; min-height: 34px; padding: 0 8px; white-space: normal; font-size: 13px; }
-      .page.view-leads.mobile-chat-open #initialBtn, .page.view-leads.mobile-chat-open #contactedBtn, .page.view-leads.mobile-chat-open #interestedBtn, .page.view-leads.mobile-chat-open #lostBtn { flex-basis: calc(50% - 8px); }
-      .page.view-leads.mobile-chat-open #editBtn, .page.view-leads.mobile-chat-open #paidBtn, .page.view-leads.mobile-chat-open #deleteBtn { flex-basis: calc(33.333% - 8px); font-size: 12px; min-height: 30px; }
-      .page.view-chat.mobile-chat-open .context { display: none; grid-row: 5; grid-column: 1; max-height: 46vh; overflow: auto; border-left: 0; }
-      .page.view-chat.mobile-chat-open.show-mobile-context .context { display: grid; }
-      .page.view-leads.mobile-chat-open.show-mobile-context .messages { display: none; }
-      .mobile-only { display: inline-flex; }
-      .messages { padding: 10px; min-width: 0; overflow-x: hidden; }
-      .msg { max-width: 94%; box-sizing: border-box; }
-      .msg.saliente { max-width: 88%; }
-      .detail-head { padding: 10px; min-width: 0; flex-wrap: wrap; }
-      .detail-head .identity { min-width: 0; flex: 1 1 150px; }
-      .actions { padding: 8px 10px; justify-content: flex-start; }
-      .page.view-chat.mobile-chat-open form textarea { min-height: 56px; max-height: 116px; }
-      .page.view-chat.mobile-chat-open form button { min-height: 56px; padding: 0 10px; }
-      form textarea { min-height: 48px; max-height: 96px; }
-      .context-grid, .ops { grid-template-columns: 1fr; }
-      .ops label.wide { grid-column: span 1; }
-      .edit-grid { grid-template-columns: 1fr; }
-      .edit-grid label.wide { grid-column: span 1; }
-    }
-    .col-cb { display: none; width: 36px; padding: 10px; text-align: center; }
-    .view-leads .col-cb { display: table-cell; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>CRM ON</h1>
-    <nav class="top-nav" aria-label="Navegacion principal">
-      <button class="nav-btn active" data-view="chat">Chat</button>
-      <button class="nav-btn" data-view="seguimiento">Seguimiento</button>
-      <button class="nav-btn" data-view="leads">Leads</button>
-      <button class="nav-btn" data-view="dashboard">Dashboard</button>
-      <button class="nav-btn" data-view="reportes">Reportes</button>
-      <button onclick="abrirBitacora()">Bitácora</button>
-    </nav>
-    <button id="refresh">Actualizar</button>
-  </header>
-  <div style="margin: 10px 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-sunken); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-    <input type="text" id="nombreLead" placeholder="Nombre" style="flex: 1; min-width: 140px;">
-    <input type="text" id="telLead" placeholder="Teléfono" style="flex: 1; min-width: 140px;">
-    <input type="text" id="zonaLead" placeholder="Zona" style="flex: 1; min-width: 120px;">
-    <button class="primary" onclick="agregarLead()">Agregar Lead Manual</button>
-    <div id="bulkSendContainer" style="display: none; align-items: center; gap: 10px; margin-left: auto;">
-      <span id="bulkSelectedCount" style="font-size: 13px; font-weight: 600; color: var(--ink-soft);">0 leads seleccionados</span>
-      <button class="primary" id="btnBulkSend" style="background: var(--lime); color: var(--lime-ink); font-weight: 700;">Enviar a seleccionados</button>
-      <span id="bulkProgress" style="font-size: 12px; color: var(--muted); font-weight: 500; display: none;"></span>
-    </div>
-  </div>
-  <div id="page" class="page view-chat">
-    <div id="dashboard" class="dashboard"></div>
-    <div id="attention" class="attention"></div>
-    <div id="chatDashboard" class="chat-dashboard"></div>
-    <div id="reports" class="dashboard"></div>
-    <div id="bitacoraView" style="display: none; padding: 16px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-y: auto; height: calc(100vh - 56px);"></div>
-    <main>
-      <section class="left">
-        <details class="import mobile-collapse" open>
-          <summary>Importar leads</summary>
-          <div class="import-row">
-            <h2>Importar Prospector ON</h2>
-            <input id="fileInput" type="file" accept=".csv,.tsv,text/csv,text/tab-separated-values" />
-            <textarea id="importText" placeholder="Pega filas CSV o TSV de Prospector ON"></textarea>
-          </div>
-          <div class="import-row"><button class="primary" id="importBtn">Importar</button><span id="importStatus" class="badge">Listo</span></div>
-        </details>
-        <details class="filters mobile-collapse" open>
-          <summary>Filtros</summary>
-          <label>Estado<select id="filterEstado"><option value="">Todos</option></select></label>
-          <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
-          <label>Categoria<select id="filterCategoria"><option value="">Todas</option></select></label>
-          <label>Buscar<input id="filterTexto" placeholder="Nombre, telefono, zona" /></label>
-          <label>Zona<select id="filterZona"><option value="">Todas las zonas</option><option value="__sin_zona__">Sin zona</option></select></label>
-          <label>Fuente<select id="filterFuente"><option value="">Todas las fuentes</option><option value="__sin_fuente__">Sin fuente</option></select></label>
-          <label>Estado comercial<select id="filterEstadoContacto"><option value="">Todos</option></select></label>
-          <label>Caliente<select id="filterCaliente"><option value="">Todos</option><option value="true">Si</option><option value="false">No</option></select></label>
-          <label>Vista<select id="filterOperativo"><option value="">Todos</option><option value="nuevo">Respondieron campaña</option><option value="requiere_intervencion">Requiere intervencion</option><option value="interesados">Interesados</option><option value="calientes">Calientes</option><option value="diagnostico_pagado">Diagnostico pagado</option><option value="hoy_vencidos">Hoy / Vencidos</option></select></label>
-          <button id="clearFilters">Limpiar</button>
-        </details>
-        <label class="lead-search">Buscar lead<input id="leadSearch" placeholder="Telefono, nombre, zona, fuente o estado" /></label>
-        <div class="table-wrap"><table><thead><tr><th class="col-cb"><input type="checkbox" id="selectAllLeads" onchange="toggleSelectAll(this.checked)" /></th><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Telefono</th><th>Zona</th><th>Fuente</th><th>Estado comercial</th><th>Siguiente accion</th><th>Seguimiento</th><th>Producto</th><th>Monto</th><th>Pago</th><th>Acciones</th></tr></thead><tbody id="leads"></tbody></table></div>
       </section>
       <button id="toggleDetailPanel" class="detail-toggle" type="button">Ocultar detalle</button>
       <div id="paneResizer" class="pane-resizer" role="separator" aria-label="Ajustar ancho de leads" aria-orientation="vertical"></div>
@@ -622,9 +420,6 @@ module.exports = async (req, res) => {
     let filtered = [];
     let selected = null;
     let currentView = "chat";
-    let selectedLeads = new Set();
-    let bulkInterval = null;
-    let bulkActiveTelefonos = [];
     let detailCollapsed = false;
     let dashboardInfo = { eventos: [], objeciones: [] };
     const DEBUG_CRM = false;
@@ -1206,19 +1001,16 @@ module.exports = async (req, res) => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
           const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondio</span>' : '';
           const pendingBadge = hasNewMessage(c) ? ' <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '';
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="12"><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-last"><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</div></div></td></tr>';
-        }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-last"><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</div></div></td></tr>';
+        }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
         leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
-        updateBulkSendUI();
         return;
       }
       if (isMobile()) {
         leads.innerHTML = filtered.map(c => {
           const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
-          const isChecked = selectedLeads.has(c.telefono) ? "checked" : "";
-          const checkboxHtml = currentView === "leads" ? '<input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onchange="toggleSelectLead(\'' + escapeHtml(c.telefono) + '\', this.checked)" onclick="event.stopPropagation()" style="margin-right: 8px;" />' : '';
-          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="12"><div class="lead-line"><div class="lead-main">' + checkboxHtml + '<span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + (hasNewMessage(c) ? ' <span class="badge new">Respondio</span> <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '') + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-actions"><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></div></div></td></tr>';
-        }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="11"><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + (hasNewMessage(c) ? ' <span class="badge new">Respondio</span> <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '') + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-actions"><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></div></div></td></tr>';
+        }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
         leads.querySelectorAll("tr[data-tel] td").forEach(td => {
           const tel = td.parentElement.dataset.tel;
           td.querySelector(".lead-actions").insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
@@ -1226,19 +1018,16 @@ module.exports = async (req, res) => {
         bindLeadRowActions();
         leads.querySelectorAll("button[data-initial]").forEach(btn => btn.addEventListener("click", async (event) => { event.stopPropagation(); selected = conversaciones.find(c => c.telefono === btn.dataset.initial); if (selected) document.getElementById("initialBtn").click(); }));
         leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
-        updateBulkSendUI();
         return;
       }
       leads.innerHTML = filtered.map(c => {
         const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
         const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondio</span>' : '';
         const pendingBadge = hasNewMessage(c) ? ' <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '';
-        const isChecked = selectedLeads.has(c.telefono) ? "checked" : "";
-        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td class="col-cb"><input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onchange="toggleSelectLead(\'' + escapeHtml(c.telefono) + '\', this.checked)" onclick="event.stopPropagation()" /></td><td><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.categoria || 'Sin nicho') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div></div></td><td><span class="lead-meta">' + escapeHtml(c.telefono || 'Sin telefono') + '</span></td><td><span class="lead-meta">' + escapeHtml(zonaLabel(c.zona)) + '</span></td><td><span class="lead-meta">' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</span></td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td><span class="lead-next">' + escapeHtml(safeDato(c.siguiente_accion)) + '</span></td><td><span class="lead-meta">' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</span></td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
-      }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.categoria || 'Sin nicho') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div></div></td><td><span class="lead-meta">' + escapeHtml(c.telefono || 'Sin telefono') + '</span></td><td><span class="lead-meta">' + escapeHtml(zonaLabel(c.zona)) + '</span></td><td><span class="lead-meta">' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</span></td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td><span class="lead-next">' + escapeHtml(safeDato(c.siguiente_accion)) + '</span></td><td><span class="lead-meta">' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</span></td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
+      }).join("") || '<tr><td colspan="11">Sin resultados</td></tr>';
       bindLeadRowActions();
       leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
-      updateBulkSendUI();
     }
 
     function renderContext(c) {
@@ -1519,12 +1308,6 @@ module.exports = async (req, res) => {
     });
     document.getElementById("refresh").addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
-    document.getElementById("btnBulkSend").addEventListener("click", () => {
-      if (selectedLeads.size === 0) return;
-      if (confirm(`¿Enviar mensaje inicial a los ${selectedLeads.size} leads seleccionados?\n(Nota: Los leads ya contactados o sin nombre se omitirán automáticamente)`)) {
-        startBulkSend(Array.from(selectedLeads));
-      }
-    });
     toggleDetailPanel.addEventListener("click", () => {
       detailCollapsed = !detailCollapsed;
       updateDetailToggle();
@@ -1676,5 +1459,49 @@ module.exports = async (req, res) => {
       }
     }
 
+    async function agregarLead() {
+      const nombre = document.getElementById('nombreLead').value.trim();
+      const telefono = document.getElementById('telLead').value.trim();
+      const zona = document.getElementById('zonaLead').value.trim();
+      
+      if (!nombre || !telefono) {
+        alert('El nombre y el teléfono son requeridos.');
+        return;
+      }
+      
+      try {
+        const response = await apiFetch('/api/crm-actions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'importar_prospector',
+            rows: [{ nombre, telefono, zona }]
+          })
+        });
+        
+        if (!response.ok) throw new Error('Error al registrar lead');
+        const data = await response.json();
+        if (data.ok) {
+          alert('Lead agregado con éxito.');
+          document.getElementById('nombreLead').value = '';
+          document.getElementById('telLead').value = '';
+          document.getElementById('zonaLead').value = '';
+          await loadConversaciones();
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo agregar el lead.'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al agregar el lead. Verifica la consola.');
+      }
+    }
+
+    const initialView = (location.hash || "#chat").replace("#", "");
+    if (isMobile()) document.querySelectorAll(".mobile-collapse").forEach(el => el.removeAttribute("open"));
+    if (["chat","seguimiento","leads","dashboard","reportes"].includes(initialView)) setView(initialView);
+    loadConversaciones();
+  </script>
+</body>
+</html>`);
 };
 
