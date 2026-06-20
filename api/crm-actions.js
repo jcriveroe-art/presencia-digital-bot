@@ -768,9 +768,9 @@ async function _enviarInicialDirecto(lead) {
   const now = new Date().toISOString();
   await supabase.from("conversaciones").upsert({
     telefono: lead.telefono,
-    estado: "envio_pendiente",
-    estado_contacto: "Enviado",
-    siguiente_accion: "Esperar respuesta",
+    estado: "contactado",
+    estado_contacto: "Contactado",
+    siguiente_accion: "Seguimiento",
     bot_enabled: true,
     ultimo_mensaje: mensaje,
     fecha_ultimo_mensaje: now,
@@ -851,6 +851,14 @@ async function cronProcesarColaEnvios() {
   } catch (err) {
     const codigo = extraerCodigoErrorMeta(err);
     const intentos = (item.intentos || 0) + 1;
+
+    // Log error to errores_bot table
+    await supabase.from("errores_bot").insert({
+      telefono: item.telefono,
+      tipo_error: "otro",
+      descripcion: `Fallo envío mensaje inicial (Meta error: ${err.message}, código: ${codigo || 'n/a'}, intento: ${intentos})`,
+      gravedad: "alta"
+    }).catch(e => console.error("Error al registrar en errores_bot:", e.message));
 
     if (codigo === CODE_SIN_WHATSAPP) {
       await supabase.from("cola_envios").update({
@@ -1202,6 +1210,110 @@ async function cronSeguimientos() {
   return { ok: true, enviados: enviados.length, intervenidos: intervenidos.length, telefonos: enviados };
 }
 
+/**
+ * Encola un lote de prospectos de manera manual desde el CRM.
+ */
+async function encolarLoteManual(body) {
+  const telefonos = (body.telefonos || []).map(normalizarTelefono).filter(Boolean);
+  if (!telefonos.length) return { status: 400, payload: { ok: false, error: "telefonos requeridos" } };
+
+  const { data: leads, error } = await supabase
+    .from("conversaciones")
+    .select("telefono, nombre, estado, estado_contacto, mensaje_inicial_enviado, mensaje_inicial_enviado_at, fecha_ultimo_mensaje, ultimo_mensaje")
+    .in("telefono", telefonos);
+
+  if (error) throw error;
+  if (!leads || !leads.length) return { status: 404, payload: { ok: false, error: "Leads no encontrados" } };
+
+  const encolados = [];
+  const yaContactados = [];
+  const sinNombre = [];
+  const aInsertar = [];
+
+  const { data: yaEnCola } = await supabase
+    .from("cola_envios")
+    .select("telefono, id, estado, prioridad")
+    .in("telefono", telefonos)
+    .in("estado", ["pendiente", "procesando"]);
+  const enColaMap = new Map((yaEnCola || []).map(r => [r.telefono, r]));
+
+  for (const lead of leads) {
+    if (!lead.nombre || !String(lead.nombre).trim() || String(lead.nombre).trim().toLowerCase() === "sin_dato") {
+      sinNombre.push(lead.telefono);
+      continue;
+    }
+
+    const estadoContacto = String(lead.estado_contacto || "").trim().toLowerCase();
+    const yaContactado =
+      lead.mensaje_inicial_enviado === true ||
+      Boolean(lead.mensaje_inicial_enviado_at) ||
+      String(lead.estado || "").trim().toLowerCase() === "contactado" ||
+      estadoContacto === "contactado" ||
+      estadoContacto === "ya_contactado" ||
+      (Boolean(lead.fecha_ultimo_mensaje) && Boolean(String(lead.ultimo_mensaje || "").trim()));
+
+    if (yaContactado) {
+      yaContactados.push(lead.telefono);
+      continue;
+    }
+
+    const existente = enColaMap.get(lead.telefono);
+    if (existente) {
+      if (existente.estado === "pendiente" && existente.prioridad < 10) {
+        await supabase.from("cola_envios").update({ prioridad: 10, origen: "manual_crm_lote", programado_para: new Date().toISOString() }).eq("id", existente.id);
+        await logEventoCRM(lead.telefono, "cola_envio_priorizado", "Envío encolado priorizado manualmente desde lote CRM", { cola_id: existente.id });
+        encolados.push(lead.telefono);
+      }
+      continue;
+    }
+
+    aInsertar.push({
+      telefono: lead.telefono,
+      estado: "pendiente",
+      prioridad: 10,
+      origen: "manual_crm_lote",
+      programado_para: new Date().toISOString()
+    });
+  }
+
+  if (aInsertar.length > 0) {
+    const { data: insertados, error: insertError } = await supabase
+      .from("cola_envios")
+      .insert(aInsertar)
+      .select("telefono, id");
+    if (insertError) throw insertError;
+
+    for (const item of insertados || []) {
+      await logEventoCRM(item.telefono, "cola_envio_encolado", "Mensaje inicial encolado desde lote CRM (manual, prioridad alta)", { cola_id: item.id });
+      encolados.push(item.telefono);
+    }
+  }
+
+  return {
+    ok: true,
+    encolados,
+    ya_contactados: yaContactados,
+    sin_nombre: sinNombre,
+    solicitados: telefonos.length
+  };
+}
+
+/**
+ * Consulta el estado de la cola para un lote específico de teléfonos.
+ */
+async function colaEnviosBatchStatus(body) {
+  const telefonos = (body.telefonos || []).map(normalizarTelefono).filter(Boolean);
+  if (!telefonos.length) return { status: 400, payload: { ok: false, error: "telefonos requeridos" } };
+
+  const { data, error } = await supabase
+    .from("cola_envios")
+    .select("telefono, estado")
+    .in("telefono", telefonos);
+  if (error) throw error;
+
+  return { ok: true, estados: data || [] };
+}
+
 async function dispatch(action, body, req, res) {
   if (action === "cron_recordatorios" || action === "cron_seguimientos" || action === "cron_procesar_cola_envios") {
     if (!cronAutorizado(req)) return { status: 401, payload: { ok: false, error: "Unauthorized" } };
@@ -1219,6 +1331,8 @@ async function dispatch(action, body, req, res) {
     enviar_inicial: encolarEnvioInicial,
     encolar_lote_automatico: encolarLoteAutomatico,
     cola_envios_status: colaEnviosStatus,
+    encolar_lote_manual: encolarLoteManual,
+    cola_envios_batch_status: colaEnviosBatchStatus,
     enviar_manual: enviarManual,
     lead_estado: leadEstado,
     lead_update: leadUpdate,
