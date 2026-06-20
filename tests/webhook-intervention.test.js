@@ -6,7 +6,7 @@ process.env.SUPABASE_URL = "https://example.supabase.co";
 process.env.SUPABASE_SERVICE_KEY = "test";
 process.env.VERIFY_TOKEN = "verify";
 
-const ADMIN = "5215647943262";
+const ADMIN = "525647943262";
 const LEAD = "525512345678";
 
 function createSupabaseMock(options) {
@@ -74,7 +74,7 @@ function createSupabaseMock(options) {
   };
 }
 
-async function runWebhook({ cliente, recentPausedAlert, claudeText }) {
+async function runWebhook({ cliente, recentPausedAlert, claudeText, userMessage }) {
   const sends = [];
   const supabaseMock = createSupabaseMock({ cliente, recentPausedAlert });
   const originalLoad = Module._load;
@@ -91,6 +91,16 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText }) {
             },
           };
         },
+      };
+    }
+    if (request === "axios") {
+      return {
+        post: async (url, data) => {
+          if (data && data.messaging_product === "whatsapp") {
+            sends.push({ to: data.to, message: data.text?.body || data.template?.name });
+          }
+          return { data: { ok: true } };
+        }
       };
     }
     if (request.endsWith("../lib/crm")) {
@@ -111,9 +121,15 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText }) {
     return originalLoad(request, parent, isMain);
   };
 
+  try {
+    delete require.cache[require.resolve("axios")];
+  } catch (e) {}
+  try {
+    delete require.cache[require.resolve("../lib/crm")];
+  } catch (e) {}
+
   delete require.cache[require.resolve("../api/webhook")];
   const webhook = require("../api/webhook");
-  Module._load = originalLoad;
 
   const req = {
     method: "POST",
@@ -124,7 +140,7 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText }) {
           value: {
             messages: [{
               from: LEAD,
-              text: { body: "no entiendo y se me hace sospechoso" },
+              text: { body: userMessage || "no entiendo y se me hace sospechoso" },
             }],
           },
         }],
@@ -146,6 +162,8 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText }) {
       },
     });
   });
+
+  Module._load = originalLoad;
 
   return { sends, status, state: supabaseMock.state };
 }
@@ -180,6 +198,32 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText }) {
   assert.strictEqual(pausedNoRecent.status.code, 200);
   assert.deepStrictEqual(pausedNoRecent.sends.map((s) => s.to), [ADMIN]);
   assert.ok(!pausedNoRecent.sends.some((s) => s.to === LEAD));
+
+  // Test case: Checkpoint de pago triggered via user asking how to pay
+  const paymentQueryTest = await runWebhook({
+    cliente: { telefono: LEAD, bot_enabled: true, estado: "interesado" },
+    recentPausedAlert: false,
+    claudeText: "",
+    userMessage: "¿cómo pago?",
+  });
+
+  assert.strictEqual(paymentQueryTest.status.code, 200);
+  assert.ok(paymentQueryTest.sends.some((s) => s.to === ADMIN && s.message.includes("CHECKPOINT DE PAGO")));
+  assert.ok(paymentQueryTest.sends.some((s) => s.to === LEAD && s.message.includes("Perfecto. Te comparto los datos para apartarlo en un momento.")));
+  assert.ok(paymentQueryTest.state.upserts.some((item) => item.payload.bot_enabled === false && item.payload.estado === "pago_pendiente_confirmacion"));
+
+  // Test case: Checkpoint de pago triggered via Claude returning the state
+  const paymentStateTest = await runWebhook({
+    cliente: { telefono: LEAD, bot_enabled: true, estado: "interesado" },
+    recentPausedAlert: false,
+    claudeText: 'Entiendo.\nESTADO:{"caliente":true,"estado":"pago_pendiente_confirmacion","nombre":null,"negocio":null,"alerta":null,"intervencion":false,"razon_intervencion":null}',
+    userMessage: "sí, compárteme los datos de transferencia",
+  });
+
+  assert.strictEqual(paymentStateTest.status.code, 200);
+  assert.ok(paymentStateTest.sends.some((s) => s.to === ADMIN && s.message.includes("CHECKPOINT DE PAGO")));
+  assert.ok(paymentStateTest.sends.some((s) => s.to === LEAD && s.message.includes("Perfecto. Te comparto los datos para apartarlo en un momento.")));
+  assert.ok(paymentStateTest.state.upserts.some((item) => item.payload.bot_enabled === false && item.payload.estado === "pago_pendiente_confirmacion"));
 
   console.log("webhook intervention tests passed");
 })();

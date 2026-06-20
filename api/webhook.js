@@ -472,23 +472,34 @@ async function alertarJsonBloqueado(telefono, cliente) {
   await saveCliente(telefono, { ultima_alerta_json_bloqueado_at: new Date().toISOString() });
 }
 
+async function dispararCheckpointPago(telefono, cliente, ultimoMensaje) {
+  const esPiloto = String(cliente?.notas || "").toLowerCase().includes("piloto") 
+    || String(cliente?.notas_internas || "").toLowerCase().includes("piloto")
+    || (cliente?.ultimo_mensaje && pideDescuentoOPiloto(cliente.ultimo_mensaje))
+    || pideDescuentoOPiloto(ultimoMensaje);
+  const monto = esPiloto ? "$1,000" : "$1,500";
+  const negocio = cliente?.negocio || cliente?.nombre || "sin datos";
+
+  const textoAlerta = [
+    "CHECKPOINT DE PAGO",
+    `Negocio: ${negocio}`,
+    `Teléfono: ${telefono}`,
+    `Resumen: El lead está listo para pagar el Diagnóstico ON (${monto}).`,
+    "IA pausada. Enviar datos de pago manualmente.",
+  ].join("\n");
+
+  await alertarJuanCarlos("resumen", telefono, { texto: textoAlerta });
+  await logEventoCRM(telefono, "pago_pendiente_confirmacion", `Checkpoint de pago alcanzado (${monto})`, { ultimo_mensaje: ultimoMensaje });
+}
+
 async function responderComercialCritico(telefono, mensaje, cliente) {
   if (preguntaComoPagar(mensaje)) {
-    const respuesta = "Perfecto. Juan Carlos te compartirá los datos de pago para continuar.";
+    const respuesta = "Perfecto. Te comparto los datos para apartarlo en un momento.";
     await logEventoCRM(telefono, "datos_pago_solicitados", "Lead pregunto como pagar", {
       metodo_pago: CONFIG_METODO_PAGO,
     });
-    await alertarJuanCarlos("resumen", telefono, {
-      texto: [
-        "INTERVENCION REQUERIDA",
-        `Numero: ${telefono}`,
-        `Negocio: ${cliente?.negocio || cliente?.nombre || "sin datos"}`,
-        `Ultimo mensaje: ${mensaje || "sin datos"}`,
-        "Razon: Solicita datos de pago. Compartir datos manualmente.",
-        "Responder manualmente desde CRM.",
-      ].join("\n"),
-    });
-    await saveCliente(telefono, { estado: "cliente_caliente", caliente: true });
+    await saveCliente(telefono, { estado: "pago_pendiente_confirmacion", bot_enabled: false, caliente: true });
+    await dispararCheckpointPago(telefono, cliente, mensaje);
     return respuesta;
   }
 
@@ -692,14 +703,17 @@ async function getClaudeResponse(from, userMessage) {
   });
 
   const rawReply = message.content[0].text;
-  const { texto, estado } = parsearEstado(rawReply);
-  const motivoIntervencionComercial = detectarIntervencionComercial(userMessage, texto);
-  const requiereIntervencion = Boolean(estado?.intervencion || motivoIntervencionComercial);
-  const razonIntervencion = motivoIntervencionComercial || estado?.razon_intervencion || "Intervención humana requerida.";
+  let { texto, estado } = parsearEstado(rawReply);
+
+  const esTextoCheckpoint = /comparto los datos para apartarlo/i.test(texto) || /comparto los datos de pago/i.test(texto);
+  const esCheckpointPago = estado?.estado === "pago_pendiente_confirmacion" || esTextoCheckpoint;
+
+  const requiereIntervencion = Boolean(estado?.intervencion) && !esCheckpointPago;
+  const razonIntervencion = estado?.razon_intervencion || "Intervención humana requerida.";
 
   // Actualizar datos del cliente
   const updates = {
-    historial: [...ventana, { role: "assistant", content: texto }],
+    historial: [...ventana, { role: "assistant", content: esCheckpointPago ? "Perfecto. Te comparto los datos para apartarlo en un momento." : texto }],
     fecha_ultimo_mensaje: new Date().toISOString(),
   };
 
@@ -710,7 +724,7 @@ async function getClaudeResponse(from, userMessage) {
     if (estado.caliente !== undefined) updates.caliente = estado.caliente;
 
     // Alertar a Juan Carlos si es necesario
-    if (estado.caliente && !cliente?.caliente && !requiereIntervencion) {
+    if (estado.caliente && !cliente?.caliente && !requiereIntervencion && !esCheckpointPago) {
       await alertarJuanCarlos("caliente", from, estado);
     }
 
@@ -720,7 +734,13 @@ async function getClaudeResponse(from, userMessage) {
     }
   }
 
-  if (requiereIntervencion) {
+  if (esCheckpointPago) {
+    updates.estado = "pago_pendiente_confirmacion";
+    updates.bot_enabled = false;
+    updates.caliente = true;
+    texto = "Perfecto. Te comparto los datos para apartarlo en un momento.";
+    await dispararCheckpointPago(from, cliente, userMessage);
+  } else if (requiereIntervencion) {
     updates.estado = "requiere_intervencion";
     updates.bot_enabled = false;
     updates.notas = `Intervención requerida: ${razonIntervencion}`;
@@ -894,7 +914,9 @@ module.exports = async (req, res) => {
 
             const respuestaCritica = await responderComercialCritico(from, text, cliente);
             if (respuestaCritica) {
-              await sendMessage(from, respuestaCritica);
+              const response = await sendMessage(from, respuestaCritica);
+              await logMensaje(from, "saliente", respuestaCritica, response.data);
+              await logEventoCRM(from, "respuesta_ia", respuestaCritica, { whatsapp: response.data });
               continue;
             }
 
