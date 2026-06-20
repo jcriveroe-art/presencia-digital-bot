@@ -6,7 +6,7 @@ const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("../lib/crm
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const JUAN_CARLOS_NUMBERS = ["525647943262"]; // números de JC para alertas
+const JUAN_CARLOS_NUMBERS = ["525647943262", "5215647943262"]; // números de JC para alertas
 
 const BOT_NUMBER = process.env.BOT_NUMBER || process.env.WHATSAPP_NUMBER || process.env.WHATSAPP_BUSINESS_NUMBER || process.env.PHONE_NUMBER || process.env.PHONE_NUMBER_ID || "";
 const MAX_MENSAJES = 30;
@@ -205,11 +205,23 @@ async function alertarJuanCarlos(tipo, telefono, datos) {
       mensaje
     });
     for (const to of JUAN_CARLOS_NUMBERS) {
+      await logEventoCRM(telefono, "alerta_admin_intento", `Intentando enviar alerta admin (${tipo}) a ${to}`, {
+        tipo,
+        destino: to,
+        mensaje_corto: mensaje.slice(0, 100)
+      });
+
       try {
         const resp = await sendMessage(to, mensaje);
         console.log("DEBUG alerta admin enviada OK", {
           to,
           response: JSON.stringify(resp?.data || null)
+        });
+
+        await logEventoCRM(telefono, "alerta_admin_enviada", `Alerta admin (${tipo}) enviada con éxito a ${to}`, {
+          tipo,
+          destino: to,
+          whatsapp_response: resp?.data || null
         });
       } catch (e) {
         console.error("DEBUG error alertando a JC", {
@@ -218,11 +230,22 @@ async function alertarJuanCarlos(tipo, telefono, datos) {
           status: e.response?.status,
           data: e.response?.data
         });
+
+        await logEventoCRM(telefono, "alerta_admin_fallida", `Fallo al enviar alerta admin (${tipo}) a ${to}`, {
+          tipo,
+          destino: to,
+          error: e.message,
+          status: e.response?.status || null,
+          error_data: e.response?.data || null
+        });
       }
     }
   } catch (e) {
     console.error("DEBUG error alertando a JC general", {
       message: e.message
+    });
+    await logEventoCRM(telefono, "alerta_admin_error_general", `Error general en alertarJuanCarlos: ${e.message}`, {
+      error: e.message
     });
   }
 }

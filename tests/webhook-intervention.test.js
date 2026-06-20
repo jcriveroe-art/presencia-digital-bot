@@ -7,6 +7,7 @@ process.env.SUPABASE_SERVICE_KEY = "test";
 process.env.VERIFY_TOKEN = "verify";
 
 const ADMIN = "525647943262";
+const ADMINS = ["525647943262", "5215647943262"];
 const LEAD = "525512345678";
 
 function createSupabaseMock(options) {
@@ -176,7 +177,7 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText, userMessage 
   });
 
   assert.strictEqual(intervention.status.code, 200);
-  assert.deepStrictEqual(intervention.sends.map((s) => s.to), [ADMIN]);
+  assert.deepStrictEqual(intervention.sends.map((s) => s.to), ADMINS);
   assert.ok(!intervention.sends.some((s) => s.to === LEAD));
   assert.ok(intervention.state.upserts.some((item) => item.payload.bot_enabled === false && item.payload.estado === "requiere_intervencion"));
 
@@ -196,7 +197,7 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText, userMessage 
   });
 
   assert.strictEqual(pausedNoRecent.status.code, 200);
-  assert.deepStrictEqual(pausedNoRecent.sends.map((s) => s.to), [ADMIN]);
+  assert.deepStrictEqual(pausedNoRecent.sends.map((s) => s.to), ADMINS);
   assert.ok(!pausedNoRecent.sends.some((s) => s.to === LEAD));
 
   // Test case: Checkpoint de pago triggered via user asking how to pay
