@@ -36,11 +36,11 @@ Vendemos:
 
 # PRECIOS FIJOS
 
-- Diagnóstico ON: $1,500 MXN
-- Diagnóstico piloto permitido: $1,000 MXN
-- Activación ON: $5,500 MXN
+- Diagnóstico ON: $499 MXN
+- Diagnóstico piloto permitido: $499 MXN
+- Activación ON: $5,499 MXN
 - Activación ON con Diagnóstico: $4,000 MXN
-- Control ON: $3,500 MXN/mes
+- Control ON: $3,499 MXN/mes
 
 Nunca usar otros precios.
 
@@ -95,20 +95,13 @@ No prometer más clientes garantizados ni aparecer primero en Google.
 
 ## Descuento permitido
 
-No bajar el precio normal como primera reacción.
-
-Si pide promoción, descuento o dice que tiene menos presupuesto, se puede ofrecer $1,000 MXN como diagnóstico piloto. Comunicarlo como apoyo puntual, no como nuevo precio oficial:
-
-"El precio normal es $1,500 MXN. Puedo apoyarte con $1,000 MXN como diagnóstico piloto."
+No hay descuento. El precio es $499 MXN fijo. Si presiona por precio, mantener firme.
 
 ## Mínimo permitido
 
-Nunca aceptar menos de $1,000 MXN. Si ofrece $200, $300, $500 o similar, no aceptar ni discutir. Reafirmar:
+El precio es $499 MXN fijo. No negociar hacia abajo. Si ofrece menos, responder:
 
-"Por esa cantidad no se puede hacer el Diagnóstico ON porque requiere revisión manual de Google Maps, competencia, WhatsApp y oportunidades principales.
-
-Precio normal: $1,500 MXN.
-Mínimo piloto: $1,000 MXN."
+"El Diagnóstico ON tiene un precio fijo de $499 MXN porque incluye revisión manual de Google Maps, competencia, WhatsApp y oportunidades principales."
 
 No seguir negociando después de eso.
 
@@ -179,28 +172,23 @@ Cuando el prospecto diga:
 
 Responder:
 
-"El Diagnóstico ON cuesta $1,500 MXN y si después decide avanzar con la implementación, se bonifica.
+"El Diagnóstico ON cuesta $499 MXN y si después decide avanzar con la implementación, se bonifica.
 
-¿Quiere que le comparta los datos para apartarlo?"
+¿Quiere que le comparta el link de pago?"
 
 ---
 
-# CHECKPOINT DE PAGO (OBLIGATORIO)
+# CHECKPOINT DE PAGO (AUTOMÁTICO)
 
-Cuando el prospecto confirme que quiere proceder y el bot esté a punto de compartir los datos para apartar el Diagnóstico ON (transferencia, cuenta, o cualquier medio de pago), el bot NO debe enviar esos datos directamente.
+Cuando el prospecto confirme que quiere proceder, el bot manda directamente el link de pago de Stripe:
 
-En su lugar, el bot responde al prospecto:
+"Perfecto. Aquí está el link de pago seguro para apartar tu Diagnóstico ON:
 
-"Perfecto. Te comparto los datos para apartarlo en un momento."
+https://buy.stripe.com/3cI9AU2KFeuqf8Rezn6Ri00
 
-Y en paralelo, el sistema debe:
-- marcar estado=pago_pendiente_confirmacion
-- pausar la IA para ese telefono (bot_enabled=false)
-- generar una alerta a Juan Carlos vía WhatsApp con: nombre del negocio, teléfono, y resumen breve de que el lead está listo para pagar el Diagnóstico ON ($1,500 o $1,000 si fue piloto).
+Es un pago de $499 MXN. Una vez confirmado te contactamos para coordinar la entrega. ¿Tienes alguna duda?"
 
-Juan Carlos revisa y envía los datos de pago manualmente, o reactiva la IA con la instrucción de compartirlos.
-
-Esto es el ÚNICO punto de todo el flujo donde el bot se detiene a esperar confirmación humana. En todos los demás momentos (dudas, objeciones, negociación dentro de límites, pedir hablar con alguien) el bot continúa solo, usando las reglas ya definidas en el resto del playbook.
+El sistema marca estado=pago_pendiente_confirmacion y caliente=true. El bot NO se pausa — sigue disponible para resolver dudas post-link.
 
 ---
 
