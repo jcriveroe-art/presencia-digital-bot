@@ -372,26 +372,19 @@ function parsearEstado(respuesta) {
   let texto = String(respuesta || "");
   let estado = null;
 
-  const estadoMatch = texto.match(/(?:^|\n)\s*-{0,3}\s*ESTADO\s*:\s*```(?:json)?\s*([\s\S]*?)\s*```/i)
-    || texto.match(/(?:^|\n)\s*-{0,3}\s*ESTADO\s*:\s*(\{[\s\S]*?\})\s*$/i);
+  // Buscar bloque JSON que contenga nuestras claves en cualquier parte del texto
+  const jsonRegex = /(?:-{0,3}\s*ESTADO\s*:\s*)?```(?:json)?\s*(\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\})\s*```/gi;
+  const jsonRegexNoBackticks = /(?:-{0,3}\s*ESTADO\s*:\s*)(\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\})/gi;
+  const jsonRegexRaw = /(\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\})/gi;
 
-  if (estadoMatch) {
+  const match = jsonRegex.exec(texto) || jsonRegexNoBackticks.exec(texto) || jsonRegexRaw.exec(texto);
+
+  if (match) {
     try {
-      estado = JSON.parse(estadoMatch[1].trim());
+      estado = JSON.parse(match[1].trim());
+      texto = texto.replace(match[0], "");
     } catch (e) {
-      console.error("No se pudo parsear ESTADO interno:", e.message);
-    }
-    texto = texto.replace(estadoMatch[0], "");
-  } else {
-    const jsonFinal = texto.match(/(?:^|\n)\s*```(?:json)?\s*(\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\})\s*```\s*$/i)
-      || texto.match(/(?:^|\n)\s*(\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\})\s*$/i);
-    if (jsonFinal) {
-      try {
-        estado = JSON.parse(jsonFinal[1].trim());
-      } catch (e) {
-        console.error("No se pudo parsear JSON final interno:", e.message);
-      }
-      texto = texto.replace(jsonFinal[0], "");
+      console.error("No se pudo parsear ESTADO interno encontrado:", e.message);
     }
   }
 
@@ -399,19 +392,24 @@ function parsearEstado(respuesta) {
 }
 
 function sanitizarRespuestaCliente(texto) {
-  return String(texto || "")
-    .replace(/(?:^|\n)\s*-{0,3}\s*ESTADO\s*:\s*```(?:json)?[\s\S]*?```\s*$/gi, "")
-    .replace(/(?:^|\n)\s*-{0,3}\s*ESTADO\s*:\s*\{[\s\S]*?\}\s*$/gi, "")
-    .replace(/(?:^|\n)\s*```(?:json)?\s*\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\}\s*```\s*$/gi, "")
-    .replace(/(?:^|\n)\s*\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\}\s*$/gi, "")
-    .replace(/```(?:json)?/gi, "")
-    .replace(/```/g, "")
-    .replace(/(?:^|\n)\s*-{3,}\s*$/g, "")
-    .trim();
+  let clean = String(texto || "");
+
+  // Eliminar bloques JSON de cualquier parte del texto
+  clean = clean.replace(/(?:-{0,3}\s*ESTADO\s*:\s*)?```(?:json)?\s*\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\}\s*```/gi, "");
+  clean = clean.replace(/(?:-{0,3}\s*ESTADO\s*:\s*)\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\}/gi, "");
+  clean = clean.replace(/\{[\s\S]*?(?:"caliente"|"estado"|"intervencion"|"razon_intervencion")[\s\S]*?\}/gi, "");
+
+  // Limpiar marcas residuales si quedaran
+  clean = clean.replace(/```(?:json)?/gi, "");
+  clean = clean.replace(/```/g, "");
+  clean = clean.replace(/(?:^|\n)\s*-{1,3}\s*ESTADO\s*:\s*$/gi, "");
+  clean = clean.replace(/(?:^|\n)\s*-{3,}\s*$/g, "");
+
+  return clean.trim();
 }
 
 function contieneEstadoInterno(texto) {
-  return /ESTADO\s*:|"caliente"\s*:|"estado"\s*:|"intervencion"\s*:|"razon_intervencion"\s*:|"bot_enabled"\s*:|requiere_intervencion/i.test(String(texto || ""));
+  return /ESTADO\s*:\s*[\{\`]|"caliente"\s*:|"estado"\s*:|"intervencion"\s*:|"razon_intervencion"\s*:|"bot_enabled"\s*:/i.test(String(texto || ""));
 }
 
 function normalizarTexto(texto) {
@@ -456,7 +454,7 @@ function montosMencionados(texto) {
 
 function contieneAlucinacionComercialCritica(texto) {
   const clean = normalizarTexto(texto);
-  const mencionaDatosPago = /\b(banco|cuenta|clabe|transferencia|spei|titular|link\s+de\s+pago|liga\s+de\s+pago|tarjeta|deposito|dep[oó]sito|paypal|mercado\s+pago)\b/.test(clean);
+  const mencionaDatosPago = /\b(banco|cuenta|clabe|transferencia|spei|titular|tarjeta|deposito|dep[oó]sito|paypal|mercado\s+pago)\b/.test(clean);
   const mencionaPromocion = /\b(promo|promocion|descuento|oferta|rebaja|bono\s+especial)\b/.test(clean);
   const precios = montosMencionados(texto);
   const precioNoConfigurado = precios.some((precio) => !PRECIOS_CONFIGURADOS.has(precio));
