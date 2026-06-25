@@ -16,9 +16,9 @@ const VALIDACION_SIN_FILTROS_INBOUND = true;
 const CONFIG_DIAGNOSTICO_PRECIO = 499;
 const CONFIG_DIAGNOSTICO_PILOTO_PRECIO = 499;
 const STRIPE_LINK_DIAGNOSTICO = "https://buy.stripe.com/3cI9AU2KFeuqf8Rezn6Ri00";
-const CONFIG_ACTIVACION_PRECIO = 5500;
-const CONFIG_ACTIVACION_CON_DIAGNOSTICO = 4000;
-const CONFIG_CONTROL_PRECIO = 3500;
+const CONFIG_ACTIVACION_PRECIO = 1500;
+const CONFIG_ACTIVACION_CON_DIAGNOSTICO = 2000;
+const CONFIG_CONTROL_PRECIO = 1500;
 const CONFIG_METODO_PAGO = "manual";
 const PRECIOS_CONFIGURADOS = new Set([
   CONFIG_DIAGNOSTICO_PRECIO,
@@ -28,7 +28,9 @@ const PRECIOS_CONFIGURADOS = new Set([
   CONFIG_CONTROL_PRECIO,
 ]);
 
-const SYSTEM_PROMPT = `Eres el asistente de ventas de Presencia Digital IA por WhatsApp. Tu trabajo es orientar con calma a negocios locales, hacer un mini diagnostico conversacional y avanzar solo cuando exista interes real.
+const SYSTEM_PROMPT = `NUNCA incluyas en tu respuesta frases como 'No debo responder como...', encabezados con ## o **, ni razonamiento interno visible. Solo el texto limpio que verá el cliente.
+
+Eres el asistente de ventas de Presencia Digital IA por WhatsApp. Tu trabajo es orientar con calma a negocios locales, hacer un mini diagnostico conversacional y avanzar solo cuando exista interes real.
 
 Presencia Digital IA ayuda a negocios locales en M?xico a mejorar su presencia en Google Maps y WhatsApp para que mas clientes los encuentren, confien y escriban. No somos agencia de redes sociales. No vendemos likes, publicaciones ni anuncios.
 
@@ -44,9 +46,9 @@ Si no tienes un dato, di: "No tengo ese dato todavía."
 
 PRECIOS FIJOS
 Diagnostico ON = $499 MXN.
-Activacion ON = $5,499 MXN.
-Activacion ON con Diagnostico = $4,000 MXN.
-Control ON = $3,499 MXN/mes.
+Activacion ON = $1,500 MXN.
+Activacion ON con Diagnostico = $2,000 MXN.
+Control ON = $1,500 MXN/mes.
 Nunca uses otros precios.
 Nunca inventes cuentas bancarias, CLABE, titulares, links de pago, promociones ni descuentos.
 Precio fijo: $499 MXN. No hay descuento ni piloto. No negociar hacia abajo.
@@ -442,7 +444,7 @@ function preguntaQuienesSomos(texto) {
 
 function diceQueNoOMolesto(texto) {
   const clean = normalizarTexto(texto);
-  return /\b(no\s+gracias|no\s+me\s+interesa|no\s+interesado|no\s+interesada|no\s+queremos|no\s+quiero|deja\s+de\s+escribir|no\s+molestar|no\s+mas|ya\s+no|eliminame|saca\s+mi\s+numero|no\s+autorizado)\b/.test(clean) || clean === "no";
+  return /\b(no\s+gracias|no\s+me\s+interesa|no\s+interesado|no\s+interesada|no\s+queremos|no\s+quiero|deja\s+de\s+escribir|no\s+molestar|no\s+mas|ya\s+no|eliminame|saca\s+mi\s+numero|no\s+autorizado|no\s+por\s+ahora)\b/.test(clean) || clean === "no" || clean === "no por ahora";
 }
 
 function montosMencionados(texto) {
@@ -510,18 +512,79 @@ async function dispararCheckpointPago(telefono, cliente, ultimoMensaje) {
   await logEventoCRM(telefono, "pago_pendiente_confirmacion", `Checkpoint de pago alcanzado (${monto})`, { ultimo_mensaje: ultimoMensaje });
 }
 
+function mencionaEfectivo(mensaje) {
+  const text = String(mensaje || "").toLowerCase();
+  return /\b(efectivo|cash|en persona|mano|fisico|físico|domicilio|efec)\b/i.test(text);
+}
+
+function estaEnCdmxEdomex(cliente) {
+  if (!cliente) return false;
+  const direccion = String(cliente.direccion || "").toLowerCase();
+  const zona = String(cliente.zona || "").toLowerCase();
+  const texto = direccion + " " + zona;
+  return /\b(cdmx|ciudad de mexico|ciudad de méxico|distrito federal|df|edomex|estado de mexico|estado de méxico|naucalpan|tlalnepantla|ecatepec|neza|nezahualcoyotl|huixquilucan|chimalhuacan|atizapan|cuautitlan|tultitlan|coacalco|chalco|ixtapaluca|tecamac)\b/i.test(texto);
+}
+
 async function responderComercialCritico(telefono, mensaje, cliente) {
+  // Flujo pago en efectivo - Dirección proporcionada
+  if (cliente && cliente.estado_contacto === 'esperando_direccion_efectivo') {
+    const updatePayload = {
+      direccion_efectivo: mensaje,
+      estado: "requiere_intervencion",
+      bot_enabled: false,
+      estado_contacto: "requiere_intervencion_manual",
+      siguiente_accion: "Coordinar cobro en efectivo"
+    };
+    
+    let { error } = await supabase.from("conversaciones").update(updatePayload).eq("telefono", telefono);
+    if (error && error.message.includes('column "direccion_efectivo" of relation "conversaciones" does not exist')) {
+      console.log("⚠️ Columna 'direccion_efectivo' no existe en 'conversaciones'. Guardando sin ella...");
+      delete updatePayload.direccion_efectivo;
+      await supabase.from("conversaciones").update(updatePayload).eq("telefono", telefono);
+    }
+
+    const nombreNegocio = cliente.negocio || cliente.nombre || "Negocio sin nombre";
+    await alertarJuanCarlos("intervencion", telefono, {
+      negocio: nombreNegocio,
+      nombre: cliente.nombre || "",
+      ultimo_mensaje: mensaje,
+      razon_intervencion: `Lead de CDMX/Edomex proporcionó dirección para cobro en efectivo: ${mensaje}`
+    });
+    return "Listo, Juan Carlos te confirma en breve para coordinar.";
+  }
+
   if (diceQueNoOMolesto(mensaje)) {
-    await saveCliente(telefono, { 
+    const updatePayload = { 
       estado: "no_interesado", 
       estado_contacto: "Descartado",
       bot_enabled: false, 
-      siguiente_accion: "Cerrado - No interesado" 
-    });
+      siguiente_accion: "Cerrado - No interesado",
+      no_interesado: true
+    };
+    
+    let { error } = await supabase.from("conversaciones").update(updatePayload).eq("telefono", telefono);
+    if (error && error.message.includes('column "no_interesado" of relation "conversaciones" does not exist')) {
+      console.log("⚠️ Columna 'no_interesado' no existe en 'conversaciones'. Guardando sin ella...");
+      delete updatePayload.no_interesado;
+      await supabase.from("conversaciones").update(updatePayload).eq("telefono", telefono);
+    }
+
     await logEventoCRM(telefono, "lead_descartado", "Lead expreso desinteres o molestia - conversacion cerrada respetuosamente", {
       original_mensaje: mensaje
     });
     return "Entendido, disculpa la molestia. Que tengan un excelente día.";
+  }
+
+  // Flujo pago en efectivo - Primer contacto
+  if (mencionaEfectivo(mensaje)) {
+    if (estaEnCdmxEdomex(cliente)) {
+      await saveCliente(telefono, {
+        estado_contacto: 'esperando_direccion_efectivo'
+      });
+      return "Perfecto. ¿En qué zona o colonia estás para coordinar la entrega?";
+    } else {
+      return `Perfecto. El pago lo puedes hacer en cualquier OXXO con un voucher que te mandamos. Aquí el link para generarlo: ${STRIPE_LINK_DIAGNOSTICO}`;
+    }
   }
 
   if (creeQueEsPedido(mensaje)) {

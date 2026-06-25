@@ -38,9 +38,9 @@ Vendemos:
 
 - Diagnóstico ON: $499 MXN
 - Diagnóstico piloto permitido: $499 MXN
-- Activación ON: $5,499 MXN
-- Activación ON con Diagnóstico: $4,000 MXN
-- Control ON: $3,499 MXN/mes
+- Activación ON: $1,500 MXN
+- Activación ON con Diagnóstico: $2,000 MXN
+- Control ON: $1,500 MXN/mes
 
 Nunca usar otros precios.
 
@@ -776,8 +776,7 @@ corrija.
 Ejemplo de qué SÍ responder cuando el negocio contesta con autoresponder:
 
 "Hola, vi tu ficha en Google Maps y encontré algunas oportunidades que
-podrían ayudarte a recibir más pacientes. ¿Tienes 2 minutos para que te
-las comparta?"
+podrían ayudarte a recibir más pacientes. ¿Me permites compartírtelas por aquí?"
 
 (Una sola versión, conversacional, sin mencionar el autoresponder ni el
 proceso de detección.)
