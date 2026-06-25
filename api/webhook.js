@@ -13,8 +13,9 @@ const MAX_MENSAJES = 30;
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
 const VALIDACION_SIN_FILTROS_INBOUND = true;
-const CONFIG_DIAGNOSTICO_PRECIO = 1500;
-const CONFIG_DIAGNOSTICO_PILOTO_PRECIO = 1000;
+const CONFIG_DIAGNOSTICO_PRECIO = 499;
+const CONFIG_DIAGNOSTICO_PILOTO_PRECIO = 499;
+const STRIPE_LINK_DIAGNOSTICO = "https://buy.stripe.com/3cI9AU2KFeuqf8Rezn6Ri00";
 const CONFIG_ACTIVACION_PRECIO = 5500;
 const CONFIG_ACTIVACION_CON_DIAGNOSTICO = 4000;
 const CONFIG_CONTROL_PRECIO = 3500;
@@ -42,22 +43,21 @@ No digas que detectaste fugas, problemas, perdida de clientes o competencia gana
 Si no tienes un dato, di: "No tengo ese dato todavía."
 
 PRECIOS FIJOS
-Diagnostico ON = $1,500 MXN.
-Diagnostico piloto permitido = $1,000 MXN solo si pide descuento, promocion o dice que tiene menos presupuesto.
-Activacion ON = $5,500 MXN.
+Diagnostico ON = $499 MXN.
+Activacion ON = $5,499 MXN.
 Activacion ON con Diagnostico = $4,000 MXN.
-Control ON = $3,500 MXN/mes.
+Control ON = $3,499 MXN/mes.
 Nunca uses otros precios.
 Nunca inventes cuentas bancarias, CLABE, titulares, links de pago, promociones ni descuentos.
-Unico apoyo permitido: diagnostico piloto de $1,000 MXN si pide descuento o tiene menos presupuesto.
-Si preguntan como pagar, responde que Juan Carlos compartira los datos de pago para continuar.
-Nunca aceptes menos de $1,000 MXN. Si ofrecen menos, reafirma precio normal y minimo piloto sin seguir negociando.
+Precio fijo: $499 MXN. No hay descuento ni piloto. No negociar hacia abajo.
+Si preguntan como pagar, compartir el link de Stripe directamente.
+Nunca aceptes menos de $499 MXN.
 
 CIERRE
 Si el prospecto dice "si", "ok", "me interesa", "cuanto cuesta", "como pago" o "quiero hacerlo", responde:
-"El Diagnóstico ON cuesta $1,500 MXN y si después decide avanzar con la implementación, se bonifica.
+"El Diagnóstico ON cuesta $499 MXN y si después decide avanzar con la implementación, se bonifica.
 
-¿Quiere que le comparta los datos para apartarlo?"
+¿Quiere que le comparta el link de pago?"
 
 REGLA DE PRIMER CONTACTO
 Si el usuario saluda, dice "hola", "buen dia", "soy nuevo" o no trae contexto, responde exactamente:
@@ -82,12 +82,14 @@ Antes de pedir pago, explica en simple:
 "Con eso ya se ve una oportunidad: si tu ficha no esta actualizada o no transmite confianza, una persona que busca tu servicio puede elegir a otro negocio antes de escribirte."
 
 Despues ofrece suave:
-"El siguiente paso es el Diagnostico ON. Ahi revisamos tu ficha, tus competidores cercanos y te entregamos un plan claro de que corregir primero. Cuesta $1,500 y se entrega en 2-3 dias habiles. Si despues quieres que lo implementemos, ese pago se toma a cuenta."
+"El siguiente paso es el Diagnostico ON. Ahi revisamos tu ficha, tus competidores cercanos y te entregamos un plan claro de que corregir primero. Cuesta $499 MXN y se entrega en 2-3 dias habiles. Si despues quieres que lo implementemos, ese pago se toma a cuenta."
 
 Despues de explicar, cierra con:
-"�Quieres que te explique que incluye o prefieres que revise primero si tu negocio tiene oportunidad real?"
+"¿Le comparto el link de pago para apartar su diagnóstico?"
 
-Nunca cierres con "�te mando los datos para la transferencia?" salvo que el usuario haya dicho "si me interesa", "quiero hacerlo", "como pago", "mandame datos" o "va".
+REGLA CRITICA: Si el lead dice "si", "ok", "bueno", "va", "dale", "claro", "dime", "sl" o cualquier señal de permiso, NO volver a pedir permiso. Avanzar directo a las observaciones o al link de pago segun el contexto.
+
+Nunca cierres con "te mando los datos para la transferencia?" salvo que el usuario haya dicho "si me interesa", "quiero hacerlo", "como pago", "mandame datos" o "va".
 Si el usuario muestra intencion clara de compra, puedes pedir nombre, correo y telefono antes de datos de pago.
 Nunca confirmes pago sin comprobante o folio real.
 
@@ -96,13 +98,15 @@ MODO A: PROSPECTO NUEVO
 Si no hay contexto de Prospector ON, no asumas giro ni zona. Explica que hace Presencia Digital IA, pregunta primero el giro y despues la ciudad o colonia si falta. No pidas pago en el primer intercambio.
 
 MODO B: PROSPECCION SALIENTE CON CONTEXTO
-Si recibes un bloque llamado CONTEXTO DEL LEAD, significa que el mensaje inicial salio desde CRM ON y ya conocemos el negocio. Si el lead responde algo como "si", "si por favor", "claro", "comparteme", "a ver" o "que encontraste", no preguntes giro ni zona.
-Usa solo fugas_detectadas reales del contexto. No inventes fugas, datos, resenas, fotos, rating ni competencia. Nunca menciones un numero exacto de fotos al prospecto.
+Si recibes un bloque llamado CONTEXTO DEL LEAD, significa que el mensaje inicial salio desde CRM ON y ya conocemos el negocio. Si el lead responde algo como "si", "si por favor", "claro", "comparteme", "a ver", "que encontraste", "ok", "bueno", "va", "dale" o "sl", no preguntes giro ni zona.
+Usa solo fugas_detectadas reales del contexto. No inventes fugas, datos, resenas, fotos, rating ni competencia. Nunca mencione un numero exacto de fotos al prospecto.
 Si existen fugas_detectadas, resume 3 a 5 oportunidades concretas y explica que el punto importante es saber cuales afectan mas la confianza y que corregir primero.
 Si no existen fugas_detectadas, dilo con honestidad y pregunta si quiere que revisemos su ficha con mas detalle. No inventes informacion.
 Cuando responda positivamente a prospeccion saliente, usa estado=interesado y caliente=false.
 Si hay referencia a fotos, usa "posible baja actividad visual en la ficha", no "solo tiene X fotos".
-Ejemplo de tono si hay contexto: "Claro. Detecte varias oportunidades en su ficha: tienen calificacion baja, pocas resenas y la ultima resena parece antigua. Tambien vi posible baja actividad visual en la ficha y resenas sin responder. El punto importante no es solo enlistarlas, sino saber cuales afectan mas la confianza y que corregir primero. Eso lo revisamos en el Diagnostico ON. �Quiere que le explique como funciona?"
+Ejemplo de tono si hay contexto: "Claro. Detecte varias oportunidades en su ficha: tienen calificacion baja, pocas resenas y la ultima resena parece antigua. Tambien vi posible baja actividad visual en la ficha y resenas sin responder. El punto importante no es solo enlistarlas, sino saber cuales afectan mas la confianza y que corregir primero. Eso lo revisamos en el Diagnostico ON. Quiere que le explique como funciona?"
+NO vuelvas a pedir permiso. Avanza directo a compartir las observaciones.
+
 OBJECIONES OBLIGATORIAS
 Si el usuario dice "no entiendo", responde:
 "Claro. Lo explico mas simple: revisamos como se ve tu negocio en Google cuando alguien busca lo que vendes en tu zona. Si tu ficha se ve abandonada, con pocas resenas o sin forma clara de contacto, puedes perder clientes. Nosotros detectamos eso y te decimos que corregir primero."
@@ -187,64 +191,48 @@ async function sendMessage(to, message) {
   );
 }
 
+async function enviarTelegram(mensaje) {
+  try {
+    const axios = require("axios");
+    const token = "8860116821:AAFr4OFeFG6G0CRLsPhJdXvmAzWxHS7AG2A";
+    const chatId = "7064740340";
+    await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+      chat_id: chatId,
+      text: mensaje,
+    });
+    console.log("ALERTA_TELEGRAM_ENVIADA");
+  } catch (e) {
+    console.error("Error enviando alerta a Telegram:", e.message);
+  }
+}
+
 async function alertarJuanCarlos(tipo, telefono, datos) {
   let mensaje = "";
 
   if (tipo === "caliente") {
-    mensaje = `CLIENTE CALIENTE\nNumero: ${telefono}\nNegocio: ${datos.negocio || "sin datos"}\nNombre: ${datos.nombre || "sin datos"}\nSituacion: ${datos.alerta}`;
+    mensaje = `🔥 CLIENTE CALIENTE\nNúmero: ${telefono}\nNegocio: ${datos.negocio || "sin datos"}\nNombre: ${datos.nombre || "sin datos"}\nSituación: ${datos.alerta}`;
   } else if (tipo === "intervencion") {
-    mensaje = `INTERVENCION REQUERIDA\nNumero: ${telefono}\nNegocio: ${datos.negocio || "sin datos"}\nUltimo mensaje: ${datos.ultimo_mensaje || "sin datos"}\nRazon: ${datos.razon_intervencion || "sin datos"}\nIA pausada. Responder manualmente desde CRM.`;
+    mensaje = `⚠️ INTERVENCIÓN REQUERIDA\nNúmero: ${telefono}\nNegocio: ${datos.negocio || "sin datos"}\nÚltimo mensaje: ${datos.ultimo_mensaje || "sin datos"}\nRazón: ${datos.razon_intervencion || "sin datos"}\nIA pausada. Responder manualmente desde CRM.`;
   } else if (tipo === "resumen") {
     mensaje = datos.texto;
   }
 
   try {
-    console.log("DEBUG alertarJuanCarlos payload", {
+    await logEventoCRM(telefono, "alerta_admin_intento", `Intentando enviar alerta admin (${tipo}) a Telegram`, {
       tipo,
-      to: JUAN_CARLOS_NUMBERS,
-      mensaje
+      mensaje_corto: mensaje.slice(0, 100)
     });
-    for (const to of JUAN_CARLOS_NUMBERS) {
-      await logEventoCRM(telefono, "alerta_admin_intento", `Intentando enviar alerta admin (${tipo}) a ${to}`, {
-        tipo,
-        destino: to,
-        mensaje_corto: mensaje.slice(0, 100)
-      });
 
-      try {
-        const resp = await sendMessage(to, mensaje);
-        console.log("DEBUG alerta admin enviada OK", {
-          to,
-          response: JSON.stringify(resp?.data || null)
-        });
+    await enviarTelegram(mensaje);
 
-        await logEventoCRM(telefono, "alerta_admin_enviada", `Alerta admin (${tipo}) enviada con éxito a ${to}`, {
-          tipo,
-          destino: to,
-          whatsapp_response: resp?.data || null
-        });
-      } catch (e) {
-        console.error("DEBUG error alertando a JC", {
-          to,
-          message: e.message,
-          status: e.response?.status,
-          data: e.response?.data
-        });
-
-        await logEventoCRM(telefono, "alerta_admin_fallida", `Fallo al enviar alerta admin (${tipo}) a ${to}`, {
-          tipo,
-          destino: to,
-          error: e.message,
-          status: e.response?.status || null,
-          error_data: e.response?.data || null
-        });
-      }
-    }
+    await logEventoCRM(telefono, "alerta_admin_enviada", `Alerta admin (${tipo}) enviada con éxito a Telegram`, {
+      tipo
+    });
   } catch (e) {
     console.error("DEBUG error alertando a JC general", {
       message: e.message
     });
-    await logEventoCRM(telefono, "alerta_admin_error_general", `Error general en alertarJuanCarlos: ${e.message}`, {
+    await logEventoCRM(telefono, "alerta_admin_error_general", `Error en alertarJuanCarlos: ${e.message}`, {
       error: e.message
     });
   }
@@ -340,14 +328,7 @@ async function alertarInboundCRM(telefono, cliente, mensaje) {
       "https://presencia-digital-bot.vercel.app/crm",
     ].join("\n");
 
-    for (const to of JUAN_CARLOS_NUMBERS) {
-      try {
-        await sendMessage(to, alerta);
-        console.log("ALERTA_INBOUND_ENVIADA", { to, telefono });
-      } catch (err) {
-        console.error("ALERTA_INBOUND_ERROR", { to, error: err.message });
-      }
-    }
+    await enviarTelegram(alerta);
     await saveCliente(telefono, { ultima_alerta_inbound_at: new Date().toISOString() });
   } catch (e) {
     console.error("Error enviando alerta inbound CRM:", e.message);
@@ -450,6 +431,21 @@ function pideDescuentoOPiloto(texto) {
   return /\b(descuento|promo|promocion|menos\s+presupuesto|no\s+tengo\s+(?:todo|completo)|se\s+puede\s+menos|muy\s+caro|tengo\s+menos|solo\s+tengo)\b/.test(clean);
 }
 
+function creeQueEsPedido(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(pedido|ordenar|ordene|ordenes|para\s+llevar|domicilio|tome\s+tu\s+orden|tomar\s+(?:su|tu)\s+orden|hacer\s+orden|hacer\s+(?:un\s+)?pedido|tomar\s+pedido|tomar\s+su\s+pedido|men[uú]|reserva|reservar|mesa|mesas|reservacion)\b/.test(clean);
+}
+
+function preguntaQuienesSomos(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(quien\s+eres|quienes\s+somos|quien\s+habla|quien\s+es|de\s+donde\s+hablas|de\s+donde\s+es|de\s+donde\s+escriben|que\s+empresa|tu\s+nombre|como\s+te\s+llamas)\b/.test(clean);
+}
+
+function diceQueNoOMolesto(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(no\s+gracias|no\s+me\s+interesa|no\s+interesado|no\s+interesada|no\s+queremos|no\s+quiero|deja\s+de\s+escribir|no\s+molestar|no\s+mas|ya\s+no|eliminame|saca\s+mi\s+numero|no\s+autorizado)\b/.test(clean) || clean === "no";
+}
+
 function montosMencionados(texto) {
   return [...String(texto || "").matchAll(/\$?\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,6})(?:\s*(?:mxn|pesos))?/gi)]
     .map((match) => Number(match[1].replace(/,/g, "")))
@@ -516,13 +512,69 @@ async function dispararCheckpointPago(telefono, cliente, ultimoMensaje) {
 }
 
 async function responderComercialCritico(telefono, mensaje, cliente) {
-  if (preguntaComoPagar(mensaje)) {
-    const respuesta = "Perfecto. Te comparto los datos para apartarlo en un momento.";
-    await logEventoCRM(telefono, "datos_pago_solicitados", "Lead pregunto como pagar", {
-      metodo_pago: CONFIG_METODO_PAGO,
+  if (diceQueNoOMolesto(mensaje)) {
+    await saveCliente(telefono, { 
+      estado: "no_interesado", 
+      estado_contacto: "Descartado",
+      bot_enabled: false, 
+      siguiente_accion: "Cerrado - No interesado" 
     });
-    await saveCliente(telefono, { estado: "pago_pendiente_confirmacion", bot_enabled: false, caliente: true });
-    await dispararCheckpointPago(telefono, cliente, mensaje);
+    await logEventoCRM(telefono, "lead_descartado", "Lead expreso desinteres o molestia - conversacion cerrada respetuosamente", {
+      original_mensaje: mensaje
+    });
+    return "Entendido, disculpa la molestia. Que tengan un excelente día.";
+  }
+
+  if (creeQueEsPedido(mensaje)) {
+    const respuesta = "Gracias. No quiero hacer un pedido. Soy Juan Carlos de Presencia Digital. Vi su ficha en Google Maps y detecté un par de detalles que podrían ayudarles a recibir más reservas o pedidos. ¿Esto lo ve el dueño/encargado o te lo puedo compartir para que se lo pases?";
+    await logEventoCRM(telefono, "es_pedido_aclaracion", "Restaurante cree que es pedido - aclaracion enviada automáticamente", {
+      original_mensaje: mensaje
+    });
+    await saveCliente(telefono, { 
+      estado_contacto: "recepcion_pedidos", 
+      siguiente_accion: "Esperar respuesta de encargado" 
+    });
+    return respuesta;
+  }
+
+  if (esEmpleado(mensaje)) {
+    const respuesta = "Entendido. No te preocupes, no te quiero quitar tiempo. Encontré un par de detalles en la ficha de Google Maps de su restaurante que les están haciendo perder clientes. ¿Me permites compartírtelos por aquí para que se los muestres al dueño o encargado cuando lo veas?";
+    await logEventoCRM(telefono, "filtro_empleado_interceptado", "Empleado detectado - mensaje de redireccion enviado", {
+      original_mensaje: mensaje
+    });
+    await saveCliente(telefono, { 
+      estado_contacto: "recepcion_pedidos", 
+      siguiente_accion: "Esperar a que se comparta con dueño" 
+    });
+    return respuesta;
+  }
+
+  if (esRespuestaMinima(mensaje)) {
+    const respuesta = "Hola. Te escribía por su ficha de Google Maps. Vi un par de detalles que podrían estar frenando contactos o pedidos. ¿Esto lo ve el dueño/encargado?";
+    await logEventoCRM(telefono, "respuesta_minima_aclaracion", "Respuesta mínima o saludo corto - aclaracion corta enviada automáticamente", {
+      original_mensaje: mensaje
+    });
+    await saveCliente(telefono, { 
+      estado_contacto: "respuesta_minima", 
+      siguiente_accion: "Esperar respuesta de encargado" 
+    });
+    return respuesta;
+  }
+
+  if (preguntaQuienesSomos(mensaje)) {
+    await saveCliente(telefono, { estado_contacto: "Respondió", siguiente_accion: "Presentar Diagnostico" });
+    await logEventoCRM(telefono, "quienes_somos_solicitado", "Lead pregunto quienes somos - respuesta corta enviada", {
+      original_mensaje: mensaje
+    });
+    return "Soy Juan Carlos de Presencia Digital. Ayudo a negocios locales a detectar fugas en Google Maps, WhatsApp y seguimiento que les pueden estar costando clientes.";
+  }
+
+  if (preguntaComoPagar(mensaje)) {
+    const respuesta = `Perfecto. Aquí está el link de pago seguro para apartar tu Diagnóstico ON:\n\n${STRIPE_LINK_DIAGNOSTICO}\n\nEs un pago de $499 MXN. Una vez confirmado te contactamos para coordinar la entrega. ¿Tienes alguna duda?`;
+    await logEventoCRM(telefono, "datos_pago_solicitados", "Lead pregunto como pagar - link Stripe enviado automáticamente", {
+      stripe_link: STRIPE_LINK_DIAGNOSTICO,
+    });
+    await saveCliente(telefono, { estado: "pago_pendiente_confirmacion", caliente: true });
     return respuesta;
   }
 
@@ -539,8 +591,11 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
   }
 
   if (preguntaPrecio(mensaje)) {
-    await saveCliente(telefono, { estado: "interesado" });
-    return `El Diagnóstico ON cuesta $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN y si después decide avanzar con la implementación, se bonifica.\n\n¿Quiere que le comparta los datos para apartarlo?`;
+    await saveCliente(telefono, { estado: "interesado", estado_contacto: "Interesado" });
+    await logEventoCRM(telefono, "precio_solicitado", "Lead pregunto precio - detalles enviados automaticamente", {
+      original_mensaje: mensaje
+    });
+    return `El Diagnóstico ON cuesta $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN. Incluye una investigación detallada de tu ficha de Google Maps, análisis de tu competencia directa en Aguascalientes, revisión de tus canales de contacto y un plan de acción claro para corregir las fugas de clientes. Además, si después decides avanzar con la implementación, los $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN se te bonifican al 100%. ¿Quieres que te comparta los datos de pago para apartarlo?`;
   }
 
   return null;
@@ -790,10 +845,30 @@ const PATRONES_BOT = [
   /mensaje\s+autom/i,
   /auto.?reply/i,
   /autoresponder/i,
+  /gracias\s+por\s+comunicarte/i,
+  /en\s+este\s+momento\s+no\s+estamos/i,
+  /no\s+estamos\s+disponibles/i,
+  /te\s+responderemos\s+tan\s+pronto/i,
+  /hola!?\s+gracias\s+por/i,
+  /bienvenido\s+a/i,
+  /horarios\s+de\s+atencion/i,
 ];
 
 function esBot(texto) {
   return PATRONES_BOT.some(patron => patron.test(texto));
+}
+
+function esRespuestaMinima(texto) {
+  const clean = normalizarTexto(texto);
+  if (clean === "." || clean === "?" || clean === "") return true;
+  if (clean.length === 1 && !/[a-zA-Z0-9]/.test(clean)) return true;
+  const saludosCortos = ["hola", "buen dia", "buenas tardes", "buenas noches", "que tal", "buenas"];
+  return saludosCortos.includes(clean);
+}
+
+function esEmpleado(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(cajer[oa]|meser[oa]|recepci[oó]n|recepcionista|emplead[oa]|trabajador[aa]?|atendiendo\s+clientes|yo\s+atiendo|yo\s+solo|no\s+soy\s+el\s+due[nñ]o|no\s+soy\s+la\s+due[nñ]a|no\s+estoy\s+autorizad[oa]|el\s+due[nñ][oa]\s+no\s+est[aá]|el\s+encargad[oa]\s+no\s+est[aá]|deja\s+tu\s+recado|dejar\s+recado|al\s+rato\s+viene|ma[nñ]ana\s+viene|yo\s+se\s+la\s+paso|yo\s+se\s+lo\s+comparto)\b/.test(clean);
 }
 
 async function superaLimite(telefono) {
@@ -862,7 +937,22 @@ module.exports = async (req, res) => {
                 await supabase.from("conversaciones").update({ estado_contacto: "No entregado", siguiente_accion: "Revisar WhatsApp" }).eq("telefono", tel);
               } else if (status.status === "delivered") {
                 await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status, recipient_id_original: telOriginal });
-                await supabase.from("conversaciones").update({ estado: "contactado", estado_contacto: "Entregado", siguiente_accion: "Esperar respuesta" }).eq("telefono", tel);
+                // Evitar degradar estados avanzados de la conversación
+                const { data: conv } = await supabase.from("conversaciones").select("estado_contacto").eq("telefono", tel).maybeSingle();
+                const estadoActual = conv?.estado_contacto;
+                const estadosProtegidos = [
+                  "Respondió", "Pidió información", "Interesado", 
+                  "Diagnóstico ofrecido", "Diagnóstico vendido", 
+                  "respuesta_automatica", "recepcion_pedidos", "respuesta_minima",
+                  "requiere_intervencion_manual", "Descartado", "No interesado"
+                ];
+                if (!estadoActual || !estadosProtegidos.includes(estadoActual)) {
+                  await supabase.from("conversaciones").update({ 
+                    estado: "contactado", 
+                    estado_contacto: "Entregado", 
+                    siguiente_accion: "Esperar respuesta" 
+                  }).eq("telefono", tel);
+                }
               } else if (["sent", "read"].includes(status.status)) {
                 await logEventoCRM(tel, "whatsapp_status", status.status, { whatsapp_status: status, recipient_id_original: telOriginal });
               }
@@ -888,13 +978,57 @@ module.exports = async (req, res) => {
               console.error("No se registro evento mensaje_entrante porque fallo el insert en mensajes", { from });
             }
 
+            // 1. Clasificación del mensaje entrante
+            let categoria = "humano_interesado";
+            if (esBot(text)) {
+              categoria = "respuesta_automatica";
+            } else if (creeQueEsPedido(text)) {
+              categoria = "recepcion_pedidos";
+            } else if (esEmpleado(text)) {
+              categoria = "recepcion_pedidos";
+            } else if (esRespuestaMinima(text)) {
+              categoria = "respuesta_minima";
+            }
+
+            // 2. Decidir si se alerta a Telegram (según clasificación e intención)
+            let deberiaAlertar = false;
+            const cleanText = normalizarTexto(text);
+            const tienePalabrasInteres = /\b(info|informacion|detalles|precio|costo|cuanto|cuesta|vale|que\s+incluye|que\s+trae|si|claro|va|bueno|ok|dale|haber|dime|leerte|leer|due[nñ]o|encargado|patron|jefe|gerente|mandar|envia|manda|compartir|pasa|interesa|quien\s+eres|quienes\s+somos|quien\s+habla|quien\s+es|de\s+donde\s+(?:hablas|escriben|es)|no\s+gracias|no\s+me\s+interesa|no\s+interesado|deja\s+de|molestar)\b/.test(cleanText);
+            
+            if (categoria !== "respuesta_automatica" && tienePalabrasInteres) {
+              deberiaAlertar = true;
+            }
+
             if (!esAdmin) {
               const nowIso = new Date().toISOString();
+
+              if (categoria === "respuesta_automatica") {
+                await saveCliente(from, { 
+                  ultimo_mensaje: text,
+                  estado_contacto: "respuesta_automatica",
+                  siguiente_accion: "Ignorar - Bot",
+                  fecha_ultimo_mensaje: nowIso
+                });
+                await logEventoCRM(from, "respuesta_automatica", "Mensaje entrante detectado como auto-reply / bot", { raw: msg });
+                console.log(`Auto-reply/bot detectado para ${from}, se marca como respuesta_automatica y se detiene procesamiento.`);
+                continue;
+              }
+
+              let estadoContactoDb = "Respondió";
+              let siguienteAccionDb = "Responder / Calificar";
+              if (categoria === "recepcion_pedidos") {
+                estadoContactoDb = "recepcion_pedidos";
+                siguienteAccionDb = "Esperar respuesta de encargado";
+              } else if (categoria === "respuesta_minima") {
+                estadoContactoDb = "respuesta_minima";
+                siguienteAccionDb = "Esperar respuesta de encargado";
+              }
+
               await saveCliente(from, { 
                 ultimo_mensaje: text,
-                ultima_respuesta: text,
-                estado_contacto: "Respondió",
-                siguiente_accion: "Responder / Calificar",
+                text_ultimo_mensaje: text, // sync text for view helper
+                estado_contacto: estadoContactoDb,
+                siguiente_accion: siguienteAccionDb,
                 fecha_ultimo_mensaje: nowIso
               });
             } else {
@@ -902,7 +1036,7 @@ module.exports = async (req, res) => {
             }
 
             const cliente = await getCliente(from);
-            if (inboundGuardado && !esAdmin) {
+            if (inboundGuardado && !esAdmin && deberiaAlertar) {
               await alertarInboundCRM(from, cliente, text);
             }
 
