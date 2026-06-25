@@ -527,33 +527,6 @@ function estaEnCdmxEdomex(cliente) {
 }
 
 async function responderComercialCritico(telefono, mensaje, cliente) {
-  // Flujo pago en efectivo - Dirección proporcionada
-  if (cliente && cliente.estado_contacto === 'esperando_direccion_efectivo') {
-    const updatePayload = {
-      direccion_efectivo: mensaje,
-      estado: "requiere_intervencion",
-      bot_enabled: false,
-      estado_contacto: "requiere_intervencion_manual",
-      siguiente_accion: "Coordinar cobro en efectivo"
-    };
-    
-    let { error } = await supabase.from("conversaciones").update(updatePayload).eq("telefono", telefono);
-    if (error && error.message.includes('column "direccion_efectivo" of relation "conversaciones" does not exist')) {
-      console.log("⚠️ Columna 'direccion_efectivo' no existe en 'conversaciones'. Guardando sin ella...");
-      delete updatePayload.direccion_efectivo;
-      await supabase.from("conversaciones").update(updatePayload).eq("telefono", telefono);
-    }
-
-    const nombreNegocio = cliente.negocio || cliente.nombre || "Negocio sin nombre";
-    await alertarJuanCarlos("intervencion", telefono, {
-      negocio: nombreNegocio,
-      nombre: cliente.nombre || "",
-      ultimo_mensaje: mensaje,
-      razon_intervencion: `Lead de CDMX/Edomex proporcionó dirección para cobro en efectivo: ${mensaje}`
-    });
-    return "Listo, Juan Carlos te confirma en breve para coordinar.";
-  }
-
   if (diceQueNoOMolesto(mensaje)) {
     const updatePayload = { 
       estado: "no_interesado", 
@@ -576,16 +549,9 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
     return "Entendido, disculpa la molestia. Que tengan un excelente día.";
   }
 
-  // Flujo pago en efectivo - Primer contacto
+  // Flujo pago en efectivo
   if (mencionaEfectivo(mensaje)) {
-    if (estaEnCdmxEdomex(cliente)) {
-      await saveCliente(telefono, {
-        estado_contacto: 'esperando_direccion_efectivo'
-      });
-      return "Perfecto. ¿En qué zona o colonia estás para coordinar la entrega?";
-    } else {
-      return `Perfecto. El pago lo puedes hacer en cualquier OXXO con un voucher que te mandamos. Aquí el link para generarlo: ${STRIPE_LINK_DIAGNOSTICO}`;
-    }
+    return `Perfecto. Puedes pagar en cualquier OXXO con un voucher seguro. Aquí el link para generarlo: ${STRIPE_LINK_DIAGNOSTICO}`;
   }
 
   if (creeQueEsPedido(mensaje)) {
