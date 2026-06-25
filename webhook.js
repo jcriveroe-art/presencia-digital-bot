@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
-const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("../lib/crm");
+const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("./lib/crm");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -13,9 +13,18 @@ const MAX_MENSAJES = 30;
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 const DIEZ_MINUTOS_MS = 10 * 60 * 1000;
 const VALIDACION_SIN_FILTROS_INBOUND = true;
-const CONFIG_DIAGNOSTICO_PRECIO = 499;
-const CONFIG_DIAGNOSTICO_PILOTO_PRECIO = 499;
-const STRIPE_LINK_DIAGNOSTICO = "https://buy.stripe.com/3cI9AU2KFeuqf8Rezn6Ri00";
+const CONFIG_COMERCIAL = {
+  PRECIO_DIAGNOSTICO: 499,
+  LINK_PAGO_STRIPE: "https://buy.stripe.com/3cI9AU2KFeuqf8Rezn6Ri00",
+  TEXTO_PRECIO: "El Diagnóstico ON cuesta $499 MXN. Incluye una investigación detallada de tu ficha de Google Maps, análisis de tu competencia directa, revisión de tus canales de contacto y un plan de acción claro para corregir las fugas de clientes. Además, si después decides avanzar con la implementación, los $499 MXN se te bonifican al 100%.\n\n¿Quieres que te comparta el link de pago seguro?",
+  TEXTO_PAGO: "Perfecto. Aquí tienes el enlace de pago seguro mediante Stripe para apartar tu Diagnóstico ON:\n\nhttps://buy.stripe.com/3cI9AU2KFeuqf8Rezn6Ri00\n\nUna vez confirmado el pago, te contactamos de inmediato para coordinar la entrega en 2-3 días hábiles. ¿Tienes alguna duda?",
+  TEXTO_IDENTIDAD: "Hola, soy Juan Carlos de Presencia Digital. Ayudamos a negocios locales a mejorar su ficha de Google Maps y WhatsApp para que más clientes los encuentren, confíen y les escriban. ¿Con quién tengo el gusto?",
+  FALLBACK_OPORTUNIDADES: "Claro. Vi un par de oportunidades en tu ficha para que te encuentren y te contacten mejor. Si quieres, te comparto lo que noté o te hago un par de preguntas rápidas."
+};
+
+const CONFIG_DIAGNOSTICO_PRECIO = CONFIG_COMERCIAL.PRECIO_DIAGNOSTICO;
+const CONFIG_DIAGNOSTICO_PILOTO_PRECIO = CONFIG_COMERCIAL.PRECIO_DIAGNOSTICO;
+const STRIPE_LINK_DIAGNOSTICO = CONFIG_COMERCIAL.LINK_PAGO_STRIPE;
 const CONFIG_ACTIVACION_PRECIO = 1500;
 const CONFIG_ACTIVACION_CON_DIAGNOSTICO = 2000;
 const CONFIG_CONTROL_PRECIO = 1500;
@@ -546,6 +555,38 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
     return "Entendido, disculpa la molestia. Que tengan un excelente día.";
   }
 
+  // Escalamiento a Humano: Solicitud Explicita
+  if (solicitaHumano(mensaje)) {
+    const razon = "Lead solicitó hablar con un humano o asesor.";
+    await saveCliente(telefono, { 
+      estado: "requiere_intervencion", 
+      bot_enabled: false,
+      notes: `Intervención requerida: ${razon}`, // Root webhook may use notes or notas; we sync both to be safe
+      notas: `Intervención requerida: ${razon}`
+    });
+    await alertarJuanCarlos("resumen", telefono, {
+      texto: buildInterventionAlert(telefono, cliente, razon, mensaje),
+    });
+    await logEventoCRM(telefono, "requiere_intervencion", razon, { ultimo_mensaje: mensaje });
+    return "Claro que sí. En un momento Juan Carlos (nuestro asesor principal) revisará nuestro chat y se pondrá en contacto contigo directamente por aquí para atenderte.";
+  }
+
+  // Escalamiento a Humano: Servicios Fuera de Alcance
+  if (esFueraDeAlcance(mensaje)) {
+    const razon = "Lead consultó por servicios fuera de alcance (redes, ads, diseño web).";
+    await saveCliente(telefono, { 
+      estado: "requiere_intervencion", 
+      bot_enabled: false,
+      notes: `Intervención requerida: ${razon}`,
+      notas: `Intervención requerida: ${razon}`
+    });
+    await alertarJuanCarlos("resumen", telefono, {
+      texto: buildInterventionAlert(telefono, cliente, razon, mensaje),
+    });
+    await logEventoCRM(telefono, "requiere_intervencion", razon, { ultimo_mensaje: mensaje });
+    return "Entendido. Esa parte de servicios no la manejamos de forma directa con nuestro bot, pero con gusto Juan Carlos revisará tu consulta y te responderá por este medio lo antes posible.";
+  }
+
   // Flujo pago en efectivo
   if (mencionaEfectivo(mensaje)) {
     return `Perfecto. Puedes pagar en cualquier OXXO con un voucher seguro. Aquí el link para generarlo: ${STRIPE_LINK_DIAGNOSTICO}`;
@@ -587,21 +628,27 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
     return respuesta;
   }
 
+  // Identidad (Bypass Claude)
   if (preguntaQuienesSomos(mensaje)) {
     await saveCliente(telefono, { estado_contacto: "Respondió", siguiente_accion: "Presentar Diagnostico" });
-    await logEventoCRM(telefono, "quienes_somos_solicitado", "Lead pregunto quienes somos - respuesta corta enviada", {
+    await logEventoCRM(telefono, "quienes_somos_solicitado", "Lead pregunto quienes somos - respuesta de identidad enviada", {
       original_mensaje: mensaje
     });
-    return "Soy Juan Carlos de Presencia Digital. Ayudo a negocios locales a detectar fugas en Google Maps, WhatsApp y seguimiento que les pueden estar costando clientes.";
+    return CONFIG_COMERCIAL.TEXTO_IDENTIDAD;
   }
 
+  // Forma de Pago (Bypass Claude y Checkpoint de Pago automático)
   if (preguntaComoPagar(mensaje)) {
-    const respuesta = `Perfecto. Aquí está el link de pago seguro para apartar tu Diagnóstico ON:\n\n${STRIPE_LINK_DIAGNOSTICO}\n\nEs un pago de $499 MXN. Una vez confirmado te contactamos para coordinar la entrega. ¿Tienes alguna duda?`;
-    await logEventoCRM(telefono, "datos_pago_solicitados", "Lead pregunto como pagar - link Stripe enviado automáticamente", {
-      stripe_link: STRIPE_LINK_DIAGNOSTICO,
+    await saveCliente(telefono, { 
+      estado: "pago_pendiente_confirmacion", 
+      caliente: true,
+      bot_enabled: false
     });
-    await saveCliente(telefono, { estado: "pago_pendiente_confirmacion", caliente: true });
-    return respuesta;
+    await logEventoCRM(telefono, "datos_pago_solicitados", "Lead pregunto como pagar - link Stripe enviado automáticamente y IA pausada", {
+      stripe_link: CONFIG_COMERCIAL.LINK_PAGO_STRIPE,
+    });
+    await dispararCheckpointPago(telefono, cliente, mensaje);
+    return CONFIG_COMERCIAL.TEXTO_PAGO;
   }
 
   if (pideDescuentoOPiloto(mensaje)) {
@@ -616,12 +663,30 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
     return `El precio normal es $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN. Puedo apoyarte con $${CONFIG_DIAGNOSTICO_PILOTO_PRECIO.toLocaleString("es-MX")} MXN como diagnóstico piloto.\n\n¿Quieres que avancemos con el piloto?`;
   }
 
+  // Precio (Bypass Claude)
   if (preguntaPrecio(mensaje)) {
     await saveCliente(telefono, { estado: "interesado", estado_contacto: "Interesado" });
-    await logEventoCRM(telefono, "precio_solicitado", "Lead pregunto precio - detalles enviados automaticamente", {
+    await logEventoCRM(telefono, "precio_solicitado", "Lead pregunto precio - detalles autorizados enviados automaticamente", {
       original_mensaje: mensaje
     });
-    return `El Diagnóstico ON cuesta $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN. Incluye una investigación detallada de tu ficha de Google Maps, análisis de tu competencia directa en Aguascalientes, revisión de tus canales de contacto y un plan de acción claro para corregir las fugas de clientes. Además, si después decides avanzar con la implementación, los $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN se te bonifican al 100%. ¿Quieres que te comparta los datos de pago para apartarlo?`;
+    return CONFIG_COMERCIAL.TEXTO_PRECIO;
+  }
+
+  // Aceptación Simple de Prospección / Opener (Bypass Claude con validación estricta de observaciones)
+  if (esAceptacionOpener(mensaje)) {
+    const obs = esObservacionAptaCliente(cliente?.diagnostico_fotos) 
+      ? cliente.diagnostico_fotos 
+      : (esObservacionAptaCliente(cliente?.fugas_detectadas) ? cliente.fugas_detectadas : null);
+    
+    if (obs) {
+      await saveCliente(telefono, { estado: "interesado", estado_contacto: "Diagnóstico ofrecido" });
+      await logEventoCRM(telefono, "observaciones_salientes_deterministas", "Aceptacion opener - enviando observaciones reales y oferta", { observaciones: obs });
+      return `Claro. Encontré algunas oportunidades en tu ficha:\n\n*${obs}*\n\nEl Diagnóstico ON cuesta $${CONFIG_COMERCIAL.PRECIO_DIAGNOSTICO.toLocaleString("es-MX")} MXN y si después decides avanzar con la implementación, se bonifica al 100%.\n\n¿Quiere que le comparta el link de pago?`;
+    } else {
+      await saveCliente(telefono, { estado: "interesado", estado_contacto: "Interesado" });
+      await logEventoCRM(telefono, "fallback_oportunidades_determinista", "Aceptacion opener - sin observaciones aptas, enviando fallback autorizado", {});
+      return CONFIG_COMERCIAL.FALLBACK_OPORTUNIDADES;
+    }
   }
 
   return null;
@@ -897,6 +962,38 @@ function esEmpleado(texto) {
   return /\b(cajer[oa]|meser[oa]|recepci[oó]n|recepcionista|emplead[oa]|trabajador[aa]?|atendiendo\s+clientes|yo\s+atiendo|yo\s+solo|no\s+soy\s+el\s+due[nñ]o|no\s+soy\s+la\s+due[nñ]a|no\s+estoy\s+autorizad[oa]|el\s+due[nñ][oa]\s+no\s+est[aá]|el\s+encargad[oa]\s+no\s+est[aá]|deja\s+tu\s+recado|dejar\s+recado|al\s+rato\s+viene|ma[nñ]ana\s+viene|yo\s+se\s+la\s+paso|yo\s+se\s+lo\s+comparto)\b/.test(clean);
 }
 
+function esObservacionAptaCliente(texto) {
+  if (!texto) return false;
+  const clean = String(texto).trim().toLowerCase();
+  if (clean.length < 15 || clean.length > 200) return false;
+  
+  const patronesInvalidos = [
+    /null/i, /undefined/i, /sin datos/i, /sin observaciones/i, 
+    /fugas_detectadas/i, /score/i, /prioridad/i,
+    /\[/ , /\]/, /\{/, /\}/
+  ];
+  
+  if (patronesInvalidos.some(patron => patron.test(clean))) {
+    return false;
+  }
+  return true;
+}
+
+function esAceptacionOpener(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(si|claro|va|dale|ok|bueno|haber|dime|platicame|comparteme|adelante|leerte|leer|por\s+favor|cuentame|escribeme)\b/i.test(clean) || clean === "si" || clean === "ok" || clean === "va";
+}
+
+function solicitaHumano(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(humano|persona|asesor|llamada|llamame|telefono|hablar\s+con\s+alguien|contacto\s+humano|soporte|whatsapp|conversar)\b/i.test(clean);
+}
+
+function esFueraDeAlcance(texto) {
+  const clean = normalizarTexto(texto);
+  return /\b(redes\s+sociales|campana|facebook\s+ads|instagram\s+ads|diseno\s+web|crear\s+pagina|pagina\s+web|sitio\s+web|software|desarrollo|publicidad\s+en\s+redes|llevar\s+redes)\b/i.test(clean);
+}
+
 async function superaLimite(telefono) {
   try {
     const haceUnaHora = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -1142,4 +1239,9 @@ module.exports.__test = {
   preguntaPrecio,
   prepararRespuestaCliente,
   sanitizarRespuestaCliente,
+  esObservacionAptaCliente,
+  esAceptacionOpener,
+  solicitaHumano,
+  esFueraDeAlcance,
+  responderComercialCritico,
 };
