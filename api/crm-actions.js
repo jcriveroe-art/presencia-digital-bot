@@ -8,6 +8,7 @@ const JUAN_CARLOS_NUMBER = "5215647943262";
 const CRM_URL = "https://presencia-digital-bot.vercel.app/crm";
 const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 const SALES_PLAYBOOK_PATH = path.join(__dirname, "..", "playbooks", "sales_playbook_v1.md");
+const DENTAL_PLAYBOOK_PATH = path.join(__dirname, "..", "playbooks", "PLAYBOOK_DENTAL_BCS.md");
 const DEBUG_CRM_ACTIONS = false;
 
 const COLUMNAS_OLD = ["nombre", "categoria", "prioridad", "score", "total_fugas", "fugas_detectadas", "rating", "resenas", "fotos", "ultima_resena", "responde_resenas", "publicaciones", "website", "horarios", "descripcion", "telefono", "whatsapp_link", "direccion", "maps_url"];
@@ -481,6 +482,14 @@ function loadSalesPlaybook() {
   }
 }
 
+function loadDentalPlaybook() {
+  try {
+    return fs.readFileSync(DENTAL_PLAYBOOK_PATH, "utf8").trim();
+  } catch (e) {
+    return "";
+  }
+}
+
 function reciente(fecha) {
   if (!fecha) return false;
   return new Date(fecha).getTime() > Date.now() - DOCE_HORAS_MS;
@@ -512,10 +521,11 @@ function mensajeRecordatorio(lead) {
 }
 
 function promptLead(lead, mensajes) {
+  const playbook = (lead?.fuente_busqueda === "denue_dental_bcs" || lead?.origen === "denue_dental_bcs") ? loadDentalPlaybook() : loadSalesPlaybook();
   const historial = (mensajes || []).slice(-8).map((m) => `${m.direccion}: ${m.mensaje}`).join("\n");
   return [
     "SALES_PLAYBOOK",
-    loadSalesPlaybook(),
+    playbook,
     "CONTEXTO DEL LEAD",
     `nombre: ${lead.nombre || "sin datos"}`,
     `categoria: ${lead.categoria || "sin datos"}`,

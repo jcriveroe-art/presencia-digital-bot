@@ -169,6 +169,7 @@ Usuario: no entiendo
 Respuesta: explica simple y no cobres.`;
 
 const SALES_PLAYBOOK_PATH = path.join(__dirname, "..", "playbooks", "sales_playbook_v1.md");
+const DENTAL_PLAYBOOK_PATH = path.join(__dirname, "..", "playbooks", "PLAYBOOK_DENTAL_BCS.md");
 
 function loadSalesPlaybook() {
   try {
@@ -179,7 +180,17 @@ function loadSalesPlaybook() {
   }
 }
 
+function loadDentalPlaybook() {
+  try {
+    return fs.readFileSync(DENTAL_PLAYBOOK_PATH, "utf8").trim();
+  } catch (e) {
+    console.error("Dental playbook not found:", e.message);
+    return "";
+  }
+}
+
 const SALES_PLAYBOOK = loadSalesPlaybook();
+const DENTAL_PLAYBOOK = loadDentalPlaybook();
 // Helpers WhatsApp
 
 async function sendMessage(to, message) {
@@ -759,9 +770,10 @@ function buildCrmState(cliente) {
 }
 
 function buildSystemPrompt(cliente) {
+  const playbook = (cliente?.fuente_busqueda === "denue_dental_bcs" || cliente?.origen === "denue_dental_bcs") ? DENTAL_PLAYBOOK : SALES_PLAYBOOK;
   return [
     "SALES_PLAYBOOK",
-    SALES_PLAYBOOK,
+    playbook,
     buildLeadContext(cliente),
     buildInternalNotes(cliente),
     buildCrmState(cliente),
