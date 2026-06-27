@@ -1368,7 +1368,7 @@ module.exports = async (req, res) => {
       const items = data.mensajes || [];
       messages.innerHTML = items.map(m => {
         const textEscaped = escapeHtml(m.mensaje);
-        const uriText = encodeURIComponent(m.mensaje);
+        const uriText = encodeURIComponent(m.mensaje).replace(/'/g, "%27");
         return '<div class="msg ' + m.direccion + '">' + 
                  textEscaped + 
                  '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
