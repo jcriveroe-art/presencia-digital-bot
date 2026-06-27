@@ -1517,26 +1517,34 @@ module.exports = async (req, res) => {
       }
       if (selected?.telefono === target) {
         selected = null;
-        title.textContent = "Selecciona un lead";
-        subtitle.textContent = "";
-        context.innerHTML = '<div class="empty">Sin lead seleccionado.</div>';
-        messages.innerHTML = '<div class="empty">Sin conversacion seleccionada.</div>';
-        actionIds.forEach(id => document.getElementById(id).disabled = true);
+        if (title) title.textContent = "Selecciona un lead";
+        if (subtitle) subtitle.textContent = "";
+        if (context) context.innerHTML = '<div class="empty">Sin lead seleccionado.</div>';
+        if (messages) messages.innerHTML = '<div class="empty">Sin conversacion seleccionada.</div>';
+        actionIds.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.disabled = true;
+        });
       }
       await loadConversaciones();
     }
 
     async function selectLead(telefono, isSilent = false) {
       selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
-      if ((currentView === "chat" || currentView === "leads") && isMobile()) page.classList.add("mobile-chat-open");
+      if ((currentView === "chat" || currentView === "leads") && isMobile()) {
+        if (typeof page !== "undefined" && page) page.classList.add("mobile-chat-open");
+      }
       renderLeads();
-      title.textContent = label(selected);
-      subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo") + " | " + fmtDate(selected.fecha_ultimo_mensaje);
-      botBadge.textContent = botOn(selected) ? "IA ON" : "IA OFF";
-      botBadge.className = "badge " + (botOn(selected) ? "on" : "off");
-      hotBadge.textContent = selected.caliente ? "Caliente" : "Lead";
-      hotBadge.className = "badge " + (selected.caliente ? "hot" : "");
-      actionIds.forEach(id => document.getElementById(id).disabled = false);
+      if (title) title.textContent = label(selected);
+      if (subtitle) subtitle.textContent = selected.telefono + " | " + (selected.estado || "nuevo") + " | " + fmtDate(selected.fecha_ultimo_mensaje);
+      if (botBadge) botBadge.textContent = botOn(selected) ? "IA ON" : "IA OFF";
+      if (botBadge) botBadge.className = "badge " + (botOn(selected) ? "on" : "off");
+      if (hotBadge) hotBadge.textContent = selected.caliente ? "Caliente" : "Lead";
+      if (hotBadge) hotBadge.className = "badge " + (selected.caliente ? "hot" : "");
+      actionIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
       
       const revisarWaBtn = document.getElementById("revisarWaBtn");
       const sinWaBtn = document.getElementById("sinWaBtn");
@@ -1544,40 +1552,42 @@ module.exports = async (req, res) => {
         const estadoContacto = String(selected.estado_contacto || "").trim();
         const sigAccion = String(selected.siguiente_accion || "").trim();
         if (estadoContacto === "No entregado" || sigAccion === "Revisar WhatsApp") {
-          revisarWaBtn.style.display = "inline-block";
-          sinWaBtn.style.display = "inline-block";
+          if (revisarWaBtn) revisarWaBtn.style.display = "inline-block";
+          if (sinWaBtn) sinWaBtn.style.display = "inline-block";
         } else {
-          revisarWaBtn.style.display = "none";
-          sinWaBtn.style.display = "none";
+          if (revisarWaBtn) revisarWaBtn.style.display = "none";
+          if (sinWaBtn) sinWaBtn.style.display = "none";
         }
       } else {
-        revisarWaBtn.style.display = "none";
-        sinWaBtn.style.display = "none";
+        if (revisarWaBtn) revisarWaBtn.style.display = "none";
+        if (sinWaBtn) sinWaBtn.style.display = "none";
       }
 
-      manualText.disabled = false;
-      sendManual.disabled = false;
+      if (manualText) manualText.disabled = false;
+      if (sendManual) sendManual.disabled = false;
       renderContext(selected);
       
       if (!isSilent) {
-        messages.innerHTML = '<div class="empty">Cargando mensajes...</div>';
+        if (messages) messages.innerHTML = '<div class="empty">Cargando mensajes...</div>';
       }
       
       const res = await actionFetch("mensajes", { telefono });
       const data = await res.json();
       const items = data.mensajes || [];
-      messages.innerHTML = items.map(m => {
-        const textEscaped = escapeHtml(m.mensaje);
-        const uriText = encodeURIComponent(m.mensaje).replace(/'/g, "%27");
-        return '<div class="msg ' + m.direccion + '">' + 
-                 textEscaped + 
-                 '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
-                   '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small>' +
-                   '<button type="button" class="copy-msg-btn" style="min-height:20px; padding:2px 6px; font-size:10px; border-radius:4px; background:rgba(0,0,0,0.05); border:none; cursor:pointer;" onclick="copiarMensajeTexto(this, decodeURIComponent(\\\'' + uriText + '\\\'))">Copiar</button>' +
-                 '</div>' +
-               '</div>';
-      }).join("") || '<div class="empty">Sin mensajes guardados.</div>';
-      messages.scrollTop = messages.scrollHeight;
+      if (messages) {
+        messages.innerHTML = items.map(m => {
+          const textEscaped = escapeHtml(m.mensaje);
+          const uriText = encodeURIComponent(m.mensaje).replace(/'/g, "%27");
+          return '<div class="msg ' + m.direccion + '">' + 
+                   textEscaped + 
+                   '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
+                     '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small>' +
+                     '<button type="button" class="copy-msg-btn" style="min-height:20px; padding:2px 6px; font-size:10px; border-radius:4px; background:rgba(0,0,0,0.05); border:none; cursor:pointer;" onclick="copiarMensajeTexto(this, decodeURIComponent(\'' + uriText + '\'))">Copiar</button>' +
+                   '</div>' +
+                 '</div>';
+        }).join("") || '<div class="empty">Sin mensajes guardados.</div>';
+        messages.scrollTop = messages.scrollHeight;
+      }
     }
 
     async function setBot(value) {
