@@ -1595,12 +1595,12 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     }
 
-    document.getElementById("fileInput").addEventListener("change", async (event) => {
+    document.getElementById("fileInput")?.addEventListener("change", async (event) => {
       const file = event.target.files[0];
       if (file) importText.value = await file.text();
     });
 
-    document.getElementById("importBtn").addEventListener("click", async () => {
+    document.getElementById("importBtn")?.addEventListener("click", async () => {
       const contenido = importText.value.trim();
       if (!contenido) return;
       importStatus.textContent = "Importando";
@@ -1610,7 +1610,7 @@ module.exports = async (req, res) => {
       if (res.ok) { importText.value = ""; await loadConversaciones(); }
     });
 
-    document.getElementById("initialBtn").addEventListener("click", async () => {
+    document.getElementById("initialBtn")?.addEventListener("click", async () => {
       if (!selected) return;
       if (!selected.nombre || !String(selected.nombre).trim()) {
         alert("Agrega nombre antes de enviar mensaje inicial.");
@@ -1623,25 +1623,25 @@ module.exports = async (req, res) => {
       }
       await loadConversaciones();
     });
-    document.getElementById("editBtn").addEventListener("click", openEdit);
-    document.getElementById("closeEdit").addEventListener("click", closeEdit);
-    document.getElementById("cancelEdit").addEventListener("click", closeEdit);
-    document.getElementById("saveEdit").addEventListener("click", saveEdit);
-    document.getElementById("pauseBtn").addEventListener("click", () => setBot(false));
-    document.getElementById("resumeBtn").addEventListener("click", () => setBot(true));
-    document.getElementById("contactedBtn").addEventListener("click", () => setEstado("contactado"));
-    document.getElementById("interestedBtn").addEventListener("click", () => setEstado("interesado"));
-    document.getElementById("lostBtn").addEventListener("click", () => setEstado("perdido"));
-    document.getElementById("paidBtn").addEventListener("click", () => setEstado("diagnostico_pagado"));
-    document.getElementById("deleteBtn").addEventListener("click", () => deleteLead());
-    document.getElementById("revisarWaBtn").addEventListener("click", () => {
+    document.getElementById("editBtn")?.addEventListener("click", openEdit);
+    document.getElementById("closeEdit")?.addEventListener("click", closeEdit);
+    document.getElementById("cancelEdit")?.addEventListener("click", closeEdit);
+    document.getElementById("saveEdit")?.addEventListener("click", saveEdit);
+    document.getElementById("pauseBtn")?.addEventListener("click", () => setBot(false));
+    document.getElementById("resumeBtn")?.addEventListener("click", () => setBot(true));
+    document.getElementById("contactedBtn")?.addEventListener("click", () => setEstado("contactado"));
+    document.getElementById("interestedBtn")?.addEventListener("click", () => setEstado("interesado"));
+    document.getElementById("lostBtn")?.addEventListener("click", () => setEstado("perdido"));
+    document.getElementById("paidBtn")?.addEventListener("click", () => setEstado("diagnostico_pagado"));
+    document.getElementById("deleteBtn")?.addEventListener("click", () => deleteLead());
+    document.getElementById("revisarWaBtn")?.addEventListener("click", () => {
       if (selected) {
         let d = String(selected.telefono || "").replace(/\D/g, "");
         if (d.length === 10) d = "52" + d;
         window.open("https://wa.me/" + d, "_blank");
       }
     });
-    document.getElementById("sinWaBtn").addEventListener("click", async () => {
+    document.getElementById("sinWaBtn")?.addEventListener("click", async () => {
       if (!selected) return;
       if (!confirm("¿Marcar prospecto sin WhatsApp?")) return;
       const res = await actionFetch("marcar_sin_whatsapp", { telefono: selected.telefono });
