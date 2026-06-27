@@ -330,7 +330,7 @@ module.exports = async (req, res) => {
       .page.view-reportes #reports td:first-child { display: block; padding: 0 0 5px; color: var(--ink); font-size: 12px; font-weight: 700; }
       .page.view-reportes #reports td:first-child::before { display: none; }
       .page.view-reportes #reports td[data-label="Diag. ofrecidos"], .page.view-reportes #reports td[data-label="Diag. vendidos"], .page.view-reportes #reports td[data-label="Act. ofrecidas"], .page.view-reportes #reports td[data-label="Act. vendidas"], .page.view-reportes #reports td[data-label="Vendidos"], .page.view-reportes #reports td[data-label="Descartados"], .page.view-reportes #reports td[data-label="Interes"] { display: none; }
-      main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; overflow: hidden; }
+      main, .page.view-chat main, .page.view-leads main { grid-template-columns: 1fr; grid-template-rows: 1fr; height: 100% !important; overflow: hidden; }
       .left { border-right: 0; min-height: 0; }
       .mobile-collapse summary { display: flex; align-items: center; justify-content: space-between; min-height: 36px; padding: 0 10px; border-bottom: 1px solid var(--line); color: var(--ink); font-weight: 700; cursor: pointer; list-style: none; }
       .mobile-collapse summary::-webkit-details-marker { display: none; }
