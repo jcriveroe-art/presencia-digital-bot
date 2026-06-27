@@ -1210,23 +1210,7 @@ module.exports = async (req, res) => {
       return value ? new Date(value).toISOString() : null;
     }
 
-    async function saveFollowup() {
-      if (!selected) return;
-      const status = document.getElementById("followupStatus");
-      status.textContent = "Guardando";
-      const res = await actionFetch("lead_followup", {
-        telefono: selected.telefono,
-        updates: {
-          proxima_accion: document.getElementById("opAccion").value,
-          fecha_seguimiento: fromLocalInput(document.getElementById("opFecha").value),
-          motivo_seguimiento: document.getElementById("opMotivo").value,
-          seguimiento_activo: document.getElementById("opActivo").value === "true",
-      if (DEBUG_CRM) console.log("CRM zonas detectadas", zonas);
-      const select = document.getElementById("filterZona");
-      const current = select.value;
-      select.innerHTML = '<option value="">Todas las zonas</option><option value="__sin_zona__">Sin zona</option>' + zonas.map(z => '<option value="' + escapeHtml(z) + '">' + escapeHtml(z) + '</option>').join("");
-      select.value = current && [...zonas, "__sin_zona__"].includes(current) ? current : "";
-    }
+
 
     function fillFuenteSelect() {
       const fuentes = fuentesDetectadas();
