@@ -69,13 +69,13 @@ module.exports = async (req, res) => {
       overflow: hidden;
       min-height: 0;
     }
-    .left { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--line); background: var(--panel); }
+    .left { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--line); background: var(--panel); min-height: 0; }
     
     /* Scroll para la tabla de leads */
     .table-wrap { overflow-y: auto; flex: 1; }
     
     /* Detalle (Chat) */
-    .detail { display: flex; flex-direction: column; overflow: hidden; background: #efeae2; }
+    .detail { display: flex; flex-direction: column; overflow: hidden; background: #efeae2; min-height: 0; }
     .messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
     
     /* Tarjetas de métricas: Evitar aplastamiento */
@@ -84,6 +84,14 @@ module.exports = async (req, res) => {
     
     /* Ajustes generales */
     button { cursor: pointer; }
+    
+    /* Lógica de los Tabs */
+    .show-chat-tab #context { display: none !important; }
+    .show-chat-tab #messages { display: flex !important; }
+    .show-chat-tab #manualForm { display: block !important; }
+    
+    .show-datos-tab #messages, .show-datos-tab #manualForm { display: none !important; }
+    .show-datos-tab #context { display: block !important; }
 </style>
 </head>
 <body>
