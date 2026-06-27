@@ -2,6 +2,7 @@ module.exports = async (req, res) => {
   if (req.method !== "GET") return res.status(405).send("Method Not Allowed");
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
   res.status(200).send(`<!doctype html>
 <html lang="es">
 <head>
@@ -357,13 +358,16 @@ module.exports = async (req, res) => {
       .page.view-leads .left { grid-template-rows: auto auto auto minmax(0, 1fr); }
       .page.view-leads .detail { display: none; }
       .page.view-leads.mobile-chat-open .left { display: none; }
-      .page.view-leads.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; }
+      .page.view-leads.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
       .page.view-leads.mobile-chat-open .detail-head { grid-row: 1; }
-      .page.view-leads.mobile-chat-open .actions { grid-row: 2; max-height: 126px; overflow-y: auto; }
-      .page.view-leads.mobile-chat-open .messages { grid-row: 3; min-height: 0; overflow: auto; }
-      .page.view-leads.mobile-chat-open .context { display: none; grid-row: 3; max-height: none; overflow: auto; }
-      .page.view-leads.mobile-chat-open.show-mobile-context .context { display: grid; }
-      .page.view-leads.mobile-chat-open form { grid-row: 4; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
+      .page.view-leads.mobile-chat-open .messages { grid-row: 2; }
+      .page.view-leads.mobile-chat-open form { grid-row: 3; position: sticky; bottom: 0; grid-template-columns: minmax(0, 1fr) 44px; padding: 7px 8px; background: #f0f2f5 !important; border-top: 1px solid var(--line); align-items: center; }
+      .page.view-leads.mobile-chat-open .actions { display: none !important; }
+      .page.view-leads.mobile-chat-open .context { display: none; }
+      .page.view-leads.mobile-chat-open.show-mobile-context .context { display: grid !important; grid-row: 2; grid-column: 1; max-height: calc(100vh - 180px); overflow-y: auto; }
+      .page.view-leads.mobile-chat-open.show-mobile-context .actions { display: flex !important; grid-row: 3; grid-column: 1; justify-content: flex-start; max-height: none; overflow: visible; border-top: 1px solid var(--line); background: var(--panel); padding: 10px; }
+      .page.view-leads.mobile-chat-open.show-mobile-context .messages { display: none !important; }
+      .page.view-leads.mobile-chat-open.show-mobile-context form { display: none !important; }
       .page.view-chat .detail { display: none; }
       .page.view-chat.mobile-chat-open .left { display: none; }
       .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
@@ -394,7 +398,10 @@ module.exports = async (req, res) => {
       .page.view-leads.mobile-chat-open.show-mobile-context .messages { display: none; }
       .page.view-chat.mobile-chat-open #subtitle,
       .page.view-chat.mobile-chat-open #botBadge,
-      .page.view-chat.mobile-chat-open #hotBadge {
+      .page.view-chat.mobile-chat-open #hotBadge,
+      .page.view-leads.mobile-chat-open #subtitle,
+      .page.view-leads.mobile-chat-open #botBadge,
+      .page.view-leads.mobile-chat-open #hotBadge {
         display: none !important;
       }
       .mobile-only { display: inline-flex; }
