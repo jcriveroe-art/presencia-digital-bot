@@ -72,7 +72,25 @@ module.exports = async (req, res) => {
     .import { padding: 14px 16px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; background: var(--panel-sunken); }
     .import textarea { width: 100%; min-height: 58px; resize: vertical; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px; font-family: var(--font-body); }
     .import-row { display: grid; gap: 8px; }
-    .mobile-collapse summary { display: none; }
+    .mobile-collapse summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 38px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--line);
+      color: var(--ink-soft);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      background: var(--panel-sunken);
+      list-style: none;
+      user-select: none;
+    }
+    .mobile-collapse summary::-webkit-details-marker { display: none; }
+    .mobile-collapse summary::after { content: "➕"; color: var(--muted); font-size: 11px; }
+    .mobile-collapse[open] summary::after { content: "➖"; }
+    .mobile-collapse summary:hover { background: var(--line); }
     .filters { padding: 12px 16px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
     .lead-search { padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .lead-search input { width: 100%; }
@@ -144,6 +162,65 @@ module.exports = async (req, res) => {
     .event small { color: var(--muted); display: block; margin-top: 2px; }
     .mobile-only { display: none; }
     .detail-toggle { display: none; }
+    
+    /* Tabs for detail column on desktop */
+    .detail-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-sunken);
+      gap: 4px;
+      padding: 0 16px;
+    }
+    .detail-tabs .tab-btn {
+      border: none;
+      background: transparent;
+      padding: 12px 18px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      min-height: auto;
+      color: var(--muted);
+      font-size: 13px;
+      transition: color 0.15s ease, border-bottom-color 0.15s ease;
+    }
+    .detail-tabs .tab-btn:hover {
+      color: var(--ink);
+    }
+    .detail-tabs .tab-btn.active {
+      border-bottom-color: var(--accent);
+      color: var(--ink);
+    }
+    
+    /* Layout switches based on tabs */
+    .page.view-leads .detail.show-chat-tab {
+      display: grid !important;
+      grid-template-rows: auto auto auto 1fr auto !important;
+      height: 100%;
+      overflow: hidden;
+    }
+    .page.view-leads .detail.show-chat-tab .detail-head { grid-row: 1; }
+    .page.view-leads .detail.show-chat-tab .detail-tabs { grid-row: 2; }
+    .page.view-leads .detail.show-chat-tab .actions { grid-row: 3; }
+    .page.view-leads .detail.show-chat-tab #context { display: none !important; }
+    .page.view-leads .detail.show-chat-tab #messages { grid-row: 4; display: flex !important; }
+    .page.view-leads .detail.show-chat-tab #manualForm { grid-row: 5; display: flex !important; }
+    
+    .page.view-leads .detail.show-datos-tab {
+      display: block !important;
+      height: 100%;
+      overflow-y: auto !important;
+    }
+    .page.view-leads .detail.show-datos-tab #context {
+      display: block !important;
+    }
+    .page.view-leads .detail.show-datos-tab #messages,
+    .page.view-leads .detail.show-datos-tab #manualForm {
+      display: none !important;
+    }
+    .page.view-chat .detail-tabs {
+      display: none !important;
+    }
     .messages { min-height: 0; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
     .msg { max-width: min(680px, 84%); padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: var(--shadow-sm); user-select: text; -webkit-user-select: text; }
     .msg.saliente { align-self: flex-end; background: #eaf5ee; border-color: #cfe8d8; }
@@ -478,6 +555,9 @@ module.exports = async (req, res) => {
       body:has(.mobile-chat-open) #manualLeadFormContainer {
         display: none !important;
       }
+      .detail-tabs {
+        display: none !important;
+      }
       .page.mobile-chat-open .dashboard,
       .page.mobile-chat-open .attention,
       .page.mobile-chat-open .chat-dashboard {
@@ -520,7 +600,7 @@ module.exports = async (req, res) => {
     <div id="bitacoraView" style="display: none; padding: 16px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-y: auto; height: calc(100vh - 56px);"></div>
     <main>
       <section class="left">
-        <details class="import mobile-collapse" open>
+        <details class="import mobile-collapse">
           <summary>Importar leads</summary>
           <div class="import-row">
             <h2>Importar Prospector ON</h2>
@@ -529,7 +609,7 @@ module.exports = async (req, res) => {
           </div>
           <div class="import-row"><button class="primary" id="importBtn">Importar</button><span id="importStatus" class="badge">Listo</span></div>
         </details>
-        <details class="filters mobile-collapse" open>
+        <details class="filters mobile-collapse">
           <summary>Filtros</summary>
           <label>Estado<select id="filterEstado"><option value="">Todos</option></select></label>
           <label>Prioridad<select id="filterPrioridad"><option value="">Todas</option></select></label>
@@ -547,12 +627,16 @@ module.exports = async (req, res) => {
       </section>
       <button id="toggleDetailPanel" class="detail-toggle" type="button">Ocultar detalle</button>
       <div id="paneResizer" class="pane-resizer" role="separator" aria-label="Ajustar ancho de leads" aria-orientation="vertical"></div>
-      <section class="detail">
+      <section class="detail show-chat-tab">
         <div class="detail-head">
           <div class="identity"><strong id="title">Selecciona un lead</strong><span id="subtitle"></span></div>
           <button class="mobile-only" id="backToLeads" type="button">Lista</button>
           <button class="mobile-only" id="toggleLeadData" type="button">Datos</button>
           <div><span id="botBadge" class="badge">IA</span> <span id="hotBadge" class="badge">Lead</span></div>
+        </div>
+        <div class="detail-tabs">
+          <button type="button" class="tab-btn active" id="tabChat">💬 Chat</button>
+          <button type="button" class="tab-btn" id="tabDatos">📝 Ficha del Lead</button>
         </div>
         <div class="actions">
           <button id="initialBtn" disabled>Enviar mensaje inicial</button>
@@ -1562,6 +1646,26 @@ module.exports = async (req, res) => {
     window.addEventListener("resize", updateDetailToggle);
     document.getElementById("backToLeads").addEventListener("click", () => page.classList.remove("mobile-chat-open", "show-mobile-context"));
     document.getElementById("toggleLeadData").addEventListener("click", () => page.classList.toggle("show-mobile-context"));
+    
+    // Desktop tabs switching logic
+    const tabChat = document.getElementById("tabChat");
+    const tabDatos = document.getElementById("tabDatos");
+    const detailPanel = document.querySelector(".detail");
+    if (tabChat && tabDatos && detailPanel) {
+      tabChat.addEventListener("click", () => {
+        tabChat.classList.add("active");
+        tabDatos.classList.remove("active");
+        detailPanel.classList.add("show-chat-tab");
+        detailPanel.classList.remove("show-datos-tab");
+      });
+      tabDatos.addEventListener("click", () => {
+        tabDatos.classList.add("active");
+        tabChat.classList.remove("active");
+        detailPanel.classList.add("show-datos-tab");
+        detailPanel.classList.remove("show-chat-tab");
+      });
+    }
+
     document.getElementById("clearFilters").addEventListener("click", () => {
       clearFilterValues();
       applyFilters();
