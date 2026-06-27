@@ -366,7 +366,7 @@ module.exports = async (req, res) => {
       .page.view-leads.mobile-chat-open form { grid-row: 4; position: sticky; bottom: 0; grid-template-columns: 1fr 78px; padding: 10px; }
       .page.view-chat .detail { display: none; }
       .page.view-chat.mobile-chat-open .left { display: none; }
-      .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; overflow: hidden; }
+      .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr auto; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
       .page.view-chat.mobile-chat-open .detail-head { grid-row: 1; grid-column: 1; }
       .page.view-chat.mobile-chat-open .messages { grid-row: 2; grid-column: 1; }
       .page.view-chat.mobile-chat-open form {
