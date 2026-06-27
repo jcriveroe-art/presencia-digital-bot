@@ -144,7 +144,7 @@ module.exports = async (req, res) => {
     .mobile-only { display: none; }
     .detail-toggle { display: none; }
     .messages { min-height: 0; overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
-    .msg { max-width: min(680px, 84%); padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: var(--shadow-sm); }
+    .msg { max-width: min(680px, 84%); padding: 11px 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); line-height: 1.42; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: var(--shadow-sm); user-select: text; -webkit-user-select: text; }
     .msg.saliente { align-self: flex-end; background: #eaf5ee; border-color: #cfe8d8; }
     .msg small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
     form { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--panel); }
@@ -391,6 +391,14 @@ module.exports = async (req, res) => {
       .ops label.wide { grid-column: span 1; }
       .edit-grid { grid-template-columns: 1fr; }
       .edit-grid label.wide { grid-column: span 1; }
+      body:has(.mobile-chat-open) #manualLeadFormContainer {
+        display: none !important;
+      }
+      .page.mobile-chat-open .dashboard,
+      .page.mobile-chat-open .attention,
+      .page.mobile-chat-open .chat-dashboard {
+        display: none !important;
+      }
     }
     .col-cb { display: none; width: 36px; padding: 10px; text-align: center; }
     .view-leads .col-cb { display: table-cell; }
@@ -409,7 +417,7 @@ module.exports = async (req, res) => {
     </nav>
     <button id="refresh">Actualizar</button>
   </header>
-  <div style="margin: 10px 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-sunken); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+  <div id="manualLeadFormContainer" style="margin: 10px 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-sunken); display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
     <input type="text" id="nombreLead" placeholder="Nombre" style="flex: 1; min-width: 140px;">
     <input type="text" id="telLead" placeholder="Teléfono" style="flex: 1; min-width: 140px;">
     <input type="text" id="zonaLead" placeholder="Zona" style="flex: 1; min-width: 120px;">
