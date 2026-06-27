@@ -240,7 +240,7 @@ module.exports = async (req, res) => {
     
     /* Layout Chat y Leads */
     main { min-height: 0; display: grid; grid-template-columns: minmax(320px, var(--lead-pane-width, 400px)) 1px minmax(320px, 1fr); position: relative; background: var(--bg); }
-    .left { min-width: 0; display: grid; grid-template-rows: auto auto 1fr; background: var(--panel); border-right: 1px solid var(--line); }
+    .left { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto auto 1fr; background: var(--panel); border-right: 1px solid var(--line); }
     .pane-resizer { cursor: col-resize; background: transparent; position: relative; z-index: 3; transition: background 0.2s; }
     .pane-resizer:hover, body.resizing-pane .pane-resizer { background: var(--brand-main); }
     
@@ -273,13 +273,21 @@ module.exports = async (req, res) => {
     .badge.new { color: #1d4ed8; background: #dbeafe; border-color: #bfdbfe; }
     
     /* Detalle (Derecha) */
-    .detail { background: var(--bg); display: grid; grid-template-rows: auto auto 1fr auto; border-left: 1px solid var(--line); }
+    .detail { min-height: 0; background: var(--bg); display: grid; grid-template-rows: auto auto 1fr auto; border-left: 1px solid var(--line); }
     .detail-head { background: var(--panel); padding: 20px 24px; border-bottom: 1px solid var(--line); }
     .identity strong { font-size: 20px; font-weight: 700; color: var(--ink); }
     .detail-tabs { display: flex; gap: 8px; padding: 0 24px; background: var(--panel); border-bottom: 1px solid var(--line); }
     .detail-tabs .tab-btn { border: none; background: transparent; padding: 16px 12px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; border-radius: 0; font-size: 14px; }
     .detail-tabs .tab-btn:hover { color: var(--ink); }
     .detail-tabs .tab-btn.active { border-bottom-color: var(--brand-main); color: var(--brand-main); }
+    
+    /* Lógica de los Tabs */
+    .show-chat-tab #context { display: none !important; }
+    .show-chat-tab #messages { display: flex !important; }
+    .show-chat-tab #manualForm { display: flex !important; }
+    
+    .show-datos-tab #messages, .show-datos-tab #manualForm { display: none !important; }
+    .show-datos-tab #context { display: block !important; }
     
     .actions { padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); display: flex; gap: 8px; flex-wrap: wrap; }
     
