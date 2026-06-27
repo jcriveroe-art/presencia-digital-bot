@@ -500,7 +500,8 @@ module.exports = async (req, res) => {
             document.querySelectorAll('.nav-secondary-item').forEach(n => n.classList.remove('active'));
             e.currentTarget.classList.add('active');
             setView(view);
-            document.getElementById('topbarTitle').textContent = navConfig.label + ' / ' + sub.label;
+            const foundSub = navConfig.submenus.find(s => s.view === view);
+            document.getElementById('topbarTitle').textContent = navConfig.label + ' / ' + (foundSub ? foundSub.label : '');
           });
         });
         
