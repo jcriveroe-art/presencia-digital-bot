@@ -160,21 +160,66 @@ module.exports = async (req, res) => {
     .edit-grid label.wide { grid-column: span 3; }
     .edit-grid textarea { width: 100%; min-height: 76px; resize: vertical; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 8px 10px; font-family: var(--font-body); }
     .edit-status { margin-right: auto; color: var(--muted); font-size: 12px; }
-    .page.view-chat { grid-template-rows: auto 1fr; }
+    body:has(.view-chat) {
+      overflow: hidden;
+    }
+    .page.view-chat {
+      grid-template-rows: auto 1fr;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
     .page.view-chat .dashboard, .page.view-chat .attention { display: none; }
     .page.view-chat .chat-dashboard { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); }
-    .page.view-chat main { grid-template-columns: minmax(280px, var(--lead-pane-width, 340px)) 7px minmax(420px, 1fr); }
-    .page.view-chat .left { grid-template-rows: auto 1fr; }
+    .page.view-chat main {
+      grid-template-columns: minmax(280px, var(--lead-pane-width, 340px)) 7px minmax(420px, 1fr);
+      height: 100%;
+      overflow: hidden;
+    }
+    .page.view-chat .left {
+      grid-template-rows: auto 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
     .page.view-chat .left .import { display: none; }
     .page.view-chat .lead-search { display: none; }
     .page.view-chat .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .page.view-chat .filters button { grid-column: span 2; }
-    .page.view-chat .detail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 390px); grid-template-rows: auto auto 1fr auto; min-width: 0; min-height: 0; }
+    .page.view-chat .detail {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 390px);
+      grid-template-rows: auto auto 1fr auto;
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
     .page.view-chat .detail-head { grid-column: 2; grid-row: 1; }
     .page.view-chat .actions { grid-column: 2; grid-row: 2; justify-content: flex-start; }
-    .page.view-chat .context { grid-column: 2; grid-row: 3 / 5; max-height: none; border-bottom: 0; border-left: 1px solid var(--line); }
-    .page.view-chat .messages { grid-column: 1; grid-row: 1 / 4; }
-    .page.view-chat form { grid-column: 1; grid-row: 4; position: sticky; bottom: 0; z-index: 2; }
+    .page.view-chat .context {
+      grid-column: 2;
+      grid-row: 3 / 5;
+      max-height: none;
+      border-bottom: 0;
+      border-left: 1px solid var(--line);
+      overflow-y: auto;
+      height: 100%;
+    }
+    .page.view-chat .messages {
+      grid-column: 1;
+      grid-row: 1 / 4;
+      overflow-y: auto;
+      height: 100%;
+      padding-bottom: 30px;
+    }
+    .page.view-chat form {
+      grid-column: 1;
+      grid-row: 4;
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+    }
     .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
     .page.view-leads .left { grid-template-rows: auto auto auto 1fr; }
     .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(420px, 1fr); }
@@ -869,7 +914,7 @@ module.exports = async (req, res) => {
       if (currentView === "reportes") renderReports();
       if (selected) {
         selected = conversaciones.find(c => c.telefono === selected.telefono) || null;
-        if (selected) await selectLead(selected.telefono);
+        if (selected) await selectLead(selected.telefono, true);
       } else if (conversaciones.length > 0 && !isMobile()) {
         await selectLead(conversaciones.slice().sort(compareLeads)[0].telefono);
       }
@@ -1379,7 +1424,7 @@ module.exports = async (req, res) => {
       selected = data.conversacion;
       closeEdit();
       await loadConversaciones();
-      await selectLead(selected.telefono);
+      await selectLead(selected.telefono, true);
     }
 
     async function deleteLead(telefono) {
@@ -1404,7 +1449,7 @@ module.exports = async (req, res) => {
       await loadConversaciones();
     }
 
-    async function selectLead(telefono) {
+    async function selectLead(telefono, isSilent = false) {
       selected = conversaciones.find(c => c.telefono === telefono) || { telefono };
       if ((currentView === "chat" || currentView === "leads") && isMobile()) page.classList.add("mobile-chat-open");
       renderLeads();
@@ -1436,6 +1481,11 @@ module.exports = async (req, res) => {
       manualText.disabled = false;
       sendManual.disabled = false;
       renderContext(selected);
+      
+      if (!isSilent) {
+        messages.innerHTML = '<div class="empty">Cargando mensajes...</div>';
+      }
+      
       const res = await actionFetch("mensajes", { telefono });
       const data = await res.json();
       const items = data.mensajes || [];
