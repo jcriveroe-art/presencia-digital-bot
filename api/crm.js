@@ -382,13 +382,21 @@ module.exports = async (req, res) => {
         gap: 8px;
         align-items: center;
       }
-      .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 132px; overflow-y: auto; overflow-x: hidden; }
+      .page.view-chat.mobile-chat-open .actions { display: none !important; }
       .page.view-chat.mobile-chat-open .actions button, .page.view-leads.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; min-height: 34px; padding: 0 8px; white-space: normal; font-size: 13px; }
       .page.view-leads.mobile-chat-open #initialBtn, .page.view-leads.mobile-chat-open #contactedBtn, .page.view-leads.mobile-chat-open #interestedBtn, .page.view-leads.mobile-chat-open #lostBtn { flex-basis: calc(50% - 8px); }
       .page.view-leads.mobile-chat-open #editBtn, .page.view-leads.mobile-chat-open #paidBtn, .page.view-leads.mobile-chat-open #deleteBtn { flex-basis: calc(33.333% - 8px); font-size: 12px; min-height: 30px; }
       .page.view-chat.mobile-chat-open .context { display: none; grid-row: 5; grid-column: 1; max-height: 46vh; overflow: auto; border-left: 0; }
-      .page.view-chat.mobile-chat-open.show-mobile-context .context { display: grid; }
+      .page.view-chat.mobile-chat-open.show-mobile-context .context { display: grid !important; grid-row: 2; grid-column: 1; max-height: calc(100vh - 180px); overflow-y: auto; border-left: 0; }
+      .page.view-chat.mobile-chat-open.show-mobile-context .actions { display: flex !important; grid-row: 3; grid-column: 1; justify-content: flex-start; max-height: none; overflow: visible; border-top: 1px solid var(--line); background: var(--panel); padding: 10px; }
+      .page.view-chat.mobile-chat-open.show-mobile-context .messages { display: none !important; }
+      .page.view-chat.mobile-chat-open.show-mobile-context form { display: none !important; }
       .page.view-leads.mobile-chat-open.show-mobile-context .messages { display: none; }
+      .page.view-chat.mobile-chat-open #subtitle,
+      .page.view-chat.mobile-chat-open #botBadge,
+      .page.view-chat.mobile-chat-open #hotBadge {
+        display: none !important;
+      }
       .mobile-only { display: inline-flex; }
       .messages {
         background-color: #efeae2 !important;
