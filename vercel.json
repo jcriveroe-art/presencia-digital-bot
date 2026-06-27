@@ -3,6 +3,10 @@
     {
       "source": "/crm",
       "destination": "/api/crm"
+    },
+    {
+      "source": "/crm-nuevo",
+      "destination": "/api/crm-nuevo"
     }
   ],
   "crons": [
