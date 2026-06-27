@@ -369,7 +369,19 @@ module.exports = async (req, res) => {
       .page.view-chat.mobile-chat-open .detail { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; min-width: 0; min-height: 0; overflow: hidden; }
       .page.view-chat.mobile-chat-open .detail-head { grid-row: 1; grid-column: 1; }
       .page.view-chat.mobile-chat-open .messages { grid-row: 2; grid-column: 1; }
-      .page.view-chat.mobile-chat-open form { grid-row: 3; grid-column: 1; position: sticky; bottom: 0; grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; padding: 8px 10px 10px; align-items: end; }
+      .page.view-chat.mobile-chat-open form {
+        grid-row: 3;
+        grid-column: 1;
+        position: sticky;
+        bottom: 0;
+        background: #f0f2f5 !important;
+        padding: 7px 8px;
+        border-top: 1px solid var(--line);
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 44px;
+        gap: 8px;
+        align-items: center;
+      }
       .page.view-chat.mobile-chat-open .actions { grid-row: 4; grid-column: 1; justify-content: flex-start; max-height: 132px; overflow-y: auto; overflow-x: hidden; }
       .page.view-chat.mobile-chat-open .actions button, .page.view-leads.mobile-chat-open .actions button { flex: 1 1 calc(50% - 8px); min-width: 0; min-height: 34px; padding: 0 8px; white-space: normal; font-size: 13px; }
       .page.view-leads.mobile-chat-open #initialBtn, .page.view-leads.mobile-chat-open #contactedBtn, .page.view-leads.mobile-chat-open #interestedBtn, .page.view-leads.mobile-chat-open #lostBtn { flex-basis: calc(50% - 8px); }
@@ -378,14 +390,69 @@ module.exports = async (req, res) => {
       .page.view-chat.mobile-chat-open.show-mobile-context .context { display: grid; }
       .page.view-leads.mobile-chat-open.show-mobile-context .messages { display: none; }
       .mobile-only { display: inline-flex; }
-      .messages { padding: 10px; min-width: 0; overflow-x: hidden; }
-      .msg { max-width: 94%; box-sizing: border-box; }
-      .msg.saliente { max-width: 88%; }
+      .messages {
+        background-color: #efeae2 !important;
+        padding: 12px 14px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        min-width: 0;
+        overflow-x: hidden;
+      }
+      .msg {
+        max-width: 85% !important;
+        box-sizing: border-box;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 8px 10px !important;
+        font-size: 14.5px !important;
+        line-height: 1.4 !important;
+        box-shadow: 0 1px 0.5px rgba(0,0,0,0.13) !important;
+        background: #ffffff !important;
+        color: #111b21 !important;
+      }
+      .msg.saliente {
+        max-width: 85% !important;
+        align-self: flex-end !important;
+        background: #d9fdd3 !important;
+      }
       .detail-head { padding: 10px; min-width: 0; flex-wrap: wrap; }
       .detail-head .identity { min-width: 0; flex: 1 1 150px; }
       .actions { padding: 8px 10px; justify-content: flex-start; }
-      .page.view-chat.mobile-chat-open form textarea { min-height: 56px; max-height: 116px; }
-      .page.view-chat.mobile-chat-open form button { min-height: 56px; padding: 0 10px; }
+      .page.view-chat.mobile-chat-open form textarea {
+        border-radius: 20px !important;
+        border: 1px solid #ffffff !important;
+        background: #ffffff !important;
+        padding: 8px 14px !important;
+        min-height: 38px !important;
+        max-height: 100px !important;
+        font-size: 15px !important;
+        line-height: 1.3 !important;
+        resize: none !important;
+      }
+      .page.view-chat.mobile-chat-open form button {
+        border-radius: 50% !important;
+        width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+        padding: 0 !important;
+        background: #00a884 !important;
+        border: none !important;
+        color: transparent !important;
+        font-size: 0 !important;
+        display: grid !important;
+        place-items: center !important;
+        box-shadow: 0 1px 1px rgba(0,0,0,0.15) !important;
+      }
+      .page.view-chat.mobile-chat-open form button::before {
+        content: "➤" !important;
+        font-size: 16px !important;
+        color: #ffffff !important;
+        display: block !important;
+      }
+      .page.view-chat.mobile-chat-open form button:active {
+        transform: scale(0.95) !important;
+      }
       form textarea { min-height: 48px; max-height: 96px; }
       .context-grid, .ops { grid-template-columns: 1fr; }
       .ops label.wide { grid-column: span 1; }
