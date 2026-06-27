@@ -777,9 +777,13 @@ module.exports = async (req, res) => {
 
     function updateDetailToggle() {
       const visible = !isMobile() && (currentView === "chat" || currentView === "leads");
-      toggleDetailPanel.hidden = !visible;
-      toggleDetailPanel.textContent = detailCollapsed ? "Mostrar detalle" : "Ocultar detalle";
-      page.classList.toggle("detail-collapsed", visible && detailCollapsed);
+      if (toggleDetailPanel) {
+        toggleDetailPanel.hidden = !visible;
+        toggleDetailPanel.textContent = detailCollapsed ? "Mostrar detalle" : "Ocultar detalle";
+      }
+      if (typeof page !== "undefined" && page) {
+        page.classList.toggle("detail-collapsed", visible && detailCollapsed);
+      }
     }
 
     function clearFilterValues() {
