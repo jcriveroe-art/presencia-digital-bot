@@ -2069,4 +2069,5 @@ module.exports = async (req, res) => {
     if(NAVIGATION_CONFIG) selectNavPrimary("dashboard");
   </script>
 </body>
-</html>
+</html>`);
+};
