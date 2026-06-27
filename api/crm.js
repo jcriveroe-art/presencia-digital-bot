@@ -602,6 +602,39 @@ module.exports = async (req, res) => {
     function botOn(c) { return c && c.bot_enabled !== false; }
     function label(c) { return c.nombre || c.negocio || c.telefono; }
     function escapeHtml(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch])); }
+    window.copiarMensajeTexto = function(btn, texto) {
+      if (!navigator.clipboard) {
+        const textarea = document.createElement("textarea");
+        textarea.value = texto;
+        textarea.style.position = "fixed";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand("copy");
+          showSuccess(btn);
+        } catch (err) {
+          alert("Error al copiar texto");
+        }
+        document.body.removeChild(textarea);
+        return;
+      }
+      navigator.clipboard.writeText(texto).then(() => {
+        showSuccess(btn);
+      }).catch(() => {
+        alert("Error al copiar texto");
+      });
+    };
+    function showSuccess(btn) {
+      const originalText = btn.textContent;
+      btn.textContent = "¡Copiado!";
+      btn.style.background = "#d4ff3d";
+      btn.style.color = "#1c2a0c";
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = "rgba(0,0,0,0.05)";
+        btn.style.color = "";
+      }, 1500);
+    }
     function fmtDate(value) { return value ? new Date(value).toLocaleString("es-MX", { timeZone: "America/Mexico_City" }) : "sin datos"; }
     function uniqueValues(key) { return [...new Set(conversaciones.map(c => c[key]).filter(Boolean))].sort(); }
     function normalizeZona(value) {
@@ -1333,7 +1366,17 @@ module.exports = async (req, res) => {
       const res = await actionFetch("mensajes", { telefono });
       const data = await res.json();
       const items = data.mensajes || [];
-      messages.innerHTML = items.map(m => '<div class="msg ' + m.direccion + '">' + escapeHtml(m.mensaje) + '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small></div>').join("") || '<div class="empty">Sin mensajes guardados.</div>';
+      messages.innerHTML = items.map(m => {
+        const textEscaped = escapeHtml(m.mensaje);
+        const uriText = encodeURIComponent(m.mensaje);
+        return '<div class="msg ' + m.direccion + '">' + 
+                 textEscaped + 
+                 '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
+                   '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small>' +
+                   '<button type="button" class="copy-msg-btn" style="min-height:20px; padding:2px 6px; font-size:10px; border-radius:4px; background:rgba(0,0,0,0.05); border:none; cursor:pointer;" onclick="copiarMensajeTexto(this, decodeURIComponent(\'' + uriText + '\'))">Copiar</button>' +
+                 '</div>' +
+               '</div>';
+      }).join("") || '<div class="empty">Sin mensajes guardados.</div>';
       messages.scrollTop = messages.scrollHeight;
     }
 
