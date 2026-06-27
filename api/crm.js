@@ -176,9 +176,15 @@ module.exports = async (req, res) => {
       overflow: hidden;
     }
     .page.view-chat .left {
-      grid-template-rows: auto 1fr;
+      display: flex;
+      flex-direction: column;
       height: 100%;
       overflow: hidden;
+    }
+    .page.view-chat .left .table-wrap {
+      flex: 1 1 0%;
+      overflow-y: auto;
+      min-height: 0;
     }
     .page.view-chat .left .import { display: none; }
     .page.view-chat .lead-search { display: none; }
