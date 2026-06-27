@@ -226,10 +226,35 @@ module.exports = async (req, res) => {
       background: var(--panel);
       border-top: 1px solid var(--line);
     }
+    body:has(.view-leads) {
+      overflow: hidden;
+    }
+    .page.view-leads {
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+    .page.view-leads main {
+      grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(420px, 1fr);
+      height: 100%;
+      overflow: hidden;
+    }
     .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
-    .page.view-leads .left { grid-template-rows: auto auto auto 1fr; }
-    .page.view-leads main { grid-template-columns: minmax(420px, var(--lead-pane-width, 56vw)) 7px minmax(420px, 1fr); }
-    .page.view-leads .detail { display: grid; }
+    .page.view-leads .left {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+    .page.view-leads .left .table-wrap {
+      flex: 1 1 0%;
+      overflow-y: auto;
+      min-height: 0;
+    }
+    .page.view-leads .detail {
+      display: grid;
+      height: 100%;
+      overflow-y: auto;
+    }
     .page.view-leads .context { max-height: none; align-content: start; }
     @media (min-width: 1051px) {
       .page.view-chat .detail-toggle, .page.view-leads .detail-toggle { display: inline-flex; align-items: center; position: absolute; top: 10px; right: 12px; z-index: 6; min-height: 30px; font-size: 12px; background: #fff; box-shadow: 0 1px 5px rgba(17, 24, 39, .08); }
