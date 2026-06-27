@@ -226,9 +226,13 @@ module.exports = async (req, res) => {
     .metric strong { display: block; font-family: var(--font-display); font-size: 28px; font-weight: 700; color: var(--ink); }
     .metric span { display: block; color: var(--muted); font-size: 13px; margin-top: 8px; font-weight: 500; }
     
-    .dashboard-panel { padding: 0 24px 24px; display: grid; gap: 24px; background: transparent; border: none; }
+    .dashboard-panel { display: grid; gap: 24px; background: transparent; border: none; }
     .dashboard-section { display: grid; gap: 12px; background: var(--panel); padding: 24px; border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
     .dashboard-section h2 { font-size: 16px; color: var(--ink); text-transform: none; letter-spacing: normal; }
+    
+    .page.view-dashboard { display: block; overflow-y: auto; overflow-x: hidden; }
+    .dashboard-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; padding: 0 24px 24px; align-items: start; }
+    @media (max-width: 1024px) { .dashboard-layout { grid-template-columns: 1fr; } }
     
     .funnel { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
     .funnel-step { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--ink); padding: 16px; font-size: 13px; }
@@ -302,8 +306,8 @@ module.exports = async (req, res) => {
     
     /* Layout View Logic */
     .page.view-dashboard main, .page.view-dashboard .chat-dashboard { display: none; }
-    .page.view-leads .dashboard, .page.view-leads .attention, .page.view-leads .chat-dashboard { display: none; }
-    .page.view-chat .dashboard, .page.view-chat .attention { display: none; }
+    .page.view-leads .dashboard, .page.view-leads .dashboard-layout, .page.view-leads .chat-dashboard { display: none; }
+    .page.view-chat .dashboard, .page.view-chat .dashboard-layout { display: none; }
     .page.view-chat .chat-dashboard { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); padding: 16px 24px; background: var(--panel); border-bottom: 1px solid var(--line); gap: 16px;}
     .page.view-chat .left .import, .page.view-chat .lead-search { display: none; }
     
@@ -362,9 +366,14 @@ module.exports = async (req, res) => {
 
       <div id="page" class="page view-dashboard">
         <div id="dashboard" class="dashboard"></div>
-        <div id="attention" class="attention"></div>
+        <div id="dashboardLayout" class="dashboard-layout">
+          <div class="dashboard-left-col">
+            <div id="attention" class="attention" style="margin-bottom: 24px; border-radius: var(--radius); box-shadow: var(--shadow-sm);"></div>
+            <div id="reports" class="reports-container"></div>
+          </div>
+          <div class="dashboard-right-col" id="dashboardPanels"></div>
+        </div>
         <div id="chatDashboard" class="chat-dashboard"></div>
-        <div id="reports" class="dashboard"></div>
         <div id="bitacoraView" style="display: none; padding: 24px; background: var(--panel); overflow-y: auto;"></div>
         
         <main>
@@ -864,7 +873,7 @@ module.exports = async (req, res) => {
         metric("Requiere intervencion", intervencion, "requiere_intervencion"),
         metric("Respondieron campaña", nuevos, "mensajes_nuevos"),
       ].join("");
-      dashboard.innerHTML += renderDashboardPanel({ total, contactados, interesados, pagados, calientes });
+      document.getElementById("dashboardPanels").innerHTML = renderDashboardPanel({ total, contactados, interesados, pagados, calientes });
       dashboard.querySelectorAll("[data-dash-action]").forEach(card => card.addEventListener("click", () => applyDashboardAction(card.dataset.dashAction)));
     }
 
