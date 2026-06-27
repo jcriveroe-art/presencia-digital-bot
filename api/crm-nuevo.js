@@ -2062,12 +2062,49 @@ module.exports = async (req, res) => {
       }
     }
 
-    const initialView = (location.hash || "#chat").replace("#", "");
-    if (isMobile()) document.querySelectorAll(".mobile-collapse").forEach(el => el.removeAttribute("open"));
-    if (["chat","seguimiento","leads","dashboard","reportes"].includes(initialView)) setView(initialView);
-    initNavigation();
-    loadConversaciones();
-    if(NAVIGATION_CONFIG) selectNavPrimary("dashboard");
+    try {
+      // 1. CONSTRUCCIÓN DEL DOM (Primero se crean los elementos del menú)
+      initNavigation();
+      
+      if (typeof isMobile === 'function' && isMobile()) {
+        document.querySelectorAll(".mobile-collapse").forEach(el => el.removeAttribute("open"));
+      }
+
+      // 2. ASEGURAR REFERENCIA DE LA VARIABLE 'page'
+      // Si 'page' no está declarada globalmente arriba, la asignamos de forma segura aquí:
+      if (typeof page === 'undefined' || !page) {
+        window.page = document.getElementById('page') || document.querySelector('.page') || document.body;
+      }
+
+      // 3. DETERMINAR Y CONFIGURAR VISTA INICIAL
+      const initialView = (location.hash || "#dashboard").replace("#", "");
+      const validViews = ["chat", "seguimiento", "leads", "dashboard", "reportes"];
+      
+      if (validViews.includes(initialView)) {
+        // Se ejecuta setView ahora que el menú existe en el DOM
+        setView(initialView);
+        
+        if (typeof NAVIGATION_CONFIG !== 'undefined' && typeof selectNavPrimary === 'function') {
+          // Mapeo para activar el botón correcto del menú principal
+          const parentMenu = NAVIGATION_CONFIG.find(item => item.submenus?.some(sub => sub.view === initialView));
+          const primaryToActivate = parentMenu ? parentMenu.id : (initialView === 'chat' ? 'dashboard' : initialView);
+          
+          selectNavPrimary(primaryToActivate);
+        }
+      } else {
+        // Fallback seguro si el hash no es válido
+        setView("dashboard");
+        if (typeof selectNavPrimary === 'function') selectNavPrimary("dashboard");
+      }
+      
+      // 4. LLAMADAS ASÍNCRONAS DE DATOS (Al final para no bloquear la UI)
+      if (typeof loadConversaciones === 'function') {
+        loadConversaciones();
+      }
+
+    } catch (error) {
+      console.error("🚨 Error crítico en la secuencia de arranque del CRM:", error);
+    }
   </script>
 </body>
 </html>`);
