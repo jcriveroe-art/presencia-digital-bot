@@ -1194,7 +1194,7 @@ module.exports = async (req, res) => {
         ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
       ];
       context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Seguimiento operativo</h2><div class="ops"><label>Proxima accion<input id="opAccion" value="' + escapeHtml(c.proxima_accion || '') + '"></label><label>Fecha seguimiento<input id="opFecha" type="datetime-local" value="' + toLocalInput(c.fecha_seguimiento) + '"></label><label>Motivo seguimiento<textarea id="opMotivo">' + escapeHtml(c.motivo_seguimiento || '') + '</textarea></label><label>Seguimiento activo<select id="opActivo"><option value="true"' + (c.seguimiento_activo !== false ? ' selected' : '') + '>ON</option><option value="false"' + (c.seguimiento_activo === false ? ' selected' : '') + '>OFF</option></select></label><label>Objecion principal<input id="opObjecion" value="' + escapeHtml(c.objecion_principal || '') + '"></label><label class="wide">Resultado conversacion<textarea id="opResultado">' + escapeHtml(c.resultado_conversacion || '') + '</textarea></label><button class="primary" id="saveFollowup">Guardar seguimiento</button><span id="followupStatus" class="badge">Listo</span></div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div><h2>Notas internas</h2><div class="notes">' + escapeHtml(c.notas || 'Sin notas internas.') + '</div><h2>Timeline</h2><div id="timeline" class="timeline"><span class="badge">Cargando eventos</span></div>';
-      document.getElementById("saveFollowup").addEventListener("click", saveFollowup);
+      document.getElementById("saveFollowup")?.addEventListener("click", saveFollowup);
       loadTimeline(c.telefono);
     }
 
@@ -1373,7 +1373,7 @@ module.exports = async (req, res) => {
         ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
       ];
       context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Seguimiento operativo</h2><div class="ops"><label>Proxima accion<input id="opAccion" value="' + escapeHtml(c.proxima_accion || '') + '"></label><label>Fecha seguimiento<input id="opFecha" type="datetime-local" value="' + toLocalInput(c.fecha_seguimiento) + '"></label><label>Motivo seguimiento<textarea id="opMotivo">' + escapeHtml(c.motivo_seguimiento || '') + '</textarea></label><label>Seguimiento activo<select id="opActivo"><option value="true"' + (c.seguimiento_activo !== false ? ' selected' : '') + '>ON</option><option value="false"' + (c.seguimiento_activo === false ? ' selected' : '') + '>OFF</option></select></label><label>Objecion principal<input id="opObjecion" value="' + escapeHtml(c.objecion_principal || '') + '"></label><label class="wide">Resultado conversacion<textarea id="opResultado">' + escapeHtml(c.resultado_conversacion || '') + '</textarea></label><button class="primary" id="saveFollowup">Guardar seguimiento</button><span id="followupStatus" class="badge">Listo</span></div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div><h2>Notas internas</h2><div class="notes">' + escapeHtml(c.notas || 'Sin notas internas.') + '</div><h2>Timeline</h2><div id="timeline" class="timeline"><span class="badge">Cargando eventos</span></div>';
-      document.getElementById("saveFollowup").addEventListener("click", saveFollowup);
+      document.getElementById("saveFollowup")?.addEventListener("click", saveFollowup);
       loadTimeline(c.telefono);
     }
 
@@ -1653,7 +1653,7 @@ module.exports = async (req, res) => {
         alert(data.error || "No se pudo marcar sin WhatsApp");
       }
     });
-    document.getElementById("refresh").addEventListener("click", loadConversaciones);
+    document.getElementById("refresh")?.addEventListener("click", loadConversaciones);
     document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => setView(btn.dataset.view)));
     const selectAllCbElement = document.getElementById("selectAllLeads");
     if (selectAllCbElement) {
@@ -1661,19 +1661,19 @@ module.exports = async (req, res) => {
         toggleSelectAll(event.target.checked);
       });
     }
-    document.getElementById("btnBulkSend").addEventListener("click", () => {
+    document.getElementById("btnBulkSend")?.addEventListener("click", () => {
       if (selectedLeads.size === 0) return;
       if (confirm("¿Enviar mensaje inicial a los " + selectedLeads.size + " leads seleccionados?\\n(Nota: Los leads ya contactados o sin nombre se omitirán automáticamente)")) {
         startBulkSend(Array.from(selectedLeads));
       }
     });
-    toggleDetailPanel.addEventListener("click", () => {
+    toggleDetailPanel?.addEventListener("click", () => {
       detailCollapsed = !detailCollapsed;
       updateDetailToggle();
     });
     window.addEventListener("resize", updateDetailToggle);
-    document.getElementById("backToLeads").addEventListener("click", () => page.classList.remove("mobile-chat-open", "show-mobile-context"));
-    document.getElementById("toggleLeadData").addEventListener("click", () => page.classList.toggle("show-mobile-context"));
+    document.getElementById("backToLeads")?.addEventListener("click", () => page.classList.remove("mobile-chat-open", "show-mobile-context"));
+    document.getElementById("toggleLeadData")?.addEventListener("click", () => page.classList.toggle("show-mobile-context"));
     
     // Desktop tabs switching logic
     const tabChat = document.getElementById("tabChat");
@@ -1694,11 +1694,11 @@ module.exports = async (req, res) => {
       });
     }
 
-    document.getElementById("clearFilters").addEventListener("click", () => {
+    document.getElementById("clearFilters")?.addEventListener("click", () => {
       clearFilterValues();
       applyFilters();
     });
-    paneResizer.addEventListener("pointerdown", (event) => {
+    paneResizer?.addEventListener("pointerdown", (event) => {
       if (isMobile()) return;
       event.preventDefault();
       paneResizer.setPointerCapture(event.pointerId);
@@ -1715,18 +1715,18 @@ module.exports = async (req, res) => {
         paneResizer.removeEventListener("pointerup", stop);
         paneResizer.removeEventListener("pointercancel", stop);
       };
-      paneResizer.addEventListener("pointermove", resize);
-      paneResizer.addEventListener("pointerup", stop);
-      paneResizer.addEventListener("pointercancel", stop);
+      paneResizer?.addEventListener("pointermove", resize);
+      paneResizer?.addEventListener("pointerup", stop);
+      paneResizer?.addEventListener("pointercancel", stop);
     });
-    ["filterEstado","filterPrioridad","filterCategoria","filterZona","filterFuente","filterEstadoContacto","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id).addEventListener("change", applyFilters));
-    document.getElementById("filterTexto").addEventListener("input", applyFilters);
-    leadSearch.addEventListener("input", () => {
+    ["filterEstado","filterPrioridad","filterCategoria","filterZona","filterFuente","filterEstadoContacto","filterCaliente","filterOperativo"].forEach(id => document.getElementById(id)?.addEventListener("change", applyFilters));
+    document.getElementById("filterTexto")?.addEventListener("input", applyFilters);
+    leadSearch?.addEventListener("input", () => {
       document.getElementById("filterTexto").value = leadSearch.value;
       applyFilters();
     });
 
-    document.getElementById("manualForm").addEventListener("submit", async (event) => {
+    document.getElementById("manualForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const mensaje = manualText.value.trim();
       if (!selected || !mensaje) return;
