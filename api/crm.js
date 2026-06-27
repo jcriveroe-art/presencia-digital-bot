@@ -283,7 +283,7 @@ module.exports = async (req, res) => {
     .followup-actions button { min-height: 28px; padding: 0 9px; font-size: 12px; }
     @media (max-width: 1050px) { .dashboard { grid-template-columns: repeat(2, 1fr); } main { grid-template-columns: 1fr; grid-template-rows: 44vh 1fr; } .pane-resizer { display: none; } .left { border-right: 0; border-bottom: 1px solid var(--line); } .page.view-chat main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } .page.view-chat .detail { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto auto auto; } .page.view-chat .detail-head, .page.view-chat .actions, .page.view-chat .context, .page.view-chat .messages, .page.view-chat form { grid-column: 1; } .page.view-chat .detail-head { grid-row: 1; } .page.view-chat .messages { grid-row: 2; } .page.view-chat form { grid-row: 3; } .page.view-chat .actions { grid-row: 4; } .page.view-chat .context { grid-row: 5; border-left: 0; max-height: 320px; } }
     @media (max-width: 768px) {
-      html, body { width: 100%; max-width: 100%; overflow: hidden; }
+      html, body { width: 100%; max-width: 100%; height: 100svh; height: 100dvh; overflow: hidden; }
       body { padding-top: 52px; }
       header { height: 52px; grid-template-columns: auto minmax(0, 1fr) auto; padding: 0 8px; gap: 6px; }
       h1 { font-size: 15px; white-space: nowrap; }
@@ -293,7 +293,7 @@ module.exports = async (req, res) => {
       .top-nav button { min-width: max-content; padding: 0 9px; }
       header > #refresh { justify-self: end; min-width: 42px; max-width: 42px; padding: 0; overflow: hidden; color: transparent; position: relative; }
       header > #refresh::after { content: "↻"; color: var(--ink); position: absolute; inset: 0; display: grid; place-items: center; font-size: 18px; }
-      .page { height: calc(100vh - 52px); overflow: hidden; }
+      .page { height: calc(100svh - 52px); height: calc(100dvh - 52px); overflow: hidden; }
       .chat-dashboard { grid-template-columns: 1fr !important; }
       .page.view-chat .chat-dashboard { grid-template-columns: repeat(3, minmax(86px, 1fr)) !important; gap: 6px; padding: 6px 8px; }
       .page.view-chat .chat-dashboard .metric { min-height: 42px; padding: 6px 7px; border-radius: 7px; }
