@@ -749,24 +749,17 @@ module.exports = async (req, res) => {
     function setView(view) {
       if(!NAVIGATION_CONFIG) return; // Prevent run before init
       currentView = view;
-      page.className = "page view-" + view;
-      
-      const bitacoraView = document.getElementById("bitacoraView");
-      if(bitacoraView) bitacoraView.style.display = view === "bitacora" ? "block" : "none";
-      if(view === "chat" || view === "leads") {
-        document.querySelector("main").style.display = "grid";
-      } else {
-        document.querySelector("main").style.display = "none";
-      }
-      currentView = view;
       page.classList.remove("mobile-chat-open", "show-mobile-context");
       page.className = "page view-" + view;
       
       const bitacoraView = document.getElementById("bitacoraView");
-      if (view === "bitacora") {
-        bitacoraView.style.display = "grid";
-      } else {
-        bitacoraView.style.display = "none";
+      if (bitacoraView) {
+        bitacoraView.style.display = (view === "bitacora") ? "grid" : "none";
+      }
+      
+      const mainEl = document.querySelector("main");
+      if (mainEl) {
+        mainEl.style.display = (view === "chat" || view === "leads") ? "grid" : "none";
       }
       
       if (detailCollapsed && !isMobile() && (view === "chat" || view === "leads")) page.classList.add("detail-collapsed");
