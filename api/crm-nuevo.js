@@ -1582,7 +1582,7 @@ module.exports = async (req, res) => {
                    textEscaped + 
                    '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
                      '<small>' + m.direccion + ' | ' + fmtDate(m.created_at) + '</small>' +
-                     '<button type="button" class="copy-msg-btn" style="min-height:20px; padding:2px 6px; font-size:10px; border-radius:4px; background:rgba(0,0,0,0.05); border:none; cursor:pointer;" onclick="copiarMensajeTexto(this, decodeURIComponent(\'' + uriText + '\'))">Copiar</button>' +
+                     '<button type="button" class="copy-msg-btn" style="min-height:20px; padding:2px 6px; font-size:10px; border-radius:4px; background:rgba(0,0,0,0.05); border:none; cursor:pointer;" onclick="copiarMensajeTexto(this, decodeURIComponent(\\\'' + uriText + '\\\'))">Copiar</button>' +
                    '</div>' +
                  '</div>';
         }).join("") || '<div class="empty">Sin mensajes guardados.</div>';
