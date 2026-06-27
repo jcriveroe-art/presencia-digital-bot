@@ -1227,6 +1227,201 @@ module.exports = async (req, res) => {
           fecha_seguimiento: fromLocalInput(document.getElementById("opFecha").value),
           motivo_seguimiento: document.getElementById("opMotivo").value,
           seguimiento_activo: document.getElementById("opActivo").value === "true",
+      if (DEBUG_CRM) console.log("CRM zonas detectadas", zonas);
+      const select = document.getElementById("filterZona");
+      const current = select.value;
+      select.innerHTML = '<option value="">Todas las zonas</option><option value="__sin_zona__">Sin zona</option>' + zonas.map(z => '<option value="' + escapeHtml(z) + '">' + escapeHtml(z) + '</option>').join("");
+      select.value = current && [...zonas, "__sin_zona__"].includes(current) ? current : "";
+    }
+
+    function fillFuenteSelect() {
+      const fuentes = fuentesDetectadas();
+      if (DEBUG_CRM) console.log("CRM fuentes detectadas", fuentes);
+      const select = document.getElementById("filterFuente");
+      const current = select.value;
+      select.innerHTML = '<option value="">Todas las fuentes</option><option value="__sin_fuente__">Sin fuente</option>' + fuentes.map(f => '<option value="' + escapeHtml(f) + '">' + escapeHtml(f) + '</option>').join("");
+      select.value = current && [...fuentes, "__sin_fuente__"].includes(current) ? current : "";
+    }
+
+    function fillFilters() {
+      fillSelect("filterEstado", [...new Set([...estadosBase, ...uniqueValues("estado")])].filter(Boolean), "Todos");
+      fillSelect("filterPrioridad", uniqueValues("prioridad"), "Todas");
+      fillSelect("filterCategoria", uniqueValues("categoria"), "Todas");
+      fillZonaSelect();
+      fillFuenteSelect();
+      fillSelect("filterEstadoContacto", estadosContacto, "Todos");
+    }
+
+    function applyFilters() {
+      const texto = document.getElementById("filterTexto").value.trim().toLowerCase();
+      if (leadSearch.value !== texto) leadSearch.value = texto;
+      const textoDigitos = soloDigitos(texto);
+      const estado = document.getElementById("filterEstado").value;
+      const prioridad = document.getElementById("filterPrioridad").value;
+      const categoria = document.getElementById("filterCategoria").value;
+      const zona = document.getElementById("filterZona").value;
+      const fuente = document.getElementById("filterFuente").value;
+      const estadoContacto = document.getElementById("filterEstadoContacto").value;
+      const caliente = document.getElementById("filterCaliente").value;
+      const operativo = document.getElementById("filterOperativo").value;
+      filtered = conversaciones.filter(c => {
+        if (texto) {
+          const haystack = [label(c), c.telefono, c.zona, c.fuente_busqueda, c.estado_contacto].map(v => String(v || "").toLowerCase()).join(" ");
+          const telefonoDigitos = soloDigitos(c.telefono);
+          const matchTelefono = textoDigitos && telefonoDigitos.includes(textoDigitos);
+          if (!haystack.includes(texto) && !matchTelefono) return false;
+        }
+        if (estado && (c.estado || "") !== estado) return false;
+        if (prioridad && (c.prioridad || "") !== prioridad) return false;
+        if (categoria && (c.categoria || "") !== categoria) return false;
+        if (zona && normalizeZona(c.zona) !== zona) return false;
+        if (fuente && normalizeFuente(c.fuente_busqueda) !== fuente) return false;
+        if (estadoContacto && commercialState(c) !== estadoContacto) return false;
+        if (caliente && String(c.caliente === true) !== caliente) return false;
+        if (operativo === "nuevo" && !hasNewMessage(c)) return false;
+        if (operativo === "requiere_intervencion" && c.estado !== "requiere_intervencion") return false;
+        if (operativo === "interesados" && c.estado !== "interesado") return false;
+        if (operativo === "calientes" && !(c.caliente === true || c.estado === "cliente_caliente")) return false;
+        if (operativo === "diagnostico_pagado" && c.estado !== "diagnostico_pagado") return false;
+        if (operativo === "hoy_vencidos" && !isDueTodayOrOverdue(c)) return false;
+        return true;
+      }).sort(compareLeads);
+      if (DEBUG_CRM) console.log("CRM filtros", { zona_seleccionada: zona || "Todas las zonas", fuente_seleccionada: fuente || "Todas las fuentes", estado_seleccionado: estadoContacto || estado || "Todos", leads_filtrados: filtered.length, seguimientos_vencidos: conversaciones.filter(isOverdue).length });
+      renderLeads();
+    }
+
+    function priorityRank(c) {
+      if (c.estado === "requiere_intervencion") return 0;
+      if (hasNewMessage(c)) return 1;
+      if (c.caliente === true || c.estado === "cliente_caliente") return 2;
+      if (c.estado === "interesado") return 3;
+      return 4;
+    }
+
+    function compareLeads(a, b) {
+      const rank = priorityRank(a) - priorityRank(b);
+      if (rank !== 0) return rank;
+      return new Date(b.fecha_ultimo_mensaje_real || b.fecha_ultimo_mensaje || 0) - new Date(a.fecha_ultimo_mensaje_real || a.fecha_ultimo_mensaje || 0);
+    }
+
+    function relativeTime(value) {
+      if (!value) return "sin datos";
+      const diff = Date.now() - new Date(value).getTime();
+      if (Number.isNaN(diff)) return "sin datos";
+      const min = Math.max(1, Math.round(diff / 60000));
+      if (min < 60) return "hace " + min + " min";
+      const hrs = Math.round(min / 60);
+      if (hrs < 48) return "hace " + hrs + " h";
+      const days = Math.round(hrs / 24);
+      return "hace " + days + " dias";
+    }
+
+    function lastMessageLabel(c) {
+      const actor = c.direccion_ultimo_mensaje === "entrante" ? "Cliente" : (c.direccion_ultimo_mensaje === "saliente" ? "Nosotros" : "Sin mensajes");
+      return actor + " " + relativeTime(c.fecha_ultimo_mensaje_real || c.fecha_ultimo_mensaje);
+    }
+
+    function bindLeadRowActions() {
+      leads.querySelectorAll("button[data-chat]").forEach(btn => btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        setView("chat");
+        await selectLead(btn.dataset.chat);
+      }));
+      leads.querySelectorAll("button[data-edit]").forEach(btn => btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await selectLead(btn.dataset.edit);
+        openEdit();
+      }));
+      leads.querySelectorAll("button[data-delete]").forEach(btn => btn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        await deleteLead(btn.dataset.delete);
+      }));
+      leads.querySelectorAll(".lead-select-cb").forEach(cb => cb.addEventListener("change", () => {
+        toggleSelectLead(cb.dataset.tel, cb.checked);
+      }));
+    }
+
+    function renderLeads() {
+      const leadActions = (telefono) => '<div class="lead-actions"><button type="button" data-chat="' + escapeHtml(telefono) + '">Ver chat</button><button type="button" data-edit="' + escapeHtml(telefono) + '">Editar</button><button class="danger" type="button" data-delete="' + escapeHtml(telefono) + '">Borrar</button></div>';
+      const alertBadges = (c) => '<span class="badge state-' + escapeHtml(c.estado || 'nuevo') + '">' + escapeHtml(estadoLabel(c.estado || 'nuevo')) + '</span> ' + alertasLead(c).map(a => '<span class="badge off">' + escapeHtml(a) + '</span>').join(" ");
+      if (currentView === "chat") {
+        leads.innerHTML = filtered.map(c => {
+          const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
+          const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondio</span>' : '';
+          const pendingBadge = hasNewMessage(c) ? ' <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="12"><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-last"><strong>Ultimo mensaje:</strong> ' + escapeHtml(lastMessageLabel(c)) + '</div></div></td></tr>';
+        }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
+        updateBulkSendUI();
+        return;
+      }
+      if (isMobile()) {
+        leads.innerHTML = filtered.map(c => {
+          const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
+          const isChecked = selectedLeads.has(c.telefono) ? "checked" : "";
+          const checkboxHtml = currentView === "leads" ? '<input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onclick="event.stopPropagation()" style="margin-right: 8px;" />' : '';
+          return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td colspan="12"><div class="lead-line"><div class="lead-main">' + checkboxHtml + '<span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + (hasNewMessage(c) ? ' <span class="badge new">Respondio</span> <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '') + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.telefono) + ' | ' + escapeHtml(zonaLabel(c.zona)) + ' | ' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div><div class="lead-next">Siguiente: ' + escapeHtml(safeDato(c.siguiente_accion)) + '</div><div class="lead-actions"><button type="button" data-chat="' + escapeHtml(c.telefono) + '">Ver chat</button> <button type="button" data-initial="' + escapeHtml(c.telefono) + '">Enviar inicial</button></div></div></td></tr>';
+        }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
+        leads.querySelectorAll("tr[data-tel] td").forEach(td => {
+          const tel = td.parentElement.dataset.tel;
+          td.querySelector(".lead-actions").insertAdjacentHTML("beforeend", ' <button type="button" data-edit="' + escapeHtml(tel) + '">Editar</button> <button class="danger" type="button" data-delete="' + escapeHtml(tel) + '">Borrar</button>');
+        });
+        bindLeadRowActions();
+        leads.querySelectorAll("button[data-initial]").forEach(btn => btn.addEventListener("click", async (event) => { event.stopPropagation(); selected = conversaciones.find(c => c.telefono === btn.dataset.initial); if (selected) document.getElementById("initialBtn").click(); }));
+        leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => { selectLead(row.dataset.tel); page.classList.add("mobile-chat-open"); }));
+        updateBulkSendUI();
+        return;
+      }
+      leads.innerHTML = filtered.map(c => {
+        const pending = Number(c.respuestas_post_campana || c.mensajes_pendientes || 0);
+        const newBadge = hasNewMessage(c) ? ' <span class="badge new">Respondio</span>' : '';
+        const pendingBadge = hasNewMessage(c) ? ' <span class="badge new">(' + escapeHtml(pending) + ')</span>' : '';
+        const isChecked = selectedLeads.has(c.telefono) ? "checked" : "";
+        return '<tr class="' + (selected?.telefono === c.telefono ? 'active' : '') + '" data-tel="' + escapeHtml(c.telefono) + '"><td class="col-cb"><input type="checkbox" class="lead-select-cb" data-tel="' + escapeHtml(c.telefono) + '" ' + isChecked + ' onclick="event.stopPropagation()" /></td><td><div class="lead-line"><div class="lead-main"><span class="lead-name">' + escapeHtml(label(c)) + '</span>' + alertBadges(c) + newBadge + pendingBadge + (c.prioridad ? ' <span class="badge">' + escapeHtml(c.prioridad) + '</span>' : '') + '</div><div class="lead-meta">' + escapeHtml(c.categoria || 'Sin nicho') + ' | Score ' + escapeHtml(c.score || 'sin dato') + '</div></div></td><td><span class="lead-meta">' + escapeHtml(c.telefono || 'Sin telefono') + '</span></td><td><span class="lead-meta">' + escapeHtml(zonaLabel(c.zona)) + '</span></td><td><span class="lead-meta">' + escapeHtml(fuenteLabel(c.fuente_busqueda)) + '</span></td><td>' + escapeHtml(commercialState(c) || 'Sin dato') + '</td><td><span class="lead-next">' + escapeHtml(safeDato(c.siguiente_accion)) + '</span></td><td><span class="lead-meta">' + escapeHtml(c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : 'Sin dato') + '</span></td><td>' + escapeHtml(safeDato(c.producto_interesado)) + '<br><small>' + escapeHtml(money(c.monto_cotizado)) + '</small></td><td>' + escapeHtml(safeDato(c.estado_pago)) + '<br><small>Pagado ' + escapeHtml(money(c.monto_pagado)) + '</small><br>' + leadActions(c.telefono) + '</td></tr>';
+      }).join("") || '<tr><td colspan="12">Sin resultados</td></tr>';
+      bindLeadRowActions();
+      leads.querySelectorAll("tr[data-tel]").forEach(row => row.addEventListener("click", () => selectLead(row.dataset.tel)));
+      updateBulkSendUI();
+    }
+
+    function renderContext(c) {
+      if (!c) { context.innerHTML = '<div class="empty">Sin lead seleccionado.</div>'; return; }
+      const negocio = [
+        ["Nombre", label(c)], ["Categoria", c.categoria], ["Zona", zonaLabel(c.zona)], ["Fuente", fuenteLabel(c.fuente_busqueda)], ["Estado comercial", commercialState(c) || "Sin dato"], ["Prioridad", c.prioridad], ["Score", c.score],
+        ["Total fugas", c.total_fugas], ["Telefono", c.telefono], ["Estado", c.estado], ["Ultimo mensaje", c.ultimo_mensaje],
+        ["Siguiente accion", c.siguiente_accion], ["Fecha seguimiento", c.fecha_siguiente_seguimiento ? fmtDate(c.fecha_siguiente_seguimiento) : "Sin dato"], ["Producto", c.producto_interesado], ["Monto cotizado", money(c.monto_cotizado)], ["Monto pagado", money(c.monto_pagado)], ["Estado pago", c.estado_pago], ["Ultima respuesta", c.ultima_respuesta ? fmtDate(c.ultima_respuesta) : "Sin dato"],
+        ["Rating", c.rating], ["Resenas", c.resenas], ["Fotos estimadas", c.fotos_estimadas || c.fotos], ["Diagnostico fotos", c.diagnostico_fotos], ["Ultima resena", c.ultima_resena],
+        ["Responde resenas", c.responde_resenas], ["Website", c.website], ["Horarios", c.horarios], ["Descripcion", c.descripcion],
+        ["Direccion", c.direccion], ["Maps", c.maps_url ? '<a href="' + escapeHtml(c.maps_url) + '" target="_blank" rel="noreferrer">Abrir Maps</a>' : ""],
+      ];
+      context.innerHTML = '<h2>Datos del negocio</h2><div class="context-grid">' + negocio.map(([k, v]) => '<div><strong>' + k + '</strong><span>' + (v || 'sin datos') + '</span></div>').join("") + '</div><h2>Seguimiento operativo</h2><div class="ops"><label>Proxima accion<input id="opAccion" value="' + escapeHtml(c.proxima_accion || '') + '"></label><label>Fecha seguimiento<input id="opFecha" type="datetime-local" value="' + toLocalInput(c.fecha_seguimiento) + '"></label><label>Motivo seguimiento<textarea id="opMotivo">' + escapeHtml(c.motivo_seguimiento || '') + '</textarea></label><label>Seguimiento activo<select id="opActivo"><option value="true"' + (c.seguimiento_activo !== false ? ' selected' : '') + '>ON</option><option value="false"' + (c.seguimiento_activo === false ? ' selected' : '') + '>OFF</option></select></label><label>Objecion principal<input id="opObjecion" value="' + escapeHtml(c.objecion_principal || '') + '"></label><label class="wide">Resultado conversacion<textarea id="opResultado">' + escapeHtml(c.resultado_conversacion || '') + '</textarea></label><button class="primary" id="saveFollowup">Guardar seguimiento</button><span id="followupStatus" class="badge">Listo</span></div><h2>Fugas detectadas</h2><div class="fugas">' + escapeHtml(c.fugas_detectadas || 'Sin fugas guardadas.') + '</div><h2>Notas internas</h2><div class="notes">' + escapeHtml(c.notas || 'Sin notas internas.') + '</div><h2>Timeline</h2><div id="timeline" class="timeline"><span class="badge">Cargando eventos</span></div>';
+      document.getElementById("saveFollowup").addEventListener("click", saveFollowup);
+      loadTimeline(c.telefono);
+    }
+
+    function toLocalInput(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 16);
+    }
+
+    function fromLocalInput(value) {
+      return value ? new Date(value).toISOString() : null;
+    }
+
+    async function saveFollowup() {
+      if (!selected) return;
+      const status = document.getElementById("followupStatus");
+      status.textContent = "Guardando";
+      const res = await actionFetch("lead_followup", {
+        telefono: selected.telefono,
+        updates: {
+          proxima_accion: document.getElementById("opAccion").value,
+          fecha_seguimiento: fromLocalInput(document.getElementById("opFecha").value),
+          motivo_seguimiento: document.getElementById("opMotivo").value,
+          seguimiento_activo: document.getElementById("opActivo").value === "true",
           objecion_principal: document.getElementById("opObjecion").value,
           resultado_conversacion: document.getElementById("opResultado").value,
         }
@@ -1235,9 +1430,7 @@ module.exports = async (req, res) => {
       status.textContent = res.ok && data.ok ? "Guardado" : (data.error || "Error");
       if (res.ok && data.ok) {
         selected = data.conversacion;
-        initNavigation();
-      await loadConversaciones();
-      if(NAVIGATION_CONFIG) selectNavPrimary("dashboard");
+        await loadConversaciones();
       }
     }
 
@@ -1871,9 +2064,9 @@ module.exports = async (req, res) => {
     const initialView = (location.hash || "#chat").replace("#", "");
     if (isMobile()) document.querySelectorAll(".mobile-collapse").forEach(el => el.removeAttribute("open"));
     if (["chat","seguimiento","leads","dashboard","reportes"].includes(initialView)) setView(initialView);
+    initNavigation();
     loadConversaciones();
+    if(NAVIGATION_CONFIG) selectNavPrimary("dashboard");
   </script>
 </body>
-</html>`);
-};
-
+</html>
