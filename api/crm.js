@@ -405,6 +405,8 @@ module.exports = async (req, res) => {
         flex-direction: column !important;
         gap: 8px !important;
         min-width: 0;
+        min-height: 0 !important;
+        overflow-y: auto !important;
         overflow-x: hidden;
       }
       .msg {
