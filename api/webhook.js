@@ -29,13 +29,11 @@ const CONFIG_ACTIVACION_PRECIO = 1500;
 const CONFIG_ACTIVACION_CON_DIAGNOSTICO = 2000;
 const CONFIG_CONTROL_PRECIO = 1500;
 const CONFIG_METODO_PAGO = "manual";
-const PRECIOS_CONFIGURADOS = new Set([
-  CONFIG_DIAGNOSTICO_PRECIO,
-  CONFIG_DIAGNOSTICO_PILOTO_PRECIO,
-  CONFIG_ACTIVACION_PRECIO,
-  CONFIG_ACTIVACION_CON_DIAGNOSTICO,
-  CONFIG_CONTROL_PRECIO,
-]);
+const PRODUCTOS_POR_PRECIO = {
+  [CONFIG_DIAGNOSTICO_PRECIO]: ["diagnostico"],
+  [CONFIG_ACTIVACION_PRECIO]: ["activacion", "control"],
+  [CONFIG_ACTIVACION_CON_DIAGNOSTICO]: ["activacion_con_diagnostico"],
+};
 
 const SYSTEM_PROMPT = `NUNCA incluyas en tu respuesta frases como 'No debo responder como...', encabezados con ## o **, ni razonamiento interno visible. Solo el texto limpio que verá el cliente.
 
@@ -472,14 +470,35 @@ function montosMencionados(texto) {
     .filter((monto) => Number.isFinite(monto));
 }
 
+function productosMencionados(texto) {
+  const clean = normalizarTexto(texto);
+  const mencionaDiagnostico = /\bdiagnostico\b/.test(clean);
+  const mencionaActivacion = /\bactivacion\b/.test(clean);
+  const mencionaControl = /\bcontrol\b/.test(clean);
+  const productos = new Set();
+  if (mencionaActivacion && mencionaDiagnostico) productos.add("activacion_con_diagnostico");
+  if (mencionaActivacion) productos.add("activacion");
+  if (mencionaDiagnostico) productos.add("diagnostico");
+  if (mencionaControl) productos.add("control");
+  return productos;
+}
+
+function precioCorrespondeAlContexto(precio, productosDetectados) {
+  const productosDelPrecio = PRODUCTOS_POR_PRECIO[precio];
+  if (!productosDelPrecio) return false;
+  if (productosDetectados.size === 0) return true;
+  return productosDelPrecio.some((producto) => productosDetectados.has(producto));
+}
+
 function contieneAlucinacionComercialCritica(texto) {
   const clean = normalizarTexto(texto);
   const mencionaDatosPago = /\b(banco|cuenta|clabe|transferencia|spei|titular|tarjeta|deposito|dep[oó]sito|paypal|mercado\s+pago)\b/.test(clean);
   const mencionaPromocion = /\b(promo|promocion|descuento|oferta|rebaja|bono\s+especial)\b/.test(clean);
   const precios = montosMencionados(texto);
-  const precioNoConfigurado = precios.some((precio) => !PRECIOS_CONFIGURADOS.has(precio));
+  const productosDetectados = productosMencionados(texto);
+  const precioNoValidoParaContexto = precios.some((precio) => !precioCorrespondeAlContexto(precio, productosDetectados));
   const promocionConfigurada = clean.includes("diagnostico piloto") && precios.includes(CONFIG_DIAGNOSTICO_PILOTO_PRECIO);
-  return mencionaDatosPago || (mencionaPromocion && !promocionConfigurada) || precioNoConfigurado;
+  return mencionaDatosPago || (mencionaPromocion && !promocionConfigurada) || precioNoValidoParaContexto;
 }
 
 function prepararRespuestaCliente(texto) {
@@ -512,11 +531,7 @@ async function alertarJsonBloqueado(telefono, cliente) {
 }
 
 async function dispararCheckpointPago(telefono, cliente, ultimoMensaje) {
-  const esPiloto = String(cliente?.notas || "").toLowerCase().includes("piloto") 
-    || String(cliente?.notas_internas || "").toLowerCase().includes("piloto")
-    || (cliente?.ultimo_mensaje && pideDescuentoOPiloto(cliente.ultimo_mensaje))
-    || pideDescuentoOPiloto(ultimoMensaje);
-  const monto = esPiloto ? "$1,000" : "$1,500";
+  const monto = `$${CONFIG_COMERCIAL.PRECIO_DIAGNOSTICO.toLocaleString("es-MX")}`;
   const negocio = cliente?.negocio || cliente?.nombre || "sin datos";
 
   const textoAlerta = [
@@ -1214,9 +1229,16 @@ module.exports = async (req, res) => {
 
             const respuestaCritica = await responderComercialCritico(from, text, cliente);
             if (respuestaCritica) {
-              const response = await sendMessage(from, respuestaCritica);
-              await logMensaje(from, "saliente", respuestaCritica, response.data);
-              await logEventoCRM(from, "respuesta_ia", respuestaCritica, { whatsapp: response.data });
+              const { cleanText: cleanTextCritico, bloqueada: bloqueadaCritico } = prepararRespuestaCliente(respuestaCritica);
+              if (bloqueadaCritico) {
+                console.error("Respuesta determinista bloqueada por contener estado interno o precio no valido para el contexto", { from });
+                await alertarJsonBloqueado(from, cliente);
+                await saveCliente(from, { estado: "requiere_intervencion", bot_enabled: false });
+                continue;
+              }
+              const response = await sendMessage(from, cleanTextCritico);
+              await logMensaje(from, "saliente", cleanTextCritico, response.data);
+              await logEventoCRM(from, "respuesta_ia", cleanTextCritico, { whatsapp: response.data });
               continue;
             }
 
