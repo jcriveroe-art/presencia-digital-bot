@@ -434,6 +434,31 @@ function normalizarTexto(texto) {
   return String(texto || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 }
 
+const GIRO_KEYWORDS = {
+  restaurante: /\b(restaurante|restaurant|cocina\s+economica|fonda|taqueria|tacos|antojitos|comida\s+corrida|cafeteria|cafe|pizzeria|marisqueria)\b/,
+  dental: /\b(dental|dentista|odontolog\w*|consultorio\s+dental|clinica\s+dental)\b/,
+  salon_belleza: /\b(salon\s+de\s+belleza|estetica|peluqueria|barberia|spa|estilista|unas\s+acrilicas|nail\s*salon)\b/,
+  tintoreria: /\b(tintoreria|lavanderia|lavado\s+en\s+seco)\b/,
+  taller_mecanico: /\b(taller\s+mecanico|taller\s+automotriz|mecanica\s+automotriz|hojalateria|refaccionaria)\b/,
+  ferreteria: /\b(ferreteria|tlapaleria)\b/,
+  abarrotes: /\b(abarrotes|miscelanea|minisuper|tiendita\s+de\s+la\s+esquina)\b/,
+  farmacia: /\b(farmacia|botica|drogueria)\b/,
+  veterinaria: /\b(veterinaria|veterinario|clinica\s+veterinaria|pet\s*shop)\b/,
+  gimnasio: /\b(gimnasio|crossfit|box\s+de\s+entrenamiento)\b/,
+  boutique_ropa: /\b(boutique|tienda\s+de\s+ropa)\b/,
+  hotel: /\b(hotel|hospedaje|posada|motel)\b/,
+  inmobiliaria: /\b(inmobiliaria|bienes\s+raices|agencia\s+inmobiliaria)\b/,
+  construccion: /\b(constructora|remodelacion|albanileria|contratista)\b/,
+};
+
+function detectarGiroNegocio(texto) {
+  const clean = normalizarTexto(texto);
+  for (const [giro, patron] of Object.entries(GIRO_KEYWORDS)) {
+    if (patron.test(clean)) return giro;
+  }
+  return null;
+}
+
 function preguntaPrecio(texto) {
   const clean = normalizarTexto(texto);
   return /\b(cuanto|precio|costo|cuesta|vale|tarifa)\b/.test(clean);
@@ -1286,4 +1311,6 @@ module.exports.__test = {
   solicitaHumano,
   esFueraDeAlcance,
   responderComercialCritico,
+  GIRO_KEYWORDS,
+  detectarGiroNegocio,
 };
