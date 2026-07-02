@@ -17,6 +17,10 @@
     {
       "path": "/api/crm-actions?action=cron_seguimientos",
       "schedule": "30 15 * * *"
+    },
+    {
+      "path": "/api/crm-actions?action=cron_procesar_cola_envios",
+      "schedule": "* * * * *"
     }
   ]
 }

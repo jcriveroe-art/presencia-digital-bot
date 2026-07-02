@@ -769,6 +769,20 @@ module.exports = async (req, res) => {
       page.classList.remove("mobile-chat-open", "show-mobile-context");
       page.className = "page view-" + view;
       
+      if (view === "chat") {
+        const detailPanel = document.querySelector(".detail");
+        if (detailPanel) {
+          detailPanel.classList.add("show-chat-tab");
+          detailPanel.classList.remove("show-datos-tab");
+          const tabChat = document.getElementById("tabChat");
+          const tabDatos = document.getElementById("tabDatos");
+          if (tabChat && tabDatos) {
+            tabChat.classList.add("active");
+            tabDatos.classList.remove("active");
+          }
+        }
+      }
+      
       const bitacoraView = document.getElementById("bitacoraView");
       if (bitacoraView) {
         bitacoraView.style.display = (view === "bitacora") ? "grid" : "none";

@@ -298,11 +298,13 @@ module.exports = async (req, res) => {
     .page.view-chat form {
       grid-column: 1;
       grid-row: 4;
-      position: sticky;
-      bottom: 0;
       z-index: 2;
       background: var(--panel);
       border-top: 1px solid var(--line);
+      display: grid !important;
+    }
+    .page.view-chat #messages {
+      display: flex !important;
     }
     body:has(.view-leads) {
       overflow: hidden;
@@ -905,6 +907,20 @@ module.exports = async (req, res) => {
       currentView = view;
       page.classList.remove("mobile-chat-open", "show-mobile-context");
       page.className = "page view-" + view;
+
+      if (view === "chat") {
+        const detailPanel = document.querySelector(".detail");
+        if (detailPanel) {
+          detailPanel.classList.add("show-chat-tab");
+          detailPanel.classList.remove("show-datos-tab");
+          const tabChat = document.getElementById("tabChat");
+          const tabDatos = document.getElementById("tabDatos");
+          if (tabChat && tabDatos) {
+            tabChat.classList.add("active");
+            tabDatos.classList.remove("active");
+          }
+        }
+      }
       
       const bitacoraView = document.getElementById("bitacoraView");
       if (view === "bitacora") {
