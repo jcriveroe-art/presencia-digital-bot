@@ -459,6 +459,37 @@ function detectarGiroNegocio(texto) {
   return null;
 }
 
+const PATRONES_NOMBRE_NEGOCIO = [
+  /mi\s+negocio\s+se\s+llama\s+([^.,;!?\n]{2,60})/i,
+  /el\s+negocio\s+es\s+([^.,;!?\n]{2,60})/i,
+  /\bsomos\s+([^.,;!?\n]{2,60})/i,
+];
+
+function detectarNombreNegocio(texto) {
+  const raw = String(texto || "");
+  for (const patron of PATRONES_NOMBRE_NEGOCIO) {
+    const match = raw.match(patron);
+    if (!match) continue;
+    const candidato = match[1].trim().replace(/\s+(?:y|en|de|para|con)\s+.*$/i, "").trim();
+    if (candidato.length < 2 || candidato.length > 60) continue;
+
+    // Guardia: "somos un restaurante" no es un nombre de negocio, es el giro.
+    // Solo se rechaza si, tras quitar el articulo, el candidato ENTERO es la
+    // palabra de giro (no si el giro solo aparece dentro de un nombre propio
+    // mas largo, como "Ferreteria Lopez" o "Restaurante El Fogon").
+    const sinArticulo = candidato.replace(/^(un|una|unos|unas|el|la|los|las)\s+/i, "").trim();
+    const clean = normalizarTexto(sinArticulo);
+    const esSoloElGiro = Object.values(GIRO_KEYWORDS).some((patron) => {
+      const match = clean.match(patron);
+      return match && match[0] === clean;
+    });
+    if (esSoloElGiro) continue;
+
+    return candidato;
+  }
+  return null;
+}
+
 function preguntaPrecio(texto) {
   const clean = normalizarTexto(texto);
   return /\b(cuanto|precio|costo|cuesta|vale|tarifa)\b/.test(clean);
@@ -1313,4 +1344,5 @@ module.exports.__test = {
   responderComercialCritico,
   GIRO_KEYWORDS,
   detectarGiroNegocio,
+  detectarNombreNegocio,
 };
