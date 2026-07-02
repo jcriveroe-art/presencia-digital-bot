@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
 const { json, logMensaje, logEventoCRM, requireCrmToken, sendWhatsApp, sendWhatsAppTemplate, sanitizarVariablePlantilla, supabase } = require("../lib/crm");
+const { upsertConversationState } = require("../lib/conversationState");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const JUAN_CARLOS_NUMBER = "5215647943262";
@@ -1023,6 +1024,7 @@ async function leadEstado(body) {
   logUpsert("lead_estado", "conversaciones", "telefono", 1, 1, []);
   const { data, error } = await supabase.from("conversaciones").upsert(updates, { onConflict: "telefono" }).select("*").single();
   if (error) throw error;
+  await upsertConversationState(telefono, { etapa: body.estado });
   await logEventoCRM(telefono, "estado_actualizado", `Estado actualizado a ${body.estado}`, { estado: body.estado, estado_contacto: updates.estado_contacto, siguiente_accion: updates.siguiente_accion });
   return { ok: true, conversacion: data };
 }
@@ -1053,6 +1055,16 @@ async function leadUpdate(body) {
   payload.fecha_ultimo_mensaje = new Date().toISOString();
   const { data, error } = await supabase.from("conversaciones").update(payload).eq("telefono", telefonoOriginal).select("*").single();
   if (error) throw error;
+
+  const MIRROR_A_CONVERSATION_STATE = { estado: "etapa", categoria: "giro_negocio", nombre: "nombre_negocio" };
+  const conversationStateUpdates = {};
+  for (const [campo, campoEstado] of Object.entries(MIRROR_A_CONVERSATION_STATE)) {
+    if (campo in payload) conversationStateUpdates[campoEstado] = payload[campo];
+  }
+  if (Object.keys(conversationStateUpdates).length > 0) {
+    await upsertConversationState(payload.telefono, conversationStateUpdates);
+  }
+
   await logEventoCRM(payload.telefono, "nota_actualizada", "Prospecto editado desde CRM", { telefono_original: telefonoOriginal, campos: Object.keys(payload).filter((campo) => campo !== "fecha_ultimo_mensaje") });
   return { ok: true, conversacion: data };
 }
@@ -1392,4 +1404,6 @@ module.exports = async (req, res) => {
 module.exports.__test = {
   aplicarMetricasMensajes,
   normalizarResumenConversacion,
+  leadEstado,
+  leadUpdate,
 };
