@@ -490,6 +490,43 @@ function detectarNombreNegocio(texto) {
   return null;
 }
 
+function limpiarParaClasificarSiNo(texto) {
+  return normalizarTexto(texto).replace(/[¿?¡!.,;:]/g, "").trim();
+}
+
+const FRASES_AFIRMATIVAS = /^(si+|sip|simon|claro(?:\s+que\s+si)?|va|dale|ok(?:ay)?|de\s+una|por\s+supuesto|obvio|afirmativo|correcto|exacto|asi\s+es|eso\s+es|adelante|hazlo|hagalo|comparte(?:lo|melo)?|mandalo|enviamelo|si\s+por\s+favor)$/;
+const FRASES_NEGATIVAS = /^(no+|nel|nop|negativo|no\s+gracias|no\s+por\s+ahora|no\s+realmente|mejor\s+no|todavia\s+no|ahorita\s+no|para\s+nada)$/;
+
+// Clasificadores genericos de si/no para resolver triggers pendientes.
+// No reutilizan esAceptacionOpener/diceQueNoOMolesto: esas funciones estan
+// acopladas a ramas comerciales especificas de responderComercialCritico,
+// con efectos secundarios propios (marcar interesado, no_interesado, etc).
+function esRespuestaAfirmativa(texto) {
+  return FRASES_AFIRMATIVAS.test(limpiarParaClasificarSiNo(texto));
+}
+
+function esRespuestaNegativa(texto) {
+  return FRASES_NEGATIVAS.test(limpiarParaClasificarSiNo(texto));
+}
+
+// Mapa de trigger -> regex que matchea el texto SALIENTE del bot cuando hace
+// una pregunta conocida que espera un si/no. Cubre tanto las respuestas
+// deterministas (CONFIG_COMERCIAL.TEXTO_PRECIO, esAceptacionOpener,
+// pideDescuentoOPiloto) como variantes que Claude puede generar libremente.
+const TRIGGERS_PENDIENTES = {
+  confirmar_explicacion: /quier[ea]s?\s+que\s+(?:te|le)\s+explique/i,
+  confirmar_link_pago: /quier[ea]s?\s+que\s+(?:te|le)\s+compart[ae]\s+el\s+link\s+de\s+pago/i,
+  confirmar_piloto: /avancemos\s+con\s+el\s+piloto/i,
+};
+
+function detectarTriggerPendiente(textoSaliente) {
+  const texto = String(textoSaliente || "");
+  for (const [nombre, patron] of Object.entries(TRIGGERS_PENDIENTES)) {
+    if (patron.test(texto)) return nombre;
+  }
+  return null;
+}
+
 function preguntaPrecio(texto) {
   const clean = normalizarTexto(texto);
   return /\b(cuanto|precio|costo|cuesta|vale|tarifa)\b/.test(clean);
@@ -1345,4 +1382,8 @@ module.exports.__test = {
   GIRO_KEYWORDS,
   detectarGiroNegocio,
   detectarNombreNegocio,
+  esRespuestaAfirmativa,
+  esRespuestaNegativa,
+  TRIGGERS_PENDIENTES,
+  detectarTriggerPendiente,
 };
