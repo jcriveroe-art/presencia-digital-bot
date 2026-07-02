@@ -1099,13 +1099,22 @@ module.exports = async (req, res) => {
             const fromOriginal = msg.from;
             const from = normalizarTelefonoMeta(fromOriginal);
             const text = msg.text?.body;
+            const wamid = msg.id || null;
 
             if (!text) continue;
 
-            console.log("INBOUND_NORMALIZADO", { fromOriginal, from, text });
+            console.log("INBOUND_NORMALIZADO", { fromOriginal, from, text, wamid });
 
             const esAdmin = JUAN_CARLOS_NUMBERS.includes(from);
-            const inboundGuardado = await logMensaje(from, "entrante", text, msg);
+            const resultadoInbound = await logMensaje(from, "entrante", text, msg, wamid);
+            const esDuplicado = wamid ? resultadoInbound?.duplicado === true : false;
+
+            if (esDuplicado) {
+              console.log("WEBHOOK_DUPLICADO_IGNORADO", { from, wamid });
+              continue;
+            }
+
+            const inboundGuardado = wamid ? resultadoInbound?.guardado === true : resultadoInbound === true;
             if (inboundGuardado) {
               await logEventoCRM(from, "mensaje_entrante", text, { raw: msg, from_original: fromOriginal });
             } else {
