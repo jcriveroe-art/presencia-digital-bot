@@ -1091,7 +1091,7 @@ async function getClaudeResponse(from, userMessage, instruccionEfimera) {
   let { texto, estado } = parsearEstado(rawReply);
 
   const esTextoCheckpoint = /comparto los datos para apartarlo/i.test(texto) || /comparto los datos de pago/i.test(texto);
-  const esCheckpointPago = estado?.estado === "pago_pendiente_confirmacion" || esTextoCheckpoint;
+  const esCheckpointPago = esTextoCheckpoint;
 
   const requiereIntervencion = Boolean(estado?.intervencion) && !esCheckpointPago;
   const razonIntervencion = estado?.razon_intervencion || "Intervención humana requerida.";
@@ -1103,19 +1103,12 @@ async function getClaudeResponse(from, userMessage, instruccionEfimera) {
   };
 
   if (estado) {
-    if (estado.estado) updates.estado = estado.estado;
     if (estado.nombre) updates.nombre = estado.nombre;
-    if (estado.negocio) updates.negocio = estado.negocio;
     if (estado.caliente !== undefined) updates.caliente = estado.caliente;
 
     // Alertar a Juan Carlos si es necesario
     if (estado.caliente && !cliente?.caliente && !requiereIntervencion && !esCheckpointPago) {
       await alertarJuanCarlos("caliente", from, estado);
-    }
-
-    // Programar seguimientos si corresponde
-    if (estado.estado === "prospecto_frio" && cliente?.estado !== "prospecto_frio") {
-      await programarSeguimientos(from, "prospecto_frio");
     }
   }
 
