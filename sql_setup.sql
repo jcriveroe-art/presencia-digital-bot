@@ -98,6 +98,19 @@ CREATE TABLE IF NOT EXISTS eventos_crm (
 CREATE INDEX IF NOT EXISTS idx_eventos_crm_telefono_created_at ON eventos_crm(telefono, created_at);
 CREATE INDEX IF NOT EXISTS idx_conversaciones_fecha_seguimiento ON conversaciones(fecha_seguimiento, seguimiento_activo);
 
+-- Fuente de verdad determinista para etapa/giro/nombre de negocio
+CREATE TABLE IF NOT EXISTS conversation_state (
+  telefono TEXT PRIMARY KEY,
+  etapa TEXT,
+  giro_negocio TEXT,
+  nombre_negocio TEXT,
+  ultimo_trigger TEXT,
+  ultimo_trigger_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_state_etapa ON conversation_state(etapa);
+
 CREATE OR REPLACE VIEW conversaciones_resumen AS
 WITH mensaje_stats AS (
   SELECT
