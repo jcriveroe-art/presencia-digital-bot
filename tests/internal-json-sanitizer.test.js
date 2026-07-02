@@ -80,6 +80,19 @@ assert.deepStrictEqual(onlyJson, {
   bloqueada: true,
 });
 
+// Tarea 12: parsearEstado sigue parseando estado/negocio de un ESTADO legado
+// (no es su responsabilidad decidir que se escribe en conversaciones — eso
+// lo dejo de hacer getClaudeResponse en la tarea 10), y caliente/intervencion
+// se siguen extrayendo igual que siempre.
+const legacyParsed = parsearEstado(
+  'Genial.\nESTADO:{"caliente":true,"estado":"cliente_caliente","nombre":null,"negocio":"Taco X","alerta":null,"intervencion":false,"razon_intervencion":null}'
+);
+assert.strictEqual(legacyParsed.texto, "Genial.");
+assert.strictEqual(legacyParsed.estado.caliente, true);
+assert.strictEqual(legacyParsed.estado.intervencion, false);
+assert.strictEqual(legacyParsed.estado.estado, "cliente_caliente");
+assert.strictEqual(legacyParsed.estado.negocio, "Taco X");
+
 assert.strictEqual(preguntaPrecio("¿Cuánto cuesta?"), true);
 assert.strictEqual(preguntaComoPagar("¿Cómo pago?"), true);
 assert.strictEqual(contieneAlucinacionComercialCritica("El Diagnóstico ON cuesta $1,500 MXN."), true);

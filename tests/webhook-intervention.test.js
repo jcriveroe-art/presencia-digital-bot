@@ -281,5 +281,30 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText, userMessage,
   assert.strictEqual(triggerUpsert.payload.ultimo_trigger_at, null);
   assert.strictEqual(triggerTest.state.conversationState[LEAD].ultimo_trigger, null);
 
+  // Test case (Tarea 12): un ESTADO legado con "estado"/"negocio" ya no debe
+  // sobreescribir conversaciones.estado/negocio (Tarea 10) — esos campos
+  // ahora son responsabilidad exclusiva de conversation_state. "caliente"
+  // se sigue extrayendo del JSON igual que siempre.
+  const legacyEstadoTest = await runWebhook({
+    cliente: { telefono: LEAD, bot_enabled: true, historial: [], estado: "interesado" },
+    recentPausedAlert: false,
+    claudeText: 'Genial, ya casi.\nESTADO:{"caliente":true,"estado":"cliente_caliente","nombre":null,"negocio":"Taco X","alerta":null,"intervencion":false,"razon_intervencion":null}',
+  });
+
+  assert.strictEqual(legacyEstadoTest.status.code, 200);
+  const conversacionesUpserts = legacyEstadoTest.state.upserts.filter((u) => u.table === "conversaciones");
+  assert.ok(
+    !conversacionesUpserts.some((u) => u.payload.estado === "cliente_caliente"),
+    "el 'estado' del ESTADO legado ya no debe escribirse en conversaciones"
+  );
+  assert.ok(
+    !conversacionesUpserts.some((u) => u.payload.negocio === "Taco X"),
+    "el 'negocio' del ESTADO legado ya no debe escribirse en conversaciones"
+  );
+  assert.ok(
+    conversacionesUpserts.some((u) => u.payload.caliente === true),
+    "caliente debe seguir escribiendose en conversaciones igual que antes de la tarea 10"
+  );
+
   console.log("webhook intervention tests passed");
 })();
