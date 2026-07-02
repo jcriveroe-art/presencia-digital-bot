@@ -588,6 +588,15 @@ async function detectarYPersistirTriggers(telefono, mensajeUsuario, cliente) {
   return instruccionEfimera;
 }
 
+// Registra en conversation_state cuando el bot acaba de hacer una pregunta
+// conocida, para que la siguiente respuesta del cliente se resuelva contra
+// ese trigger (ver detectarYPersistirTriggers) en vez de quedar en el vacio.
+async function registrarTriggerSaliente(telefono, textoSaliente) {
+  const trigger = detectarTriggerPendiente(textoSaliente);
+  if (!trigger) return;
+  await upsertConversationState(telefono, { ultimo_trigger: trigger, ultimo_trigger_at: new Date().toISOString() });
+}
+
 function preguntaPrecio(texto) {
   const clean = normalizarTexto(texto);
   return /\b(cuanto|precio|costo|cuesta|vale|tarifa)\b/.test(clean);
@@ -1381,6 +1390,8 @@ module.exports = async (req, res) => {
               continue;
             }
 
+            const instruccionEfimera = await detectarYPersistirTriggers(from, text, cliente);
+
             const respuestaCritica = await responderComercialCritico(from, text, cliente);
             if (respuestaCritica) {
               const { cleanText: cleanTextCritico, bloqueada: bloqueadaCritico } = prepararRespuestaCliente(respuestaCritica);
@@ -1393,12 +1404,13 @@ module.exports = async (req, res) => {
               const response = await sendMessage(from, cleanTextCritico);
               await logMensaje(from, "saliente", cleanTextCritico, response.data);
               await logEventoCRM(from, "respuesta_ia", cleanTextCritico, { whatsapp: response.data });
+              await registrarTriggerSaliente(from, cleanTextCritico);
               continue;
             }
 
             console.log("CLAUDE_CALL_START", { from });
             try {
-              const reply = await getClaudeResponse(from, text);
+              const reply = await getClaudeResponse(from, text, instruccionEfimera);
               if (reply) {
                 console.log("CLAUDE_REPLY_OK", { from });
                 const { cleanText, bloqueada } = prepararRespuestaCliente(reply);
@@ -1411,6 +1423,7 @@ module.exports = async (req, res) => {
                 const response = await sendMessage(from, cleanText);
                 await logMensaje(from, "saliente", cleanText, response.data);
                 await logEventoCRM(from, "respuesta_ia", cleanText, { whatsapp: response.data });
+                await registrarTriggerSaliente(from, cleanText);
               } else {
                 console.log("CLAUDE_REPLY_NULL", { from });
               }

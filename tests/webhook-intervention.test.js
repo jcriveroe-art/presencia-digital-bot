@@ -75,12 +75,34 @@ function createSupabaseMock(options) {
   };
 }
 
-async function runWebhook({ cliente, recentPausedAlert, claudeText, userMessage }) {
+async function runWebhook({ cliente, recentPausedAlert, claudeText, userMessage, conversationStateInicial }) {
   const sends = [];
   const supabaseMock = createSupabaseMock({ cliente, recentPausedAlert });
+  supabaseMock.state.conversationState = {};
+  if (conversationStateInicial) {
+    supabaseMock.state.conversationState[LEAD] = conversationStateInicial;
+  }
   const originalLoad = Module._load;
 
   Module._load = function patchedLoad(request, parent, isMain) {
+    if (request.endsWith("../lib/conversationState")) {
+      return {
+        getConversationState: async (telefono) => supabaseMock.state.conversationState[telefono] || null,
+        upsertConversationState: async (telefono, updates) => {
+          const prev = supabaseMock.state.conversationState[telefono] || { telefono };
+          supabaseMock.state.conversationState[telefono] = { ...prev, ...updates };
+          supabaseMock.state.upserts.push({ table: "conversation_state", payload: { telefono, ...updates } });
+
+          const mirror = {};
+          if ("etapa" in updates) mirror.estado = updates.etapa;
+          if ("giro_negocio" in updates) mirror.categoria = updates.giro_negocio;
+          if ("nombre_negocio" in updates) mirror.negocio = updates.nombre_negocio;
+          if (Object.keys(mirror).length) {
+            supabaseMock.state.upserts.push({ table: "conversaciones", payload: { telefono, ...mirror } });
+          }
+        },
+      };
+    }
     if (request === "@anthropic-ai/sdk") {
       return {
         Anthropic: function AnthropicMock() {
@@ -225,6 +247,39 @@ async function runWebhook({ cliente, recentPausedAlert, claudeText, userMessage 
   assert.ok(paymentStateTest.sends.some((s) => s.to === ADMIN && s.message.includes("CHECKPOINT DE PAGO")));
   assert.ok(paymentStateTest.sends.some((s) => s.to === LEAD && s.message.includes("Perfecto. Te comparto los datos para apartarlo en un momento.")));
   assert.ok(paymentStateTest.state.upserts.some((item) => item.payload.bot_enabled === false && item.payload.estado === "pago_pendiente_confirmacion"));
+
+  // Test case: giro mencionado a mitad de conversacion se persiste en conversation_state
+  // y se espeja a conversaciones.categoria, sin depender de que Claude emita JSON.
+  const giroTest = await runWebhook({
+    cliente: { telefono: LEAD, bot_enabled: true, historial: [] },
+    recentPausedAlert: false,
+    claudeText: "Entendido. ¿Tienes ficha de Google Maps?",
+    userMessage: "Tengo un restaurante de mariscos",
+  });
+
+  assert.strictEqual(giroTest.status.code, 200);
+  const giroUpsert = giroTest.state.upserts.find((u) => u.table === "conversation_state" && u.payload.giro_negocio);
+  assert.ok(giroUpsert, "debe persistir giro_negocio detectado a mitad de conversacion");
+  assert.strictEqual(giroUpsert.payload.giro_negocio, "restaurante");
+  const giroMirror = giroTest.state.upserts.find((u) => u.table === "conversaciones" && u.payload.categoria === "restaurante");
+  assert.ok(giroMirror, "debe espejar categoria hacia conversaciones");
+
+  // Test case: un "si" despues de un trigger confirmar_explicacion pendiente
+  // limpia el trigger (no vuelve a preguntar en el siguiente turno).
+  const triggerTest = await runWebhook({
+    cliente: { telefono: LEAD, bot_enabled: true, historial: [] },
+    recentPausedAlert: false,
+    claudeText: "Perfecto, aquí tienes el detalle.",
+    userMessage: "si",
+    conversationStateInicial: { telefono: LEAD, ultimo_trigger: "confirmar_explicacion", ultimo_trigger_at: new Date().toISOString() },
+  });
+
+  assert.strictEqual(triggerTest.status.code, 200);
+  const triggerUpsert = triggerTest.state.upserts.find((u) => u.table === "conversation_state" && "ultimo_trigger" in u.payload);
+  assert.ok(triggerUpsert, "debe upsertear conversation_state limpiando el trigger resuelto");
+  assert.strictEqual(triggerUpsert.payload.ultimo_trigger, null);
+  assert.strictEqual(triggerUpsert.payload.ultimo_trigger_at, null);
+  assert.strictEqual(triggerTest.state.conversationState[LEAD].ultimo_trigger, null);
 
   console.log("webhook intervention tests passed");
 })();
