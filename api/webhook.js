@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const Anthropic = require("@anthropic-ai/sdk");
 const { logEventoCRM, logMensaje, sendWhatsApp, supabase } = require("../lib/crm");
+const { getConversationState, upsertConversationState } = require("../lib/conversationState");
 
 const client = new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -525,6 +526,66 @@ function detectarTriggerPendiente(textoSaliente) {
     if (patron.test(texto)) return nombre;
   }
   return null;
+}
+
+const TTL_TRIGGER_MS = 3 * 60 * 60 * 1000; // 3 horas: un "si" suelto contra una pregunta vieja ya no es confiable
+
+// Etapas a las que se avanza conversation_state cuando el trigger correspondiente
+// se confirma. No todos los triggers avanzan etapa (p.ej. confirmar_explicacion
+// es solo informativo, no implica intencion de compra por si solo).
+const AVANCE_ETAPA_POR_TRIGGER = {
+  confirmar_link_pago: "interesado",
+  confirmar_piloto: "interesado",
+};
+
+const INSTRUCCION_POR_TRIGGER = {
+  confirmar_explicacion: "El prospecto YA CONFIRMO que quiere la explicacion. Entregala directo en este mensaje, no vuelvas a preguntar si quiere que le expliques.",
+  confirmar_link_pago: "El prospecto YA CONFIRMO que quiere el link de pago. Compartelo directo en este mensaje, no vuelvas a preguntar.",
+  confirmar_piloto: "El prospecto YA CONFIRMO que quiere avanzar con el diagnostico piloto. Avanza directo, no vuelvas a preguntar.",
+};
+
+// Orquestador: combina extraccion de giro/nombre y resolucion de triggers
+// pendientes en una sola escritura a conversation_state. Corre ANTES de
+// responderComercialCritico y de la llamada a Claude, para que la etapa/giro/
+// nombre dejen de depender de que el modelo emita JSON.
+async function detectarYPersistirTriggers(telefono, mensajeUsuario, cliente) {
+  const state = await getConversationState(telefono);
+  const updates = {};
+  let instruccionEfimera = null;
+
+  const giro = detectarGiroNegocio(mensajeUsuario);
+  if (giro) updates.giro_negocio = giro;
+
+  const nombreNegocio = detectarNombreNegocio(mensajeUsuario);
+  if (nombreNegocio) updates.nombre_negocio = nombreNegocio;
+
+  const triggerPendiente = state?.ultimo_trigger || null;
+  if (triggerPendiente) {
+    const triggerAt = state?.ultimo_trigger_at ? new Date(state.ultimo_trigger_at).getTime() : 0;
+    const expirado = !triggerAt || (Date.now() - triggerAt) > TTL_TRIGGER_MS;
+
+    if (expirado) {
+      updates.ultimo_trigger = null;
+      updates.ultimo_trigger_at = null;
+    } else if (esRespuestaAfirmativa(mensajeUsuario)) {
+      updates.ultimo_trigger = null;
+      updates.ultimo_trigger_at = null;
+      if (AVANCE_ETAPA_POR_TRIGGER[triggerPendiente]) {
+        updates.etapa = AVANCE_ETAPA_POR_TRIGGER[triggerPendiente];
+      }
+      instruccionEfimera = INSTRUCCION_POR_TRIGGER[triggerPendiente] || null;
+    } else if (esRespuestaNegativa(mensajeUsuario)) {
+      updates.ultimo_trigger = null;
+      updates.ultimo_trigger_at = null;
+    }
+    // ambiguo: se deja pendiente, no se toca ultimo_trigger
+  }
+
+  if (Object.keys(updates).length > 0) {
+    await upsertConversationState(telefono, updates);
+  }
+
+  return instruccionEfimera;
 }
 
 function preguntaPrecio(texto) {
@@ -1386,4 +1447,6 @@ module.exports.__test = {
   esRespuestaNegativa,
   TRIGGERS_PENDIENTES,
   detectarTriggerPendiente,
+  TTL_TRIGGER_MS,
+  detectarYPersistirTriggers,
 };
