@@ -738,6 +738,7 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
       delete updatePayload.no_interesado;
       await supabase.from("conversaciones").update(updatePayload).eq("telefono", telefono);
     }
+    await upsertConversationState(telefono, { etapa: "no_interesado" });
 
     await logEventoCRM(telefono, "lead_descartado", "Lead expreso desinteres o molestia - conversacion cerrada respetuosamente", {
       original_mensaje: mensaje
@@ -748,11 +749,12 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
   // Escalamiento a Humano: Solicitud Explicita
   if (solicitaHumano(mensaje)) {
     const razon = "Lead solicitó hablar con un humano o asesor.";
-    await saveCliente(telefono, { 
-      estado: "requiere_intervencion", 
+    await saveCliente(telefono, {
+      estado: "requiere_intervencion",
       bot_enabled: false,
       notas: `Intervención requerida: ${razon}`
     });
+    await upsertConversationState(telefono, { etapa: "requiere_intervencion" });
     await alertarJuanCarlos("resumen", telefono, {
       texto: buildInterventionAlert(telefono, cliente, razon, mensaje),
     });
@@ -763,11 +765,12 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
   // Escalamiento a Humano: Servicios Fuera de Alcance
   if (esFueraDeAlcance(mensaje)) {
     const razon = "Lead consultó por servicios fuera de alcance (redes, ads, diseño web).";
-    await saveCliente(telefono, { 
-      estado: "requiere_intervencion", 
+    await saveCliente(telefono, {
+      estado: "requiere_intervencion",
       bot_enabled: false,
       notas: `Intervención requerida: ${razon}`
     });
+    await upsertConversationState(telefono, { etapa: "requiere_intervencion" });
     await alertarJuanCarlos("resumen", telefono, {
       texto: buildInterventionAlert(telefono, cliente, razon, mensaje),
     });
@@ -827,11 +830,12 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
 
   // Forma de Pago (Bypass Claude y Checkpoint de Pago automático)
   if (preguntaComoPagar(mensaje)) {
-    await saveCliente(telefono, { 
-      estado: "pago_pendiente_confirmacion", 
+    await saveCliente(telefono, {
+      estado: "pago_pendiente_confirmacion",
       caliente: true,
       bot_enabled: false
     });
+    await upsertConversationState(telefono, { etapa: "pago_pendiente_confirmacion" });
     await logEventoCRM(telefono, "datos_pago_solicitados", "Lead pregunto como pagar - link Stripe enviado automáticamente y IA pausada", {
       stripe_link: CONFIG_COMERCIAL.LINK_PAGO_STRIPE,
     });
@@ -843,6 +847,7 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
     const montos = montosMencionados(mensaje);
     const ofertaMenorAlMinimo = montos.some((monto) => monto > 0 && monto < CONFIG_DIAGNOSTICO_PILOTO_PRECIO);
     await saveCliente(telefono, { estado: "interesado" });
+    await upsertConversationState(telefono, { etapa: "interesado" });
 
     if (ofertaMenorAlMinimo) {
       return `Por esa cantidad no se puede hacer el Diagnóstico ON porque requiere revisión manual de Google Maps, competencia, WhatsApp y oportunidades principales.\n\nPrecio normal: $${CONFIG_DIAGNOSTICO_PRECIO.toLocaleString("es-MX")} MXN.\nMínimo piloto: $${CONFIG_DIAGNOSTICO_PILOTO_PRECIO.toLocaleString("es-MX")} MXN.`;
@@ -854,6 +859,7 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
   // Precio (Bypass Claude)
   if (preguntaPrecio(mensaje)) {
     await saveCliente(telefono, { estado: "interesado", estado_contacto: "Interesado" });
+    await upsertConversationState(telefono, { etapa: "interesado" });
     await logEventoCRM(telefono, "precio_solicitado", "Lead pregunto precio - detalles autorizados enviados automaticamente", {
       original_mensaje: mensaje
     });
@@ -868,10 +874,12 @@ async function responderComercialCritico(telefono, mensaje, cliente) {
     
     if (obs) {
       await saveCliente(telefono, { estado: "interesado", estado_contacto: "Diagnóstico ofrecido" });
+      await upsertConversationState(telefono, { etapa: "interesado" });
       await logEventoCRM(telefono, "observaciones_salientes_deterministas", "Aceptacion opener - enviando observaciones reales y oferta", { observaciones: obs });
       return `Claro. Encontré algunas oportunidades en tu ficha:\n\n*${obs}*\n\nEl Diagnóstico ON cuesta $${CONFIG_COMERCIAL.PRECIO_DIAGNOSTICO.toLocaleString("es-MX")} MXN y si después decides avanzar con la implementación, se bonifica al 100%.\n\n¿Quiere que le comparta el link de pago?`;
     } else {
       await saveCliente(telefono, { estado: "interesado", estado_contacto: "Interesado" });
+      await upsertConversationState(telefono, { etapa: "interesado" });
       await logEventoCRM(telefono, "fallback_oportunidades_determinista", "Aceptacion opener - sin observaciones aptas, enviando fallback autorizado", {});
       return CONFIG_COMERCIAL.FALLBACK_OPORTUNIDADES;
     }
