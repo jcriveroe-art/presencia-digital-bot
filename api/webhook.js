@@ -895,6 +895,7 @@ function buildLeadContext(cliente) {
   const fugasDetectadas = normalizarFugasParaClaude(cliente.fugas_detectadas);
   const campos = [
     "nombre",
+    "negocio",
     "categoria",
     "prioridad",
     "score",
@@ -954,7 +955,23 @@ function buildCrmState(cliente) {
   return `ESTADO CRM\n${lineas.join("\n")}`;
 }
 
-function buildSystemPrompt(cliente) {
+// Bloque de fuente de verdad determinista: etapa/giro/nombre del negocio ya
+// no dependen de que Claude emita JSON (ver detectarYPersistirTriggers).
+// instruccionEfimera solo aplica en el turno en que se acaba de resolver un
+// trigger pendiente (ver tarea 6/7), para que Claude no vuelva a preguntar.
+function buildConversationState(state, instruccionEfimera) {
+  const lineas = [
+    `etapa: ${state?.etapa || "sin datos"}`,
+    `giro_negocio: ${state?.giro_negocio || "sin datos"}`,
+    `nombre_negocio: ${state?.nombre_negocio || "sin datos"}`,
+  ];
+  if (instruccionEfimera) {
+    lineas.push("", instruccionEfimera);
+  }
+  return `ESTADO DE LA CONVERSACION (fuente de verdad)\n${lineas.join("\n")}`;
+}
+
+function buildSystemPrompt(cliente, conversationState, instruccionEfimera) {
   const playbook = (cliente?.fuente_busqueda === "denue_dental_bcs" || cliente?.origen === "denue_dental_bcs") ? DENTAL_PLAYBOOK : SALES_PLAYBOOK;
   return [
     "SALES_PLAYBOOK",
@@ -962,6 +979,7 @@ function buildSystemPrompt(cliente) {
     buildLeadContext(cliente),
     buildInternalNotes(cliente),
     buildCrmState(cliente),
+    buildConversationState(conversationState, instruccionEfimera),
     "ULTIMOS MENSAJES Y MENSAJE ACTUAL se envian separados en el arreglo messages de Claude.",
   ].join("\n\n");
 }
@@ -1053,10 +1071,11 @@ function buildInterventionAlert(telefono, cliente, motivo, ultimoMensaje) {
   ].join("\n");
 }
 
-async function getClaudeResponse(from, userMessage) {
+async function getClaudeResponse(from, userMessage, instruccionEfimera) {
   const cliente = await getCliente(from);
+  const conversationState = await getConversationState(from);
   const historial = cliente?.historial || [];
-  const systemPrompt = buildSystemPrompt(cliente);
+  const systemPrompt = buildSystemPrompt(cliente, conversationState, instruccionEfimera);
 
   historial.push({ role: "user", content: userMessage });
   const ventana = historial.slice(-MAX_MENSAJES);
@@ -1470,4 +1489,8 @@ module.exports.__test = {
   detectarTriggerPendiente,
   TTL_TRIGGER_MS,
   detectarYPersistirTriggers,
+  buildLeadContext,
+  buildCrmState,
+  buildConversationState,
+  buildSystemPrompt,
 };
